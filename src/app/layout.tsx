@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import NavBar from "./shared-components/navbar/Navbar";
+import Footer from "./shared-components/footer/Footer";
+import RecoilProvider from "./atoms/RecoilProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,7 +19,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <RecoilProvider>
+          <NavBar />
+          {children}
+          <Footer />
+        </RecoilProvider>{" "}
+        {/* Wrap with Recoil */}
+      </body>
     </html>
   );
 }
