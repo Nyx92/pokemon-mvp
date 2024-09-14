@@ -1,16 +1,16 @@
 "use client";
 
-import { Box, Typography, Container } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
 import { keyframes } from "@mui/system";
 
 // Define an interface for props if you expect to receive any props
-interface SegmentTwoProps {
+interface SegmentOneProps {
   // Example prop definition; add more as required
   title?: string; // Optional prop
 }
 
-const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
+const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   const theme = useTheme();
 
   const slideInFromBottom = keyframes`
@@ -29,6 +29,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
       sx={{
         marginX: "auto", // Automatically adjust the horizontal margins
         width: "80%",
+        marginTop: theme.spacing(8),
       }}
     >
       <Box
@@ -51,18 +52,6 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
             animation: `${slideInFromBottom} 1s ease-out both`,
           }}
         >
-          {/* <Typography
-            variant="h2"
-            sx={{
-              fontWeight: "bold",
-              animation: `${slideInFromBottom} 1s ease-out both`,
-              fontSize: { xs: "30px", sm: "50px" },
-              mb: { xs: 1, sm: 0 },
-            }}
-          >
-            {props.title || "Howone"}{" "}
-          </Typography> */}
-
           <Box
             component="img"
             src="/logo2.png"
@@ -119,4 +108,4 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
   );
 };
 
-export default SegmentTwo;
+export default SegmentOne;

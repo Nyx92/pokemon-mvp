@@ -16,7 +16,9 @@
     "next": "14.2.7",
     "react": "^18",
     "react-dom": "^18",
-    "recoil": "^0.7.7"
+    "react-intersection-observer": "^9.13.1",
+    "recoil": "^0.7.7",
+    "swiper": "^11.1.14"
   },
   "devDependencies": {
     "@types/node": "^20",
