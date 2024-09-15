@@ -5,7 +5,7 @@ import { useRecoilState } from "recoil";
 import {
   Button,
   Container,
-  Typography,
+  Link,
   Toolbar,
   Box,
   AppBar,
@@ -13,8 +13,6 @@ import {
   Theme,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import LogoDevIcon from "@mui/icons-material/LogoDev";
-import WorkOutlineIcon from "@mui/icons-material/WorkOutline";
 import { APP_BAR_HEIGHT } from "./constants";
 import {
   anchorElNavState,
@@ -293,39 +291,18 @@ const NavBar: React.FC = () => {
                     <ArrowBackIosNewIcon />
                   </IconButton>
                 ) : (
-                  <>
-                    <LogoDevIcon
+                  <Link href="/" underline="none">
+                    <Box
                       aria-label="DevIcon"
+                      component="img"
+                      src="/logowhite.png"
+                      alt="Logo"
                       sx={{
-                        display: "flex",
-                        mr: 1,
-                        color: "var(--r-globalnav-color-secondary)",
-                        transition: "color 0.3s",
-                        "&:hover": {
-                          color: "var(--r-globalnav-color-hover)",
-                        },
+                        width: "100px",
+                        cursor: "pointer", // Adds a pointer cursor on hover to indicate clickability
                       }}
                     />
-                    <Typography
-                      variant="h6"
-                      noWrap
-                      component="a"
-                      href="/"
-                      sx={{
-                        display: "flex",
-                        fontFamily: "monospace",
-                        fontWeight: 700,
-                        letterSpacing: ".3rem",
-                        textDecoration: "none",
-                        color: "var(--r-globalnav-color-secondary)",
-                        "&:hover": {
-                          color: "var(--r-globalnav-color-hover)",
-                        },
-                      }}
-                    >
-                      LOGO
-                    </Typography>
-                  </>
+                  </Link>
                 )}
               </Box>
               {/* The nav buttons */}

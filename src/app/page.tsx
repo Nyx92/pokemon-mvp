@@ -1,5 +1,3 @@
-import { Box } from "@mui/material";
-import styles from "./page.module.css";
 import SegmentOne from "./home/SegmentOne";
 import SegmentTwo from "./home/SegmentTwo";
 import Carousel from "./home/Carousel";

@@ -1,0 +1,24 @@
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(10%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-in {
+  animation: slideInFromBottom 1s ease-out both;
+}
+
+.img-slide-in {
+  animation: slideInFromBottom 1s ease-out both;
+}
+
+/* instructing the browser not to perform any adjustments to maintain the scroll position in response to layout changes. */
+body,
+html {
+  overflow-anchor: none; /* Disable automatic scrolling anchoring */
+}
