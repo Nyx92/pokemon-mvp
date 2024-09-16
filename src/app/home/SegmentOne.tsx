@@ -4,7 +4,7 @@ import { Box, Typography } from "@mui/material";
 const SegmentOne = () => {
   return (
     <Box
-      className="slide-in" // Use the class defined in the CSS
+      className="slide-in"
       sx={{
         marginX: "auto",
         width: "80%",
@@ -17,7 +17,7 @@ const SegmentOne = () => {
       }}
     >
       <Box
-        className="img-slide-in" // Additional class for the image
+        className="img-slide-in"
         sx={{
           width: { xs: "100%", sm: "80%" },
           display: "flex",
@@ -62,7 +62,7 @@ const SegmentOne = () => {
 
       <Box
         component="video"
-        className="slide-in" // Reuse the slide-in class for other elements
+        className="slide-in"
         sx={{
           width: "100%",
           borderRadius: 5,

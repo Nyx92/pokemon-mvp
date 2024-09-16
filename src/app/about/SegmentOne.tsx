@@ -1,4 +1,4 @@
-import { Box, Typography, Link } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
@@ -9,7 +9,6 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   return (
     <Box
       sx={{
-        marginX: "auto", // This might need adjustment or removal to ensure full width
         marginTop: "60px",
         display: "flex",
         backgroundColor: "#fafafc",
@@ -22,17 +21,14 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
         sx={{
           width: "100%",
           minHeight: "20vh",
-
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          minwidth: "80vw",
-          maxWidth: { md: "100vw", lg: "80vw" },
+          maxWidth: { md: "100%", lg: "80%" },
         }}
       >
-        {/* Start of phone pic */}
         <Box
           sx={{
             width: "100%",
@@ -42,7 +38,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
           }}
         >
           <img
-            src="/about_dance.jpg"
+            src="/about/about_dance.jpg"
             alt="iMac"
             style={{
               width: "100%", // Full width for the image itself
@@ -83,34 +79,61 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
           >
             Packed with more fun.
           </Typography>
-          {/* Links */}
-          <Box
+
+          <Typography
             sx={{
-              mt: 2,
-              fontSize: { xs: "13px", sm: "17px", md: "26px" },
+              textAlign: "justify", // Justifies the text for alignment
+              marginX: "auto", // Center the block horizontally
+              fontSize: { xs: "18px", sm: "24px" },
+              marginBottom: "100px",
             }}
-          ></Box>
-          {/* End of links */}
+          >
+            howone (pronounced "how one") is derived from the Chinese characters
+            好玩, meaning ‘good fun’. howone is a Creative Health social
+            enterprise and we believe in the power of play and finding joy in
+            every aspect of health. As dancers, we have experienced how dance is
+            an incredibly powerful instrument, one that we can use to improve
+            cognitive, physical and mental wellbeing, a sense of connection to
+            ourselves and to others. It's not just about building strength and
+            balance — it's also about fun, playfulness, and creative expression.
+            We believe movement is essential to health and we’re sincere about
+            making it fun.
+          </Typography>
         </Box>
-        <Typography
+
+        <Box
           sx={{
-            textAlign: "justify", // Justifies the text for alignment
-            marginX: "auto", // Center the block horizontally
-            fontSize: { xs: "18px", sm: "24px" },
-            marginBottom: "100px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            maxWidth: "1200px", // Optional, for better readability on very wide screens
           }}
         >
-          howone (pronounced "how one") is derived from the Chinese characters
-          好玩, meaning ‘good fun’. howone is a Creative Health social
-          enterprise and we believe in the power of play and finding joy in
-          every aspect of health. As dancers, we have experienced how dance is
-          an incredibly powerful instrument, one that we can use to improve
-          cognitive, physical and mental wellbeing, a sense of connection to
-          ourselves and to others. It's not just about building strength and
-          balance — it's also about fun, playfulness, and creative expression.
-          We believe movement is essential to health and we’re sincere about
-          making it fun.
-        </Typography>
+          <Typography
+            sx={{
+              fontSize: { xs: "20px", md: "30px", lg: "40px" },
+              fontWeight: "bold",
+              color: "Black",
+              fontFamily: "Roboto, sans-serif",
+              letterSpacing: "-0.02em",
+              marginBottom: "30px",
+            }}
+          >
+            Ethos & Philosophy
+          </Typography>
+
+          <Typography
+            sx={{
+              textAlign: "center", // Justifies the text for alignment
+              marginX: "auto", // Center the block horizontally
+              fontSize: { xs: "18px", sm: "24px" },
+              marginBottom: "20px",
+            }}
+          >
+            We believe in making dance and movement accessible to all and our
+            programmes are designed with play,care and growth in mind.
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
