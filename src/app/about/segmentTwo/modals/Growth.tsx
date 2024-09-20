@@ -74,7 +74,7 @@ function StartedModal({ open, onClose }) {
             >
               <Typography
                 sx={{
-                  fontSize: { xs: "20px", sm: "25px" },
+                  fontSize: { xs: "15px", sm: "20px" },
                   fontWeight: "bold",
                   mb: 2,
                 }}
@@ -103,7 +103,7 @@ function StartedModal({ open, onClose }) {
                 alt="tree"
                 style={{
                   borderRadius: "20px",
-                  width: "60%",
+                  width: "40%",
                 }}
               />
             </Box>

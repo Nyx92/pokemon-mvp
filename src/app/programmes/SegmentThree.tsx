@@ -3,29 +3,29 @@
 import { Box, Typography, Button, Avatar, Divider } from "@mui/material";
 
 // Define an interface for props if you expect to receive any props
-interface SegmentTwoProps {
+interface SegmentThreeProps {
   // add if required
 }
 
-const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
+const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
   const programs = [
     {
-      label: "Re:play",
+      label: "Danc'inc",
       description: "for Seniors",
       image: "/programmes/elderly.png", // Replace with the correct image paths
     },
     {
-      label: "D&wn",
+      label: "Dancing bodies",
       description: "for Special Needs",
       image: "/programmes/sun.png",
     },
     {
-      label: "In moving company",
+      label: "Dance hack",
       description: "for Mental Wellness",
       image: "/programmes/brain.png",
     },
     {
-      label: "Hearth",
+      label: "Dance and choreology",
       description: "for Healthcare Partners",
       image: "/programmes/hospital.png",
     },
@@ -60,7 +60,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
             }}
           >
             <img
-              src="/programmes/dance_all_programme.png"
+              src="/programmes/classroom.png"
               alt="Dance Science"
               style={{ width: "110%", borderRadius: "10px" }}
             />
@@ -71,7 +71,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
             }}
           >
             <Typography variant="h4" sx={{ fontWeight: "bold" }}>
-              Our Dance Science and Health (daSH) Programmes
+              Our Dance Education (dancED) Programmes
             </Typography>
             <Typography
               variant="body1"
@@ -80,16 +80,20 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
                 textAlign: "justify", // Justifies the text for alignment
               }}
             >
-              Our Dance Science and Health (daSH) programmes are designed to
-              promote overall health and social determinants of health for
-              people across different backgrounds and demographics. Through
-              daSH, we make arts and movement available and possible for
-              everyone. Dance is an essential, critical and integral
-              intervention in healthcare and can be a valuable approach for
-              improving cognition, promoting physical, social, and mental
-              wellbeing. It can be incorporated into the social prescribing
-              model to help individuals improve their overall health and quality
-              of life.
+              We use dance and movement to create dynamic learning experiences
+              through dance-integrated curricula. After a decade of designing
+              and conducting dance education programmes, we’ve seen how an
+              intentional integration of dance enlivens the learning field and
+              encourages active participation from different groups, ranging
+              from children & youths, to senior citizens. Over the years, we
+              have created a range of dynamic learning experiences through
+              dance-integrated curriculums that are accommodating of diverse
+              learning styles. These are available as approved NAC-AEP
+              programmes. Our dancED programmes are approved under the National
+              Arts Council Arts Education Programme (NAC-AEP). Schools may
+              purchase these programmes by contacting us directly via email, or
+              whatsapp. Our dancED programmes are approved under the National
+              Arts Council Arts Education Programme (NAC-AEP).
             </Typography>
             {/* Beautify the below segment please */}
             <Box>
@@ -138,4 +142,4 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
   );
 };
 
-export default SegmentTwo;
+export default SegmentThree;

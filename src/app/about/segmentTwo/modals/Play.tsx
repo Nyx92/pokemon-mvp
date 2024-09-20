@@ -74,7 +74,7 @@ function StartedModal({ open, onClose }) {
             >
               <Typography
                 sx={{
-                  fontSize: { xs: "20px", sm: "25px" },
+                  fontSize: { xs: "15px", sm: "20px" },
                   fontWeight: "bold",
                   mb: 2,
                 }}
@@ -92,14 +92,22 @@ function StartedModal({ open, onClose }) {
             </Box>
 
             {/* Add an img tag here with src set to the image path */}
-            <img
-              src="/about/playground_about.jpg" // Change to your image path
-              alt="Playground"
-              style={{
-                borderRadius: "20px",
-                width: "100%",
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center", // Add this line to center conte
               }}
-            />
+            >
+              <img
+                src="/about/playground_about.jpg" // Change to your image path
+                alt="Playground"
+                style={{
+                  borderRadius: "20px",
+                  width: "80%",
+                }}
+              />
+            </Box>
           </CardContent>
         </Card>
       </Box>

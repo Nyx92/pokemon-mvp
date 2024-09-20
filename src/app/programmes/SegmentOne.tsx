@@ -68,7 +68,6 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
               textAlign: "justify", // Justifies the text for alignment
               marginX: "auto", // Center the block horizontally
               fontSize: { xs: "18px", sm: "24px" },
-              marginBottom: "100px",
             }}
           >
             We are committed to helping you explore movement in a manner that is

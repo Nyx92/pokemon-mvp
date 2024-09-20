@@ -74,7 +74,7 @@ function StartedModal({ open, onClose }) {
             >
               <Typography
                 sx={{
-                  fontSize: { xs: "20px", sm: "25px" },
+                  fontSize: { xs: "15px", sm: "20px" },
                   fontWeight: "bold",
                   mb: 2,
                 }}
@@ -109,7 +109,7 @@ function StartedModal({ open, onClose }) {
                 alt="heart"
                 style={{
                   borderRadius: "20px",
-                  width: "50%",
+                  width: "30%",
                 }}
               />
             </Box>

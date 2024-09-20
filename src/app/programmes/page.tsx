@@ -1,5 +1,6 @@
 import SegmentOne from "./SegmentOne";
 import SegmentTwo from "./SegmentTwo";
+import SegmentThree from "./SegmentThree";
 
 export default function Programmes() {
   return (
@@ -7,6 +8,7 @@ export default function Programmes() {
     <main>
       <SegmentOne />
       <SegmentTwo />
+      <SegmentThree />
     </main>
   );
 }
