@@ -1,35 +1,56 @@
 "use client";
 
 import { Box, Typography, Button, Avatar, Divider } from "@mui/material";
+import { useState } from "react";
+import Replay from "./modals/Replay";
+import Company from "./modals/Company";
+import Dawn from "./modals/Dawn";
+import Hearth from "./modals/Hearth";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentTwoProps {
   // add if required
 }
 
+const programs = [
+  {
+    name: "Replay",
+    label: "Re:play",
+    description: "for Seniors",
+    image: "/programmes/elderly.png",
+  },
+  {
+    name: "Dawn",
+    label: "D&wn",
+    description: "for Special Needs",
+    image: "/programmes/sun.png",
+  },
+  {
+    name: "Company",
+    label: "In moving company",
+    description: "for Mental Wellness",
+    image: "/programmes/brain.png",
+  },
+  {
+    name: "Hearth",
+    label: "Hearth",
+    description: "for Healthcare Partners",
+    image: "/programmes/hospital.png",
+  },
+];
+
 const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
-  const programs = [
-    {
-      label: "Re:play",
-      description: "for Seniors",
-      image: "/programmes/elderly.png", // Replace with the correct image paths
-    },
-    {
-      label: "D&wn",
-      description: "for Special Needs",
-      image: "/programmes/sun.png",
-    },
-    {
-      label: "In moving company",
-      description: "for Mental Wellness",
-      image: "/programmes/brain.png",
-    },
-    {
-      label: "Hearth",
-      description: "for Healthcare Partners",
-      image: "/programmes/hospital.png",
-    },
-  ];
+  // state to track the name of the currently active modal
+  const [activeModalName, setActiveModalName] = useState("");
+  const [openModal, setOpenModal] = useState(false);
+
+  // Create an object that maps button names to modal components
+  const modalComponentMap = {
+    Replay,
+    Dawn,
+    Company,
+    Hearth,
+  };
 
   return (
     <>

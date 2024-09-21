@@ -11,23 +11,23 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
   const programs = [
     {
       label: "Danc'inc",
-      description: "for Seniors",
-      image: "/programmes/elderly.png", // Replace with the correct image paths
+      description: "Access Tools Workshop",
+      image: "/programmes/tools.jpg", // Replace with the correct image paths
     },
     {
       label: "Dancing bodies",
-      description: "for Special Needs",
-      image: "/programmes/sun.png",
+      description: "Dance Anatomy Workshop",
+      image: "/programmes/dance_body.jpg",
     },
     {
       label: "Dance hack",
-      description: "for Mental Wellness",
-      image: "/programmes/brain.png",
+      description: "Dance X Digital Literacy Workshop",
+      image: "/programmes/computer.jpg",
     },
     {
       label: "Dance and choreology",
-      description: "for Healthcare Partners",
-      image: "/programmes/hospital.png",
+      description: "Movement Literacy Workshop",
+      image: "/programmes/kid_dance.png",
     },
   ];
 

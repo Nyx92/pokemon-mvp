@@ -1,0 +1,118 @@
+import React from "react";
+import {
+  Modal,
+  Box,
+  Typography,
+  IconButton,
+  Card,
+  CardContent,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+
+function StartedModal({ open, onClose }) {
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      aria-labelledby="modal-title"
+      aria-describedby="modal-description"
+      sx={{
+        display: "flex", // Use flex layout
+        alignItems: "flex-start", // Align modal to the top
+        justifyContent: "center", // Center modal horizontally
+        overflowY: "scroll", // Apply scroll to the Modal to enable browser scrollbar
+        height: "100%", // Modal takes up the entire height, this enables overflow and scrolling
+        pt: "2.5%", // Padding top to push content down slightly from the top
+      }}
+    >
+      <Box
+        sx={{
+          position: "relative", // Relative for the box inside the modal
+          width: { xs: "90%", sm: "80%", lg: "50%" }, // width of the modal
+          bgcolor: "background.paper",
+          borderRadius: "16px", // Rounded corners
+          boxShadow: 24,
+          p: 4,
+        }}
+      >
+        {/* close modal button */}
+        <IconButton
+          onClick={onClose}
+          sx={{ position: "absolute", top: 8, right: 8 }}
+        >
+          <CloseIcon />
+        </IconButton>
+        {/* First sentence */}
+        <Typography sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}>
+          Key Pillars
+        </Typography>
+        {/* Second sentence */}
+        <Typography
+          sx={{
+            fontSize: { xs: "30px", sm: "40px" },
+            fontWeight: "bold",
+            mb: 2,
+          }}
+        >
+          Play.
+        </Typography>
+
+        {/* First Card */}
+        <Card sx={{ borderRadius: "8px", bgcolor: "grey.50", mb: 5 }}>
+          <CardContent sx={{ padding: "0" }}>
+            <Box
+              sx={{
+                mx: "auto", // Sets both left and right margins to auto
+                width: "70%",
+                display: "flex",
+                fontWeight: "bold",
+                alignItems: "center",
+                justifyContent: "center", // Add this line to center content horizontally
+                mb: 5,
+                mt: 5,
+              }}
+            >
+              <Typography
+                sx={{
+                  fontSize: { xs: "15px", sm: "20px" },
+                  fontWeight: "bold",
+                  mb: 2,
+                }}
+              >
+                Play is a non-negotiable.
+                <span style={{ color: "#6E6E73" }}>
+                  {"  "}Whether you’re 5 or 50, we believe that a playful and
+                  lighthearted orientation makes for a better learning
+                  experience. Through a mishmash of games, creative tasks,
+                  music, we encourage a playful, fun and supportive environment
+                  to explore and learn more about our bodies, movements and the
+                  ways in which we interact with and experience the world.
+                </span>
+              </Typography>
+            </Box>
+
+            {/* Add an img tag here with src set to the image path */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center", // Add this line to center conte
+              }}
+            >
+              <img
+                src="/about/playground_about.jpg" // Change to your image path
+                alt="Playground"
+                style={{
+                  borderRadius: "20px",
+                  width: "80%",
+                }}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+    </Modal>
+  );
+}
+
+export default StartedModal;
