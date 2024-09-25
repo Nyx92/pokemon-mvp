@@ -52,6 +52,24 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
     Hearth,
   };
 
+  const renderModal = () => {
+    if (!activeModalName || !openModal) return null;
+    // based on current activeModalName - i.e., the button which was clicked
+    const ModalComponent = modalComponentMap[activeModalName];
+    if (!ModalComponent) return null; // In case there is no matching modal component
+
+    return <ModalComponent open={openModal} onClose={handleCloseModal} />;
+  };
+
+  const handleOpenModal = (modalName) => {
+    setActiveModalName(modalName);
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+  };
+
   return (
     <>
       {/* Program Overview Section */}
@@ -69,7 +87,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
         <Box
           sx={{
             display: "flex",
-            maxWidth: { md: "100%", lg: "80%" },
+            maxWidth: { lg: "100%", xl: "80%" },
             flexDirection: "row",
 
             justifyContent: "center",
@@ -77,18 +95,18 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
         >
           <Box
             sx={{
-              marginRight: "80px",
+              marginRight: "10%",
             }}
           >
             <img
               src="/programmes/dance_all_programme.png"
               alt="Dance Science"
-              style={{ width: "110%", borderRadius: "10px" }}
+              style={{ width: "600px", borderRadius: "10px" }}
             />
           </Box>
           <Box
             sx={{
-              maxWidth: "50%",
+              maxWidth: "40%",
             }}
           >
             <Typography variant="h4" sx={{ fontWeight: "bold" }}>
@@ -118,12 +136,14 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
                 <>
                   <Box
                     key={program.label}
+                    onClick={() => handleOpenModal(program.name)}
                     sx={{
                       display: "flex",
                       alignItems: "center",
                       mb: 3,
                       marginTop: "20px",
                       marginBottom: "15px",
+                      cursor: "pointer",
                     }}
                   >
                     {/* Image Section */}
@@ -154,6 +174,8 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
             </Box>
           </Box>
         </Box>
+        {/* This will render the modal based on the activeModalName */}
+        {renderModal()}
       </Box>
     </>
   );

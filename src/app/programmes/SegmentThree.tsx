@@ -48,7 +48,7 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
         <Box
           sx={{
             display: "flex",
-            maxWidth: { md: "100%", lg: "80%" },
+            maxWidth: { lg: "100%", xl: "80%" },
             flexDirection: "row",
 
             justifyContent: "center",
@@ -56,18 +56,18 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
         >
           <Box
             sx={{
-              marginRight: "80px",
+              marginRight: "10%",
             }}
           >
             <img
               src="/programmes/classroom.png"
               alt="Dance Science"
-              style={{ width: "110%", borderRadius: "10px" }}
+              style={{ width: "600px", borderRadius: "10px" }}
             />
           </Box>
           <Box
             sx={{
-              maxWidth: "50%",
+              maxWidth: "40%",
             }}
           >
             <Typography variant="h4" sx={{ fontWeight: "bold" }}>
