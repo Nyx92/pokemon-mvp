@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Typography, Button, Avatar, Divider } from "@mui/material";
+import { Box, Typography, Avatar, Divider } from "@mui/material";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentThreeProps {

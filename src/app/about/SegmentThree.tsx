@@ -1,7 +1,6 @@
 "use client";
 
-import { Box, Typography, Button } from "@mui/material";
-import { useState } from "react";
+import { Box, Typography } from "@mui/material";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentThreeProps {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Box, Typography, Button, Avatar, Divider } from "@mui/material";
+import { Box, Typography, Avatar, Divider } from "@mui/material";
 import { useState } from "react";
 import Replay from "./modals/Replay";
 import Company from "./modals/Company";
@@ -39,13 +39,16 @@ const programs = [
   },
 ];
 
-const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
+const SegmentTwo: React.FC<SegmentTwoProps> = () => {
   // state to track the name of the currently active modal
-  const [activeModalName, setActiveModalName] = useState("");
-  const [openModal, setOpenModal] = useState(false);
+  const [activeModalName, setActiveModalName] = useState<string>("");
+  const [openModal, setOpenModal] = useState<boolean>(false);
 
   // Create an object that maps button names to modal components
-  const modalComponentMap = {
+  const modalComponentMap: Record<
+    string,
+    React.FC<{ open: boolean; onClose: () => void }>
+  > = {
     Replay,
     Dawn,
     Company,
@@ -61,7 +64,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
     return <ModalComponent open={openModal} onClose={handleCloseModal} />;
   };
 
-  const handleOpenModal = (modalName) => {
+  const handleOpenModal = (modalName: string) => {
     setActiveModalName(modalName);
     setOpenModal(true);
   };
@@ -89,7 +92,6 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
             display: "flex",
             maxWidth: { lg: "100%", xl: "80%" },
             flexDirection: "row",
-
             justifyContent: "center",
           }}
         >
@@ -130,53 +132,49 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
               model to help individuals improve their overall health and quality
               of life.
             </Typography>
-            {/* Beautify the below segment please */}
-            <Box>
-              {programs.map((program, index) => (
-                <>
-                  <Box
-                    key={program.label}
-                    onClick={() => handleOpenModal(program.name)}
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      mb: 3,
-                      marginTop: "20px",
-                      marginBottom: "15px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {/* Image Section */}
-                    <Avatar
-                      src={program.image}
-                      alt={program.label}
-                      sx={{
-                        width: "50px",
-                        height: "50px",
-                        marginRight: "20px",
-                        marginLeft: "30px",
-                      }}
-                    />
 
-                    {/* Text Section */}
-                    <Box sx={{ flexGrow: 1 }}>
-                      <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                        {program.label}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {program.description}
-                      </Typography>
-                    </Box>
+            {programs.map((program) => (
+              <Box key={program.label}>
+                <Box
+                  onClick={() => handleOpenModal(program.name)}
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginTop: "20px",
+                    marginBottom: "15px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {/* Image Section */}
+                  <Avatar
+                    src={program.image}
+                    alt={program.label}
+                    sx={{
+                      width: "50px",
+                      height: "50px",
+                      marginRight: "20px",
+                      marginLeft: "30px",
+                    }}
+                  />
+
+                  {/* Text Section */}
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+                      {program.label}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {program.description}
+                    </Typography>
                   </Box>
-                  <Divider sx={{ width: "80%", ml: 2 }} />
-                </>
-              ))}
-            </Box>
+                </Box>
+                <Divider sx={{ width: "80%", ml: 2 }} />
+              </Box>
+            ))}
           </Box>
         </Box>
-        {/* This will render the modal based on the activeModalName */}
-        {renderModal()}
       </Box>
+      {/* This will render the modal based on the activeModalName */}
+      {renderModal()}
     </>
   );
 };

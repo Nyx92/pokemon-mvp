@@ -1,6 +1,6 @@
 import SegmentOne from "./SegmentOne";
 import SegmentTwo from "./segmentTwo/SegmentTwo";
-import SegmentThree from "./SegmentThree";
+import SegmentThree from "./segmentThree/SegmentThree";
 
 export default function Programmes() {
   return (
