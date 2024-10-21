@@ -104,19 +104,21 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
           sx={{
             display: "flex",
             maxWidth: { lg: "100%", xl: "80%" },
-            flexDirection: "row",
+            flexDirection: { xs: "column", lg: "row" },
             justifyContent: "center",
+            alignItems: "center",
           }}
         >
           <Box
-            className="responsive-image"
             sx={{
-              marginRight: "10%",
+              marginRight: { lg: "10%" },
               display: "flex",
               alignItems: "center",
+              marginBottom: { xs: "20px", lg: "0px" },
             }}
           >
             <Image
+              className="responsive-image"
               src="/programmes/classroom.png"
               alt="Classroom"
               width={600} // Specify the actual width of the image
@@ -128,7 +130,7 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
           </Box>
           <Box
             sx={{
-              maxWidth: "40%",
+              maxWidth: { xs: "90%", lg: "40%" },
             }}
           >
             <Typography variant="h4" sx={{ fontWeight: "bold" }}>

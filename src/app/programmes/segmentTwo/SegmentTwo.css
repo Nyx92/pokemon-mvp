@@ -5,26 +5,21 @@
 
 @media (max-width: 1200px) {
   .responsive-image {
-    width: 500px;
+    width: 600px;
     height: 550px;
   }
 }
 
 @media (max-width: 992px) {
   .responsive-image {
-    width: 400px;
-    height: 350px;
+    width: 550px;
+    height: 450px;
   }
 }
 
 @media (max-width: 768px) {
   .responsive-image {
-    width: 300px;
-  }
-}
-
-@media (max-width: 576px) {
-  .responsive-image {
-    width: 200px;
+    width: 400px;
+    height: 350px;
   }
 }

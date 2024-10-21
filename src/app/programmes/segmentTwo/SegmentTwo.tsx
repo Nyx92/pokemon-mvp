@@ -104,15 +104,17 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
           sx={{
             display: "flex",
             maxWidth: { lg: "100%", xl: "80%" },
-            flexDirection: "row",
+            flexDirection: { xs: "column", lg: "row" },
             justifyContent: "center",
+            alignItems: "center",
           }}
         >
           <Box
             sx={{
-              marginRight: "10%",
+              marginRight: { lg: "10%" },
               display: "flex",
               alignItems: "center",
+              marginBottom: { xs: "20px", lg: "0px" },
             }}
           >
             <Image
@@ -128,7 +130,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
           </Box>
           <Box
             sx={{
-              maxWidth: "40%",
+              maxWidth: { xs: "90%", lg: "40%" },
             }}
           >
             <Typography variant="h4" sx={{ fontWeight: "bold" }}>
