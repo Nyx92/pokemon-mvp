@@ -8,8 +8,15 @@ import {
   CardContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import Image from "next/image";
 
-function StartedModal({ open, onClose }) {
+// Define the prop types for the Growth component
+interface PlayProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Play: React.FC<PlayProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -99,12 +106,15 @@ function StartedModal({ open, onClose }) {
                 justifyContent: "center", // Add this line to center conte
               }}
             >
-              <img
+              <Image
                 src="/about/playground_about.jpg" // Change to your image path
-                alt="Playground"
+                alt="heart"
+                width={300} // Set an appropriate width
+                height={200} // Set an appropriate height
                 style={{
                   borderRadius: "20px",
-                  width: "80%",
+                  width: "30%", // Maintain responsive width
+                  height: "auto", // Maintain aspect ratio
                 }}
               />
             </Box>
@@ -113,6 +123,6 @@ function StartedModal({ open, onClose }) {
       </Box>
     </Modal>
   );
-}
+};
 
-export default StartedModal;
+export default Play;

@@ -1,5 +1,3 @@
-"use client";
-
 import { Box, Typography } from "@mui/material";
 
 // Define an interface for props if you expect to receive any props

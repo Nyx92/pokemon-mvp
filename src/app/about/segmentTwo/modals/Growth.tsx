@@ -8,8 +8,15 @@ import {
   CardContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import Image from "next/image";
 
-function StartedModal({ open, onClose }) {
+// Define the prop types for the Growth component
+interface GrowthProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Growth: React.FC<GrowthProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -98,12 +105,15 @@ function StartedModal({ open, onClose }) {
                 justifyContent: "center",
               }}
             >
-              <img
+              <Image
                 src="/about/growth_modal.jpg" // Change to your image path
-                alt="tree"
+                alt="heart"
+                width={300} // Set an appropriate width
+                height={200} // Set an appropriate height
                 style={{
                   borderRadius: "20px",
-                  width: "40%",
+                  width: "30%", // Maintain responsive width
+                  height: "auto", // Maintain aspect ratio
                 }}
               />
             </Box>
@@ -112,6 +122,6 @@ function StartedModal({ open, onClose }) {
       </Box>
     </Modal>
   );
-}
+};
 
-export default StartedModal;
+export default Growth;

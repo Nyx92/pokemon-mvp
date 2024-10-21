@@ -1,35 +1,90 @@
 "use client";
 
 import { Box, Typography, Avatar, Divider } from "@mui/material";
+import { useState } from "react";
+import Replay from "./modals/Replay";
+import Company from "./modals/Company";
+import Dawn from "./modals/Dawn";
+import Hearth from "./modals/Hearth";
+import Image from "next/image";
+import "./SegmentThree.css";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentThreeProps {
   // add if required
 }
 
+// Define a union type for program names
+type ProgramNames = "Replay" | "Dawn" | "Company" | "Hearth";
+
+interface ProgramsItems {
+  name: ProgramNames;
+  label: string;
+  description: string;
+  image: string;
+}
+
+// ProgramsItems[] is a TypeScript array type that means "an array of ProgramsItems objects."
+const programs: ProgramsItems[] = [
+  {
+    name: "Replay",
+    label: "Danc'inc",
+    description: "Access Tools Workshop",
+    image: "/programmes/tools.jpg", // Replace with the correct image paths
+  },
+  {
+    name: "Dawn",
+    label: "Dancing bodies",
+    description: "Dance Anatomy Workshop",
+    image: "/programmes/dance_body.jpg",
+  },
+  {
+    name: "Company",
+    label: "Dance hack",
+    description: "Dance X Digital Literacy Workshop",
+    image: "/programmes/computer.jpg",
+  },
+  {
+    name: "Hearth",
+    label: "Dance and choreology",
+    description: "Movement Literacy Workshop",
+    image: "/programmes/kid_dance.png",
+  },
+];
+
 const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
-  const programs = [
-    {
-      label: "Danc'inc",
-      description: "Access Tools Workshop",
-      image: "/programmes/tools.jpg", // Replace with the correct image paths
-    },
-    {
-      label: "Dancing bodies",
-      description: "Dance Anatomy Workshop",
-      image: "/programmes/dance_body.jpg",
-    },
-    {
-      label: "Dance hack",
-      description: "Dance X Digital Literacy Workshop",
-      image: "/programmes/computer.jpg",
-    },
-    {
-      label: "Dance and choreology",
-      description: "Movement Literacy Workshop",
-      image: "/programmes/kid_dance.png",
-    },
-  ];
+  // state to track the name of the currently active modal
+  const [activeModalName, setActiveModalName] = useState<ProgramNames | "">("");
+  const [openModal, setOpenModal] = useState<boolean>(false);
+
+  // Create an object that maps button names to modal components
+  const modalComponentMap: Record<
+    ProgramNames,
+    React.FC<{ open: boolean; onClose: () => void }>
+  > = {
+    Replay,
+    Dawn,
+    Company,
+    Hearth,
+  };
+
+  const renderModal = () => {
+    if (!activeModalName || !openModal) return null;
+    // based on current activeModalName - i.e., the button which was clicked
+    const ModalComponent = modalComponentMap[activeModalName as ProgramNames];
+    if (!ModalComponent) return null; // In case there is no matching modal component
+
+    return <ModalComponent open={openModal} onClose={handleCloseModal} />;
+  };
+
+  const handleOpenModal = (modalName: ProgramNames) => {
+    setActiveModalName(modalName);
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+  };
 
   return (
     <>
@@ -50,19 +105,25 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
             display: "flex",
             maxWidth: { lg: "100%", xl: "80%" },
             flexDirection: "row",
-
             justifyContent: "center",
           }}
         >
           <Box
+            className="responsive-image"
             sx={{
               marginRight: "10%",
+              display: "flex",
+              alignItems: "center",
             }}
           >
-            <img
+            <Image
               src="/programmes/classroom.png"
-              alt="Dance Science"
-              style={{ width: "600px", borderRadius: "10px" }}
+              alt="Classroom"
+              width={600} // Specify the actual width of the image
+              height={400} // Adjust the height as needed to maintain aspect ratio
+              style={{
+                borderRadius: "10px",
+              }}
             />
           </Box>
           <Box
@@ -97,16 +158,16 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
             </Typography>
             {/* Beautify the below segment please */}
             <Box>
-              {programs.map((program, index) => (
-                <>
+              {programs.map((program) => (
+                <Box key={program.label}>
                   <Box
-                    key={program.label}
+                    onClick={() => handleOpenModal(program.name)}
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      mb: 3,
                       marginTop: "20px",
                       marginBottom: "15px",
+                      cursor: "pointer",
                     }}
                   >
                     {/* Image Section */}
@@ -132,11 +193,13 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
                     </Box>
                   </Box>
                   <Divider sx={{ width: "80%", ml: 2 }} />
-                </>
+                </Box>
               ))}
             </Box>
           </Box>
         </Box>
+        {/* This will render the modal based on the activeModalName */}
+        {renderModal()}
       </Box>
     </>
   );

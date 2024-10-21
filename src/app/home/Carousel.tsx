@@ -12,10 +12,17 @@ import {
   Autoplay,
 } from "swiper/modules";
 import { Box } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
 import "./CarouselStyles.css";
 
-const items = [
+// Define the type for carousel items
+interface CarouselItem {
+  image: string;
+  title: string;
+  subtitle: string;
+}
+
+// CarouselItem[] is a TypeScript array type that means "an array of CarouselItem objects."
+const items: CarouselItem[] = [
   {
     image: "/carousel/carousel_home_1.png",
     title: "",
@@ -38,8 +45,7 @@ const items = [
   },
 ];
 
-const Carousel = () => {
-  const theme = useTheme();
+const Carousel: React.FC = () => {
   return (
     <Swiper
       className="custom-carousel"

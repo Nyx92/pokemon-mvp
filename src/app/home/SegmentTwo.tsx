@@ -7,8 +7,7 @@ import { keyframes } from "@mui/system";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentTwoProps {
-  // Example prop definition; add more as required
-  title?: string; // Optional prop
+  // add if required
 }
 
 const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {

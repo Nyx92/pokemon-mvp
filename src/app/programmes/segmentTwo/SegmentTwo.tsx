@@ -6,13 +6,26 @@ import Replay from "./modals/Replay";
 import Company from "./modals/Company";
 import Dawn from "./modals/Dawn";
 import Hearth from "./modals/Hearth";
+import Image from "next/image";
+import "./SegmentTwo.css";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentTwoProps {
   // add if required
 }
 
-const programs = [
+// Define a union type for program names
+type ProgramNames = "Replay" | "Dawn" | "Company" | "Hearth";
+
+interface ProgramsItems {
+  name: ProgramNames;
+  label: string;
+  description: string;
+  image: string;
+}
+
+// ProgramsItems[] is a TypeScript array type that means "an array of ProgramsItems objects."
+const programs: ProgramsItems[] = [
   {
     name: "Replay",
     label: "Re:play",
@@ -41,12 +54,12 @@ const programs = [
 
 const SegmentTwo: React.FC<SegmentTwoProps> = () => {
   // state to track the name of the currently active modal
-  const [activeModalName, setActiveModalName] = useState<string>("");
+  const [activeModalName, setActiveModalName] = useState<ProgramNames | "">("");
   const [openModal, setOpenModal] = useState<boolean>(false);
 
   // Create an object that maps button names to modal components
   const modalComponentMap: Record<
-    string,
+    ProgramNames,
     React.FC<{ open: boolean; onClose: () => void }>
   > = {
     Replay,
@@ -58,13 +71,13 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
   const renderModal = () => {
     if (!activeModalName || !openModal) return null;
     // based on current activeModalName - i.e., the button which was clicked
-    const ModalComponent = modalComponentMap[activeModalName];
+    const ModalComponent = modalComponentMap[activeModalName as ProgramNames];
     if (!ModalComponent) return null; // In case there is no matching modal component
 
     return <ModalComponent open={openModal} onClose={handleCloseModal} />;
   };
 
-  const handleOpenModal = (modalName: string) => {
+  const handleOpenModal = (modalName: ProgramNames) => {
     setActiveModalName(modalName);
     setOpenModal(true);
   };
@@ -98,12 +111,19 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
           <Box
             sx={{
               marginRight: "10%",
+              display: "flex",
+              alignItems: "center",
             }}
           >
-            <img
+            <Image
+              className="responsive-image"
               src="/programmes/dance_all_programme.png"
               alt="Dance Science"
-              style={{ width: "600px", borderRadius: "10px" }}
+              width={600} // Specify the actual width of the image
+              height={400} // Adjust the height as needed to maintain aspect ratio
+              style={{
+                borderRadius: "10px",
+              }}
             />
           </Box>
           <Box

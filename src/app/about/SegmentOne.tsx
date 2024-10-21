@@ -1,4 +1,5 @@
 import { Box, Typography } from "@mui/material";
+import Image from "next/image";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
@@ -37,13 +38,17 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
             marginBottom: "30px",
           }}
         >
-          <img
+          <Image
             src="/about/about_dance.jpg"
             alt="iMac"
+            // These are required by the <Image /> component to define the original dimensions of the image in pixels. They help Next.js determine the aspect ratio of the image to maintain layout stability during loading, preventing CLS (Cumulative Layout Shift).
+            width={1200}
+            height={800}
             style={{
               width: "100%", // Full width for the image itself
               height: "auto", // Maintain aspect ratio
             }}
+            priority // Improves LCP for critical images
           />
         </Box>
         {/* Text column */}

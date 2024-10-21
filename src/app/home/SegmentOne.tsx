@@ -1,7 +1,12 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
 
-const SegmentOne = () => {
+// Define an interface for props if you expect to receive any props
+interface SegmentOneProps {
+  // add if required
+}
+
+const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   return (
     <Box
       className="slide-in"
