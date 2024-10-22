@@ -30,25 +30,25 @@ const programs: ProgramsItems[] = [
     name: "Replay",
     label: "Re:play",
     description: "for Seniors",
-    image: "/programmes/elderly.png",
+    image: "/programmes/segmentTwo/elderly.png",
   },
   {
     name: "Dawn",
     label: "D&wn",
     description: "for Special Needs",
-    image: "/programmes/sun.png",
+    image: "/programmes/segmentTwo/sun.png",
   },
   {
     name: "Company",
     label: "In moving company",
     description: "for Mental Wellness",
-    image: "/programmes/brain.png",
+    image: "/programmes/segmentTwo/brain.png",
   },
   {
     name: "Hearth",
     label: "Hearth",
     description: "for Healthcare Partners",
-    image: "/programmes/hospital.png",
+    image: "/programmes/segmentTwo/hospital.png",
   },
 ];
 
@@ -119,7 +119,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
           >
             <Image
               className="responsive-image"
-              src="/programmes/dance_all_programme.png"
+              src="/programmes/segmentTwo/dance_all_programme.png"
               alt="Dance Science"
               width={600} // Specify the actual width of the image
               height={400} // Adjust the height as needed to maintain aspect ratio

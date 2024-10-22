@@ -8,8 +8,15 @@ import {
   CardContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import Image from "next/image";
 
-function StartedModal({ open, onClose }) {
+// Define interface for props
+interface ReplayProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -101,12 +108,16 @@ function StartedModal({ open, onClose }) {
                   }}
                 >
                   {/* Add an img tag here with src set to the image path */}
-                  <img
+                  <Image
                     src="/about/care_about.jpg" // Change to your image path
                     alt="heart"
+                    width={300} // Specify a width for the image
+                    height={300} // Specify a height for the image
                     style={{
                       borderRadius: "20px",
+                      objectFit: "cover",
                       width: "30%",
+                      height: "auto",
                     }}
                   />
                 </Box>
@@ -139,13 +150,16 @@ function StartedModal({ open, onClose }) {
                     justifyContent: "center", // Add this line to center conte
                   }}
                 >
-                  {/* Add an img tag here with src set to the image path */}
-                  <img
+                  <Image
                     src="/about/care_about.jpg" // Change to your image path
                     alt="heart"
+                    width={300} // Specify a width for the image
+                    height={300} // Specify a height for the image
                     style={{
                       borderRadius: "20px",
+                      objectFit: "cover",
                       width: "30%",
+                      height: "auto",
                     }}
                   />
                 </Box>
@@ -156,6 +170,6 @@ function StartedModal({ open, onClose }) {
       </Box>
     </Modal>
   );
-}
+};
 
-export default StartedModal;
+export default Replay;

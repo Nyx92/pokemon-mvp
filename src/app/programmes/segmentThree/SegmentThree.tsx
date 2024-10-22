@@ -30,25 +30,25 @@ const programs: ProgramsItems[] = [
     name: "Replay",
     label: "Danc'inc",
     description: "Access Tools Workshop",
-    image: "/programmes/tools.jpg", // Replace with the correct image paths
+    image: "/programmes/segmentThree/tools.jpg", // Replace with the correct image paths
   },
   {
     name: "Dawn",
     label: "Dancing bodies",
     description: "Dance Anatomy Workshop",
-    image: "/programmes/dance_body.jpg",
+    image: "/programmes/segmentThree/dance_body.jpg",
   },
   {
     name: "Company",
     label: "Dance hack",
     description: "Dance X Digital Literacy Workshop",
-    image: "/programmes/computer.jpg",
+    image: "/programmes/segmentThree/computer.jpg",
   },
   {
     name: "Hearth",
     label: "Dance and choreology",
     description: "Movement Literacy Workshop",
-    image: "/programmes/kid_dance.png",
+    image: "/programmes/segmentThree/kid_dance.png",
   },
 ];
 
@@ -119,7 +119,7 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
           >
             <Image
               className="responsive-image"
-              src="/programmes/classroom.png"
+              src="/programmes/segmentThree/classroom.png"
               alt="Classroom"
               width={600} // Specify the actual width of the image
               height={400} // Adjust the height as needed to maintain aspect ratio
