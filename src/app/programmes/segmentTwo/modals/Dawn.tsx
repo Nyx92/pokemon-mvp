@@ -8,8 +8,15 @@ import {
   CardContent,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import Image from "next/image";
 
-function StartedModal({ open, onClose }) {
+// Define interface for props
+interface DawnProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Dawn: React.FC<DawnProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -28,7 +35,7 @@ function StartedModal({ open, onClose }) {
       <Box
         sx={{
           position: "relative", // Relative for the box inside the modal
-          width: { xs: "90%", sm: "80%", lg: "50%" }, // width of the modal
+          width: { xs: "90%", sm: "80%", lg: "70%", xl: "50%" }, // width of the modal
           bgcolor: "background.paper",
           borderRadius: "16px", // Rounded corners
           boxShadow: 24,
@@ -44,7 +51,7 @@ function StartedModal({ open, onClose }) {
         </IconButton>
         {/* First sentence */}
         <Typography sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}>
-          Key Pillars
+          Dance Science and Health (daSH) Programmes
         </Typography>
         {/* Second sentence */}
         <Typography
@@ -54,7 +61,7 @@ function StartedModal({ open, onClose }) {
             mb: 2,
           }}
         >
-          Play.
+          D&wn
         </Typography>
 
         {/* First Card */}
@@ -77,42 +84,76 @@ function StartedModal({ open, onClose }) {
                   fontSize: { xs: "15px", sm: "20px" },
                   fontWeight: "bold",
                   mb: 2,
+                  textAlign: "justify", // Justifies the text for alignment
                 }}
               >
-                Play is a non-negotiable.
+                For Individuals with Special Needs.
                 <span style={{ color: "#6E6E73" }}>
-                  {"  "}Whether you’re 5 or 50, we believe that a playful and
-                  lighthearted orientation makes for a better learning
-                  experience. Through a mishmash of games, creative tasks,
-                  music, we encourage a playful, fun and supportive environment
-                  to explore and learn more about our bodies, movements and the
-                  ways in which we interact with and experience the world.
+                  {"  "}We are committed to making dance accessible to all. The transformative potential of dance and movement makes it an excellent activity for people with special needs. Our inclusive classes provide opportunities for people with different abilities to reap the benefits of dance, develop important social and psychomotor skills, and experience an enhanced quality of life.
+                  <br></br>
+                  <br></br>
                 </span>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center", // Add this line to center conte
+                  }}
+                >
+                  {/* Add an img tag here with src set to the image path */}
+                  <Image
+                    src="/programmes/segmentTwo/modal/garden_1.jpg" // Change to your image path
+                    alt="garden"
+                    width={1200} // Specify a width for the image
+                    height={600} // Specify a height for the image
+                    style={{
+                      borderRadius: "20px",
+                      objectFit: "cover",
+                      width: "100%",
+                      height: "auto",
+                      marginBottom: "20px"
+                    }}
+                  />
+                </Box>
+                Evidence-based dance programmes have been shown to improve the functional health of participants and also lead to sustained improvement to psychosocial states. Studies have found that:
+                <span style={{ color: "#6E6E73" }}>
+                  {"  "} Adapted dance programmes substantially improved the locomotor skills and balance capacity of children with Down syndrome than that of neuromuscular exercises.
+                  <br></br>
+                  <br></br>
+                  Studies demonstrated evidence of the benefits of dance and rhythmic auditory stimulation on body functions, particularly balance, gait, walking, and cardiorespiratory fitness for individuals with cerebral palsy.
+                  <br></br>
+                  <br></br>
+                  Dance practice contributed to body awareness and social involvement using techniques that provide mirroring, synchronisation, rhythm, and reciprocity in adults with normal to high-functioning autism spectrum disorder (ASD).
+                  <br></br>
+                  <br></br>
+                </span>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center", // Add this line to center conte
+                  }}  
+                >
+                  <Image
+                    src="/programmes/segmentTwo/modal/healthy.jpg" // Change to your image path
+                    alt="heart"
+                    width={800} // Specify a width for the image
+                    height={800} // Specify a height for the image
+                    style={{
+                      borderRadius: "20px",
+                      objectFit: "cover",
+                      width: "100%",
+                      height: "auto",
+                    }}
+                  />
+                </Box>
               </Typography>
-            </Box>
-
-            {/* Add an img tag here with src set to the image path */}
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center", // Add this line to center conte
-              }}
-            >
-              <img
-                src="/about/playground_about.jpg" // Change to your image path
-                alt="Playground"
-                style={{
-                  borderRadius: "20px",
-                  width: "80%",
-                }}
-              />
             </Box>
           </CardContent>
         </Card>
       </Box>
     </Modal>
   );
-}
+};
 
-export default StartedModal;
+export default Dawn;

@@ -35,7 +35,7 @@ const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
       <Box
         sx={{
           position: "relative", // Relative for the box inside the modal
-          width: { xs: "90%", sm: "80%", lg: "50%" }, // width of the modal
+          width: { xs: "90%", sm: "80%", lg: "70%", xl: "50%" }, // width of the modal
           bgcolor: "background.paper",
           borderRadius: "16px", // Rounded corners
           boxShadow: 24,
@@ -109,15 +109,16 @@ const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
                 >
                   {/* Add an img tag here with src set to the image path */}
                   <Image
-                    src="/about/care_about.jpg" // Change to your image path
-                    alt="heart"
-                    width={300} // Specify a width for the image
-                    height={300} // Specify a height for the image
+                    src="/programmes/segmentTwo/modal/garden_1.jpg" // Change to your image path
+                    alt="garden"
+                    width={1200} // Specify a width for the image
+                    height={600} // Specify a height for the image
                     style={{
                       borderRadius: "20px",
                       objectFit: "cover",
-                      width: "30%",
+                      width: "100%",
                       height: "auto",
+                      marginBottom: "20px"
                     }}
                   />
                 </Box>
@@ -142,23 +143,25 @@ const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
                   walking!) Dance-based mind-motor interventions were associated
                   with a significant reduction in rate of falls among older
                   adults
+                  <br></br>
+                  <br></br>
                 </span>
                 <Box
                   sx={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center", // Add this line to center conte
-                  }}
+                  }}  
                 >
                   <Image
-                    src="/about/care_about.jpg" // Change to your image path
+                    src="/programmes/segmentTwo/modal/healthy.jpg" // Change to your image path
                     alt="heart"
-                    width={300} // Specify a width for the image
-                    height={300} // Specify a height for the image
+                    width={800} // Specify a width for the image
+                    height={800} // Specify a height for the image
                     style={{
                       borderRadius: "20px",
                       objectFit: "cover",
-                      width: "30%",
+                      width: "100%",
                       height: "auto",
                     }}
                   />

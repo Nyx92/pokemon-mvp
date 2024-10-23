@@ -111,7 +111,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
         >
           <Box
             sx={{
-              marginRight: { lg: "10%" },
+              marginRight: { lg: "5%", xl: "10%" },
               display: "flex",
               alignItems: "center",
               marginBottom: { xs: "20px", lg: "0px" },
