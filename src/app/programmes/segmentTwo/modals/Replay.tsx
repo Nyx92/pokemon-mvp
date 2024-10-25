@@ -6,6 +6,7 @@ import {
   IconButton,
   Card,
   CardContent,
+  Button,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import Image from "next/image";
@@ -104,7 +105,8 @@ const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center", // Add this line to center conte
+                    justifyContent: "center",
+                    marginBottom: { xs: "20px", lg: "35px", xl: "40px" },
                   }}
                 >
                   {/* Add an img tag here with src set to the image path */}
@@ -116,9 +118,8 @@ const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
                     style={{
                       borderRadius: "20px",
                       objectFit: "cover",
-                      width: "100%",
+                      width: "90%",
                       height: "auto",
-                      marginBottom: "20px"
                     }}
                   />
                 </Box>
@@ -151,20 +152,20 @@ const Replay: React.FC<ReplayProps> = ({ open, onClose }) => {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center", // Add this line to center conte
-                  }}  
+                  }}
                 >
-                  <Image
-                    src="/programmes/segmentTwo/modal/healthy.jpg" // Change to your image path
-                    alt="heart"
-                    width={800} // Specify a width for the image
-                    height={800} // Specify a height for the image
-                    style={{
-                      borderRadius: "20px",
-                      objectFit: "cover",
-                      width: "100%",
-                      height: "auto",
+                  <Button
+                    variant="contained"
+                    sx={{
+                      m: 1,
+                      borderRadius: "30px",
+                      textTransform: "none",
+                      backgroundColor: "black",
+                      fontSize: "20px",
                     }}
-                  />
+                  >
+                    Enquire more {">"}
+                  </Button>
                 </Box>
               </Typography>
             </Box>

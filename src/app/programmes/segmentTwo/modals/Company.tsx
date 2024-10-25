@@ -6,10 +6,18 @@ import {
   IconButton,
   Card,
   CardContent,
+  Button,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import Image from "next/image";
 
-function StartedModal({ open, onClose }) {
+// Define interface for props
+interface DawnProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Dawn: React.FC<DawnProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -28,7 +36,7 @@ function StartedModal({ open, onClose }) {
       <Box
         sx={{
           position: "relative", // Relative for the box inside the modal
-          width: { xs: "90%", sm: "80%", lg: "50%" }, // width of the modal
+          width: { xs: "90%", sm: "80%", lg: "70%", xl: "50%" }, // width of the modal
           bgcolor: "background.paper",
           borderRadius: "16px", // Rounded corners
           boxShadow: 24,
@@ -44,7 +52,7 @@ function StartedModal({ open, onClose }) {
         </IconButton>
         {/* First sentence */}
         <Typography sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}>
-          Key Pillars
+          Dance Science and Health (daSH) Programmes
         </Typography>
         {/* Second sentence */}
         <Typography
@@ -54,7 +62,7 @@ function StartedModal({ open, onClose }) {
             mb: 2,
           }}
         >
-          Growth.
+          In Moving Company
         </Typography>
 
         {/* First Card */}
@@ -77,41 +85,88 @@ function StartedModal({ open, onClose }) {
                   fontSize: { xs: "15px", sm: "20px" },
                   fontWeight: "bold",
                   mb: 2,
+                  textAlign: "justify", // Justifies the text for alignment
                 }}
               >
-                Nurturing growth.
+                for Mental Wellness.
                 <span style={{ color: "#6E6E73" }}>
-                  {"  "}We’re interested in nurturing growth and creating a
-                  container for safe exploration through our dance and movement
-                  programmes. Whether it’s about becoming a more articulate
-                  dancer, building creative confidence, or simply finding more
-                  ease in the body … we’re interested in uncovering and
-                  celebrating these milestones with you! We care about and hope
-                  to create a supportive environment for your development.
+                  {"  "}Dance and movement therapy to support mental well being.
+                  Sessions are designed with an emphasis on fostering creativity
+                  and adaptability, developing greater cognitive flexibility,
+                  self-regulation and self-direction.
+                  <br></br>
+                  <br></br>
                 </span>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: { xs: "20px", lg: "35px", xl: "40px" },
+                  }}
+                >
+                  {/* Add an img tag here with src set to the image path */}
+                  <Image
+                    src="/programmes/segmentTwo/modal/garden_1.jpg" // Change to your image path
+                    alt="garden"
+                    width={1200} // Specify a width for the image
+                    height={600} // Specify a height for the image
+                    style={{
+                      borderRadius: "20px",
+                      objectFit: "cover",
+                      width: "100%",
+                      height: "auto",
+                    }}
+                  />
+                </Box>
+                Evidence-based dance programmes have been shown to improve the
+                functional health of participants and also lead to sustained
+                improvement to psychosocial states. Studies have found that:
+                <span style={{ color: "#6E6E73" }}>
+                  {"  "} Dance is a complex intervention, which provides an
+                  appropriate challenge for service users in acute mental health
+                  settings while contributing to a sense of biopsychosocial
+                  integration. As such, it has much to offer contemporary
+                  occupational therapy.
+                  <br></br>
+                  <br></br>
+                  Three months of dance classes were effective in reducing the
+                  depression status of second- and third-age dancers.
+                  Specifically, the biggest changes concerned a greater
+                  satisfaction and improvement in their lives, a greater
+                  interest in activities, less boredom, a good mood most of the
+                  time, greater happiness throughout the day, and the perception
+                  of a wonderful life.
+                  <br></br>
+                  <br></br>
+                </span>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center", // Add this line to center conte
+                  }}
+                >
+                  <Button
+                    variant="contained"
+                    sx={{
+                      m: 1,
+                      borderRadius: "30px",
+                      textTransform: "none",
+                      backgroundColor: "black",
+                      fontSize: "20px",
+                    }}
+                  >
+                    Enquire more {">"}
+                  </Button>
+                </Box>
               </Typography>
-            </Box>
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <img
-                src="/about/growth_modal.jpg" // Change to your image path
-                alt="tree"
-                style={{
-                  borderRadius: "20px",
-                  width: "40%",
-                }}
-              />
             </Box>
           </CardContent>
         </Card>
       </Box>
     </Modal>
   );
-}
+};
 
-export default StartedModal;
+export default Dawn;

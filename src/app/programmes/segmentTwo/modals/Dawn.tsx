@@ -6,6 +6,7 @@ import {
   IconButton,
   Card,
   CardContent,
+  Button,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import Image from "next/image";
@@ -89,7 +90,13 @@ const Dawn: React.FC<DawnProps> = ({ open, onClose }) => {
               >
                 For Individuals with Special Needs.
                 <span style={{ color: "#6E6E73" }}>
-                  {"  "}We are committed to making dance accessible to all. The transformative potential of dance and movement makes it an excellent activity for people with special needs. Our inclusive classes provide opportunities for people with different abilities to reap the benefits of dance, develop important social and psychomotor skills, and experience an enhanced quality of life.
+                  {"  "}We are committed to making dance accessible to all. The
+                  transformative potential of dance and movement makes it an
+                  excellent activity for people with special needs. Our
+                  inclusive classes provide opportunities for people with
+                  different abilities to reap the benefits of dance, develop
+                  important social and psychomotor skills, and experience an
+                  enhanced quality of life.
                   <br></br>
                   <br></br>
                 </span>
@@ -97,7 +104,8 @@ const Dawn: React.FC<DawnProps> = ({ open, onClose }) => {
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center", // Add this line to center conte
+                    justifyContent: "center",
+                    marginBottom: { xs: "20px", lg: "35px", xl: "40px" },
                   }}
                 >
                   {/* Add an img tag here with src set to the image path */}
@@ -111,19 +119,28 @@ const Dawn: React.FC<DawnProps> = ({ open, onClose }) => {
                       objectFit: "cover",
                       width: "100%",
                       height: "auto",
-                      marginBottom: "20px"
                     }}
                   />
                 </Box>
-                Evidence-based dance programmes have been shown to improve the functional health of participants and also lead to sustained improvement to psychosocial states. Studies have found that:
+                Evidence-based dance programmes have been shown to improve the
+                functional health of participants and also lead to sustained
+                improvement to psychosocial states. Studies have found that:
                 <span style={{ color: "#6E6E73" }}>
-                  {"  "} Adapted dance programmes substantially improved the locomotor skills and balance capacity of children with Down syndrome than that of neuromuscular exercises.
+                  {"  "} Adapted dance programmes substantially improved the
+                  locomotor skills and balance capacity of children with Down
+                  syndrome than that of neuromuscular exercises.
                   <br></br>
                   <br></br>
-                  Studies demonstrated evidence of the benefits of dance and rhythmic auditory stimulation on body functions, particularly balance, gait, walking, and cardiorespiratory fitness for individuals with cerebral palsy.
+                  Studies demonstrated evidence of the benefits of dance and
+                  rhythmic auditory stimulation on body functions, particularly
+                  balance, gait, walking, and cardiorespiratory fitness for
+                  individuals with cerebral palsy.
                   <br></br>
                   <br></br>
-                  Dance practice contributed to body awareness and social involvement using techniques that provide mirroring, synchronisation, rhythm, and reciprocity in adults with normal to high-functioning autism spectrum disorder (ASD).
+                  Dance practice contributed to body awareness and social
+                  involvement using techniques that provide mirroring,
+                  synchronisation, rhythm, and reciprocity in adults with normal
+                  to high-functioning autism spectrum disorder (ASD).
                   <br></br>
                   <br></br>
                 </span>
@@ -132,20 +149,20 @@ const Dawn: React.FC<DawnProps> = ({ open, onClose }) => {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center", // Add this line to center conte
-                  }}  
+                  }}
                 >
-                  <Image
-                    src="/programmes/segmentTwo/modal/healthy.jpg" // Change to your image path
-                    alt="heart"
-                    width={800} // Specify a width for the image
-                    height={800} // Specify a height for the image
-                    style={{
-                      borderRadius: "20px",
-                      objectFit: "cover",
-                      width: "100%",
-                      height: "auto",
+                  <Button
+                    variant="contained"
+                    sx={{
+                      m: 1,
+                      borderRadius: "30px",
+                      textTransform: "none",
+                      backgroundColor: "black",
+                      fontSize: "20px",
                     }}
-                  />
+                  >
+                    Enquire more {">"}
+                  </Button>
                 </Box>
               </Typography>
             </Box>
