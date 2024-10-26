@@ -2,10 +2,10 @@
 
 import { Box, Typography, Avatar, Divider } from "@mui/material";
 import { useState } from "react";
-import Replay from "./modals/Replay";
-import Company from "./modals/Company";
-import Dawn from "./modals/Dawn";
-import Hearth from "./modals/Hearth";
+import Choreology from "./modals/Choreology";
+import DanceInc from "./modals/DanceInc";
+import DancingBodies from "./modals/DancingBodies";
+import DanceHack from "./modals/DanceHack";
 import Image from "next/image";
 import "./SegmentThree.css";
 
@@ -15,7 +15,7 @@ interface SegmentThreeProps {
 }
 
 // Define a union type for program names
-type ProgramNames = "Replay" | "Dawn" | "Company" | "Hearth";
+type ProgramNames = "Choreology" | "DancingBodies" | "DanceInc" | "DanceHack";
 
 interface ProgramsItems {
   name: ProgramNames;
@@ -27,25 +27,25 @@ interface ProgramsItems {
 // ProgramsItems[] is a TypeScript array type that means "an array of ProgramsItems objects."
 const programs: ProgramsItems[] = [
   {
-    name: "Replay",
+    name: "Choreology",
     label: "Danc'inc",
     description: "Access Tools Workshop",
     image: "/programmes/segmentThree/tools.jpg", // Replace with the correct image paths
   },
   {
-    name: "Dawn",
+    name: "DancingBodies",
     label: "Dancing bodies",
     description: "Dance Anatomy Workshop",
     image: "/programmes/segmentThree/dance_body.jpg",
   },
   {
-    name: "Company",
+    name: "DanceInc",
     label: "Dance hack",
     description: "Dance X Digital Literacy Workshop",
     image: "/programmes/segmentThree/computer.jpg",
   },
   {
-    name: "Hearth",
+    name: "DanceHack",
     label: "Dance and choreology",
     description: "Movement Literacy Workshop",
     image: "/programmes/segmentThree/kid_dance.png",
@@ -62,10 +62,10 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
     ProgramNames,
     React.FC<{ open: boolean; onClose: () => void }>
   > = {
-    Replay,
-    Dawn,
-    Company,
-    Hearth,
+    Choreology,
+    DancingBodies,
+    DanceInc,
+    DanceHack,
   };
 
   const renderModal = () => {

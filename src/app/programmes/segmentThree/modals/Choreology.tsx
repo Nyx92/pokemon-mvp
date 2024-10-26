@@ -6,10 +6,18 @@ import {
   IconButton,
   Card,
   CardContent,
+  Button,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import Image from "next/image";
 
-function StartedModal({ open, onClose }) {
+// Define interface for props
+interface ChoreologyProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const Choreology: React.FC<ChoreologyProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -28,7 +36,7 @@ function StartedModal({ open, onClose }) {
       <Box
         sx={{
           position: "relative", // Relative for the box inside the modal
-          width: { xs: "90%", sm: "80%", lg: "50%" }, // width of the modal
+          width: { xs: "90%", sm: "80%", lg: "70%", xl: "50%" }, // width of the modal
           bgcolor: "background.paper",
           borderRadius: "16px", // Rounded corners
           boxShadow: 24,
@@ -44,7 +52,7 @@ function StartedModal({ open, onClose }) {
         </IconButton>
         {/* First sentence */}
         <Typography sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}>
-          Dance Science and Health (daSH) Programmes
+          Dance Education (dancED) Programmes
         </Typography>
         {/* Second sentence */}
         <Typography
@@ -54,7 +62,7 @@ function StartedModal({ open, onClose }) {
             mb: 2,
           }}
         >
-          Re:play
+          Dance and Choreology
         </Typography>
 
         {/* First Card */}
@@ -80,16 +88,14 @@ function StartedModal({ open, onClose }) {
                   textAlign: "justify", // Justifies the text for alignment
                 }}
               >
-                For our seniors.
+                Explore movement patterns, refine your movement observation
+                skills and develop movement literacy!
                 <span style={{ color: "#6E6E73" }}>
-                  {"  "}The artistic freedom and social aspects of dance can
-                  help seniors manage the stress and challenges to daily living
-                  due to conditions like Dementia or Parkinson’s. Dancing can
-                  enhance fluidity of movement, postural stability, flexibility
-                  of the spine and improve balance. The use of rhythm and voice
-                  can help with cueing movement and expression. The integration
-                  of music and dance into reminiscence therapy also helps people
-                  with dementia evoke memories and stimulate mental activity.
+                  {"  "}By providing a structured framework for analyzing and
+                  understanding movement, guided by the five elements of the
+                  Laban Movement Theory — body, effort, space, shape, and
+                  relationship — explore and embark on an inquiry about the
+                  movement patterns of the body.
                   <br></br>
                   <br></br>
                 </span>
@@ -97,40 +103,46 @@ function StartedModal({ open, onClose }) {
                   sx={{
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center", // Add this line to center conte
+                    justifyContent: "center",
+                    marginBottom: { xs: "20px", lg: "35px", xl: "40px" },
                   }}
                 >
                   {/* Add an img tag here with src set to the image path */}
-                  <img
-                    src="/about/care_about.jpg" // Change to your image path
-                    alt="heart"
+                  <Image
+                    src="/programmes/segmentTwo/modal/garden_1.jpg" // Change to your image path
+                    alt="garden"
+                    width={1200} // Specify a width for the image
+                    height={600} // Specify a height for the image
                     style={{
                       borderRadius: "20px",
-                      width: "30%",
+                      objectFit: "cover",
+                      width: "90%",
+                      height: "auto",
                     }}
                   />
                 </Box>
-                CORE. Creating Opportunities, Resources and Empowerment for a
-                Community Of Ready Elders!
+                Our Curriculum.
                 <span style={{ color: "#6E6E73" }}>
-                  {"  "} Definitely a mouthful but the idea is straightforward —
-                  a programme to empower seniors to train other seniors in
-                  movement and wellness activities.
+                  {"  "} This workshop will help dancers become more aware of
+                  their own movement patterns and possibilities, and ultimately
+                  become more expressive and creative movers. We seek to create
+                  a supportive space that is fertile for curiosity, inquiry and
+                  experimentation.
                   <br></br>
                   <br></br>
-                  Evidence-based dance programmes have been shown to improve the
-                  functional health of participants and also lead to sustained
-                  improvement to psychosocial states. Studies have found that:
+                  Our time together will offer opportunities for dancers — both
+                  new and seasoned — to generate novel movement material,
+                  develop choreographic structures, and explore movement
+                  possibilities with other dancers.
                   <br></br>
                   <br></br>
-                  Frequent dance activity is associated with a 76% reduced risk
-                  of dementia, the greatest reduction compared to other
-                  activities like reading, swimming, or doing crossword puzzles
-                  frequently Dancing at moderate intensities was associated with
-                  a reduced risk of cardiovascular disease (more so than
-                  walking!) Dance-based mind-motor interventions were associated
-                  with a significant reduction in rate of falls among older
-                  adults
+                  Suitable for: Dancers who are looking to gain greater
+                  awareness about their own movement patterns, break down
+                  habitual movement patterns and expand their movement
+                  vocabulary. Non-dancers who have a keen interest in exploring
+                  movement as a mode of expression.
+                  <br></br>
+                  <br></br>
                 </span>
                 <Box
                   sx={{
@@ -139,15 +151,18 @@ function StartedModal({ open, onClose }) {
                     justifyContent: "center", // Add this line to center conte
                   }}
                 >
-                  {/* Add an img tag here with src set to the image path */}
-                  <img
-                    src="/about/care_about.jpg" // Change to your image path
-                    alt="heart"
-                    style={{
-                      borderRadius: "20px",
-                      width: "30%",
+                  <Button
+                    variant="contained"
+                    sx={{
+                      m: 1,
+                      borderRadius: "30px",
+                      textTransform: "none",
+                      backgroundColor: "black",
+                      fontSize: "20px",
                     }}
-                  />
+                  >
+                    Enquire more {">"}
+                  </Button>
                 </Box>
               </Typography>
             </Box>
@@ -156,6 +171,6 @@ function StartedModal({ open, onClose }) {
       </Box>
     </Modal>
   );
-}
+};
 
-export default StartedModal;
+export default Choreology;

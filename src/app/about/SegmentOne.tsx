@@ -10,7 +10,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   return (
     <Box
       sx={{
-        marginTop: "60px",
+        paddingTop: "90px",
         display: "flex",
         backgroundColor: "#fafafc",
         alignItems: "center",
@@ -30,27 +30,6 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
           maxWidth: { md: "100%", lg: "80%" },
         }}
       >
-        <Box
-          sx={{
-            width: "100%",
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: "30px",
-          }}
-        >
-          <Image
-            src="/about/about_dance.jpg"
-            alt="iMac"
-            // These are required by the <Image /> component to define the original dimensions of the image in pixels. They help Next.js determine the aspect ratio of the image to maintain layout stability during loading, preventing CLS (Cumulative Layout Shift).
-            width={1200}
-            height={800}
-            style={{
-              width: "100%", // Full width for the image itself
-              height: "auto", // Maintain aspect ratio
-            }}
-            priority // Improves LCP for critical images
-          />
-        </Box>
         {/* Text column */}
         <Box
           sx={{
