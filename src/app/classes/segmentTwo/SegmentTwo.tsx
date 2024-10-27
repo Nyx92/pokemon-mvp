@@ -6,23 +6,30 @@ const classesData = [
   {
     title: "Mat Pilates (online)",
     imgSrc: "/classes/yoga.jpg",
-    description: "Strength, flexibility, coordination and balance.",
+    description: "Coordination, flexibility.",
+    backgroundColor: "black",
+    fontColor: "white",
   },
   {
     title: "Fun-size movers",
     imgSrc: "/classes/dance_cardio.jpg",
-    description: "Dance & movement classes for kids",
+    description: "Dance classes for kids",
+    backgroundColor: "white",
+    fontColor: "black",
   },
   {
     title: "Creative Contemporary Dance",
     imgSrc: "/classes/pilates.jpg",
-    description: "Explorative, experimental and organically-devised movement.",
+    description: "Explorative, experimental.",
+    backgroundColor: "white",
+    fontColor: "black",
   },
   {
     title: "daSH residency",
     imgSrc: "/classes/pilates.jpg",
-    description:
-      "Strengthen your core and improve posture with a series of Pilates exercises.",
+    description: "Strength, posture.",
+    backgroundColor: "white",
+    fontColor: "black",
   },
 ];
 

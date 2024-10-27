@@ -9,12 +9,16 @@ interface ClassCardProps {
   title: string;
   imgSrc: string;
   description: string;
+  backgroundColor: string;
+  fontColor: string;
 }
 
 const ClassCard: React.FC<ClassCardProps> = ({
   title,
   imgSrc,
   description,
+  backgroundColor,
+  fontColor,
 }) => {
   const controls = useAnimation();
   const [ref, inView] = useInView({
@@ -42,7 +46,7 @@ const ClassCard: React.FC<ClassCardProps> = ({
       transition={{ duration: 0.5, ease: "easeOut" }}
       style={{
         width: "calc(50% - 20px)", // Responsive for 2x2 layout
-        height: "800px",
+        height: "900px",
         minWidth: "280px", // Minimum width for smaller screens
         marginBottom: "20px",
       }}
@@ -55,30 +59,49 @@ const ClassCard: React.FC<ClassCardProps> = ({
           borderRadius: "16px",
           width: "100%",
           height: "100%",
-          backgroundColor: "black",
+          backgroundColor: { backgroundColor },
         }}
       >
-        <Image
-          src={imgSrc}
-          alt={title}
-          width={500}
-          height={300}
-          style={{
-            borderRadius: "16px 16px 0 0",
-            objectFit: "cover",
-            width: "100%",
+        <CardContent
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingTop: "140px",
           }}
-        />
-        <CardContent>
+        >
           <Typography
-            variant="h5"
-            sx={{ fontWeight: "bold", mb: 1, color: "white" }}
+            sx={{
+              fontWeight: "bold",
+              mb: 1,
+              color: fontColor,
+              fontSize: "30px",
+            }}
           >
             {title}
           </Typography>
-          <Typography variant="body1" sx={{ mb: 2, color: "white" }}>
+          <Typography
+            sx={{
+              mb: 2,
+              fontWeight: "bold",
+              fontSize: "40px",
+              color: fontColor,
+            }}
+          >
             {description}
           </Typography>
+          <Image
+            src={imgSrc}
+            alt={title}
+            width={500}
+            height={300}
+            style={{
+              borderRadius: "16px 16px 0 0",
+              objectFit: "cover",
+              width: "100%",
+            }}
+          />
         </CardContent>
       </Card>
     </motion.div>
