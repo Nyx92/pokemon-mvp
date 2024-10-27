@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { motion, useAnimation } from "framer-motion";
 import { Box, Typography, Card, CardContent } from "@mui/material";
 import Image from "next/image";
@@ -9,20 +9,13 @@ interface ClassCardProps {
   title: string;
   imgSrc: string;
   description: string;
-  upcomingClasses: string;
-  instructor: string;
-  cost: string;
 }
 
 const ClassCard: React.FC<ClassCardProps> = ({
   title,
   imgSrc,
   description,
-  upcomingClasses,
-  instructor,
-  cost,
 }) => {
-  // Animation controls
   const controls = useAnimation();
   const [ref, inView] = useInView({
     triggerOnce: true,
@@ -35,7 +28,6 @@ const ClassCard: React.FC<ClassCardProps> = ({
     }
   }, [controls, inView]);
 
-  // Animation variants
   const variants = {
     hidden: { opacity: 0, y: 50 },
     visible: { opacity: 1, y: 0 },
@@ -48,14 +40,22 @@ const ClassCard: React.FC<ClassCardProps> = ({
       animate={controls}
       variants={variants}
       transition={{ duration: 0.5, ease: "easeOut" }}
+      style={{
+        width: "calc(50% - 20px)", // Responsive for 2x2 layout
+        height: "800px",
+        minWidth: "280px", // Minimum width for smaller screens
+        marginBottom: "20px",
+      }}
     >
       <Card
         sx={{
-          margin: "20px 0",
           display: "flex",
           flexDirection: "column",
           boxShadow: "0 8px 16px rgba(0, 0, 0, 0.2)",
           borderRadius: "16px",
+          width: "100%",
+          height: "100%",
+          backgroundColor: "black",
         }}
       >
         <Image
@@ -70,23 +70,15 @@ const ClassCard: React.FC<ClassCardProps> = ({
           }}
         />
         <CardContent>
-          <Typography variant="h5" sx={{ fontWeight: "bold", mb: 1 }}>
+          <Typography
+            variant="h5"
+            sx={{ fontWeight: "bold", mb: 1, color: "white" }}
+          >
             {title}
           </Typography>
-          <Typography variant="body1" color="textSecondary" sx={{ mb: 2 }}>
+          <Typography variant="body1" sx={{ mb: 2, color: "white" }}>
             {description}
           </Typography>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" color="textSecondary">
-              <strong>Upcoming Classes:</strong> {upcomingClasses}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              <strong>Instructor:</strong> {instructor}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              <strong>Cost:</strong> {cost}
-            </Typography>
-          </Box>
         </CardContent>
       </Card>
     </motion.div>
