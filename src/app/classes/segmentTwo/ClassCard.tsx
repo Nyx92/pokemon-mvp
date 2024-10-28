@@ -91,17 +91,20 @@ const ClassCard: React.FC<ClassCardProps> = ({
           >
             {description}
           </Typography>
-          <Image
-            src={imgSrc}
-            alt={title}
-            width={500}
-            height={300}
-            style={{
-              borderRadius: "16px 16px 0 0",
-              objectFit: "cover",
-              width: "100%",
-            }}
-          />
+          <Box>
+            <Image
+              src={imgSrc}
+              alt={title}
+              layout="intrinsic" // Use intrinsic for better control
+              width={500}
+              height={300}
+              style={{
+                borderRadius: "16px 16px 0 0",
+                objectFit: "cover", // Ensures the image covers the container
+                width: "90%", // Full width of the container
+              }}
+            />
+          </Box>
         </CardContent>
       </Card>
     </motion.div>

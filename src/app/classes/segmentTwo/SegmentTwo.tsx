@@ -5,21 +5,21 @@ import ClassCard from "./ClassCard"; // Import the class card component
 const classesData = [
   {
     title: "Mat Pilates (online)",
-    imgSrc: "/classes/yoga.jpg",
+    imgSrc: "/classes/pilates_class.png",
     description: "Coordination, flexibility.",
     backgroundColor: "black",
     fontColor: "white",
   },
   {
     title: "Fun-size movers",
-    imgSrc: "/classes/dance_cardio.jpg",
+    imgSrc: "/classes/dancing-girl_class.jpg",
     description: "Dance classes for kids",
     backgroundColor: "white",
     fontColor: "black",
   },
   {
     title: "Creative Contemporary Dance",
-    imgSrc: "/classes/pilates.jpg",
+    imgSrc: "/classes/contemporary_class.jpg",
     description: "Explorative, experimental.",
     backgroundColor: "white",
     fontColor: "black",
