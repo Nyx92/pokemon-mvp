@@ -18,23 +18,23 @@ interface ClassesItems {
 const classes: ClassesItems[] = [
   {
     id: "1",
-    title: "Mat Pilates (online)",
-    imgSrc: "/classes/pilates_class.png",
-    description: "Coordination, flexibility.",
-    backgroundColor: "black",
-    fontColor: "white",
+    title: "Creative Contemporary Dance",
+    imgSrc: "/classes/contemporary_class.jpg",
+    description: "Explorative, experimental.",
+    backgroundColor: "white",
+    fontColor: "black",
   },
   {
     id: "2",
-    title: "Fun-size movers",
-    imgSrc: "/classes/dancing-girl_class.jpg",
-    description: "Dance classes for kids",
+    title: "daSH residency",
+    imgSrc: "/classes/ballet_class.png",
+    description: "Strength, posture.",
     backgroundColor: "white",
     fontColor: "black",
   },
 ];
 
-const SegmentTwo: React.FC = () => {
+const SegmentThree: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selectedItem = classes.find((item) => item.id === selectedId);
 
@@ -50,7 +50,6 @@ const SegmentTwo: React.FC = () => {
   return (
     <Box
       sx={{
-        paddingTop: "50px",
         paddingBottom: "50px",
         backgroundColor: "#fafafc",
         display: "flex",
@@ -207,4 +206,4 @@ const SegmentTwo: React.FC = () => {
   );
 };
 
-export default SegmentTwo;
+export default SegmentThree;
