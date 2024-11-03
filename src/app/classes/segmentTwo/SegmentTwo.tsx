@@ -6,8 +6,12 @@ import CloseIcon from "@mui/icons-material/Close";
 import Image from "next/image";
 import { useInView } from "react-intersection-observer";
 
+// Define a union type for program names
+type ClassNames = "Pilates" | "Fun";
+
 interface ClassesItems {
   id: string;
+  name: string;
   title: string;
   imgSrc: string;
   description: string;
@@ -18,6 +22,7 @@ interface ClassesItems {
 const classes: ClassesItems[] = [
   {
     id: "1",
+    name: "Pilates",
     title: "Mat Pilates (online)",
     imgSrc: "/classes/pilates_class.png",
     description: "Coordination, flexibility.",
@@ -26,6 +31,7 @@ const classes: ClassesItems[] = [
   },
   {
     id: "2",
+    name: "Fun",
     title: "Fun-size movers",
     imgSrc: "/classes/dancing-girl_class.jpg",
     description: "Dance classes for kids",
@@ -35,8 +41,10 @@ const classes: ClassesItems[] = [
 ];
 
 const SegmentTwo: React.FC = () => {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selectedItem = classes.find((item) => item.id === selectedId);
+  // state to track the name of the currently active modal
+  const [selectedId, setSelectedId] = useState<ClassNames | "">("");
+
+  // const selectedItem = classes.find((item) => item.id === selectedId);
 
   const controls = useAnimation();
   const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
@@ -171,34 +179,8 @@ const SegmentTwo: React.FC = () => {
                 boxShadow: "0 8px 16px rgba(0, 0, 0, 0.3)",
               }}
             >
-              <Box
-                sx={{
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "center",
-                }}
-              >
-                <IconButton
-                  onClick={() => setSelectedId(null)}
-                  sx={{ position: "absolute", top: 8, right: 8 }}
-                >
-                  <CloseIcon />
-                </IconButton>
-                <Typography
-                  sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}
-                >
-                  Key Pillars
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: { xs: "30px", sm: "40px" },
-                    fontWeight: "bold",
-                    mb: 2,
-                  }}
-                >
-                  {selectedItem?.title || ""}
-                </Typography>
-              </Box>
+              {/* This will render the modal based on the activeModalName */}
+              {renderModal()}
             </motion.div>
           )}
         </AnimatePresence>
