@@ -12,15 +12,15 @@ import CloseIcon from "@mui/icons-material/Close";
 import Image from "next/image";
 
 // Define interface for props
-interface DancingBodiesProps {
+interface ResidencyProps {
   open: boolean;
   onClose: () => void;
 }
 
-const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
+const Fun: React.FC<ResidencyProps> = ({ open, onClose }) => {
   return (
     <Modal
-      open={open}
+      open={open} // Add the missing open prop
       onClose={onClose}
       aria-labelledby="modal-title"
       aria-describedby="modal-description"
@@ -60,7 +60,7 @@ const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
         >
           {/* First sentence */}
           <Typography sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}>
-            Dance Education (dancED) Programmes
+            HowOne's Classes
           </Typography>
           {/* Second sentence */}
           <Typography
@@ -70,7 +70,7 @@ const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
               mb: 2,
             }}
           >
-            Dancing Bodies
+            daSH residency
           </Typography>
 
           {/* First Card */}
@@ -96,19 +96,14 @@ const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
                     textAlign: "justify", // Justifies the text for alignment
                   }}
                 >
-                  We make anatomy fun! Learn about the musculoskeletal system
-                  through movement and dance.
+                  Engage with the local dance community
                   <span style={{ color: "#6E6E73" }}>
-                    {"  "}Students will learn about the basic structures and
-                    functions of the musculoskeletal system ​(including bones,
-                    joints, muscles, and tendons), develop greater body
-                    awareness through anatomy-driven improvisational exercises
-                    and movement activities designed to explore different body
-                    parts, their range of movement and possibilities of the
-                    body. Through a series of fun and interactive exercises,
-                    students will learn through task-based improvisational
-                    activities and identify the muscle groups and joints
-                    involved in different movements.
+                    {"  "}daSH residency aims to provide holistic development
+                    opportunities for dance artists and movement researchers to
+                    embark on and deepen their engagement with the local
+                    community. This includes providing opportunities for
+                    capability building and platforms for you to encounter and
+                    engage with various communities and community stakeholders.
                     <br></br>
                     <br></br>
                   </span>
@@ -129,24 +124,30 @@ const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
                       style={{
                         borderRadius: "20px",
                         objectFit: "cover",
-                        width: "90%",
+                        width: "100%",
                         height: "auto",
                       }}
                     />
                   </Box>
-                  Our Curriculum:
+                  Through the residency, you will have opportunities to
+                  dialogue, develop and co-create with the community with the
+                  objective of enhancing artistry, improving health and
+                  reflecting the collective stories of the people.
                   <span style={{ color: "#6E6E73" }}>
-                    {"  "} During this 90-min session, we seek to combine
-                    scientific knowledge of the musculoskeletal system with the
-                    artistry of dance and movement, allowing students to explore
-                    and understand the body in a safe, creative and experiential
-                    way. Through movement and dance, students develop confidence
-                    and autonomy as they pick up self-directed learning skills —
-                    an essential 21st century competency.
+                    {"  "} howone offer daSH residency attracting dance artists
+                    and movement researcher at different stages of their
+                    careers. During your time here, you will facilitate and
+                    engage intimately with our local community, supporting their
+                    journey in dance and health.
                     <br></br>
                     <br></br>
-                    Designed to support the learning needs of students in
-                    primary and secondary schools.
+                  </span>
+                  Cost and living?
+                  <span style={{ color: "#6E6E73" }}>
+                    {"  "}There will be no costs involved. Participants who
+                    require visa to enter Singapore will need to apply for visa
+                    independently. Flights and accomodation will not be
+                    provided. daSH residency lasts from 2 weeks to 6 months
                     <br></br>
                     <br></br>
                   </span>
@@ -154,7 +155,7 @@ const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
                     sx={{
                       display: "flex",
                       alignItems: "center",
-                      justifyContent: "center", // Add this line to center conte
+                      justifyContent: "center",
                     }}
                   >
                     <Button
@@ -180,4 +181,4 @@ const DancingBodies: React.FC<DancingBodiesProps> = ({ open, onClose }) => {
   );
 };
 
-export default DancingBodies;
+export default Fun;

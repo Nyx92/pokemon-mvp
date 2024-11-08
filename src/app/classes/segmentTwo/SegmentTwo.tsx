@@ -4,12 +4,14 @@ import { motion, AnimatePresence, useAnimation } from "framer-motion";
 import { Box, Typography, Card, CardContent, IconButton } from "@mui/material";
 import Image from "next/image";
 import { useInView } from "react-intersection-observer";
-import Pilates from "./modals/Pilates";
-import Fun from "./modals/Fun";
 import "./SegmentTwo.css";
+import Pilates from "./modals/Pilates";
+import Dance from "./modals/Dance";
+import Residency from "./modals/Residency";
+import Fun from "./modals/Fun";
 
 // Define a union type for program names
-type ClassNames = "Pilates" | "Fun";
+type ClassNames = "Pilates" | "Fun" | "Dance" | "Residency";
 
 interface ClassesItems {
   id: string;
@@ -40,6 +42,24 @@ const classes: ClassesItems[] = [
     backgroundColor: "white",
     fontColor: "black",
   },
+  {
+    id: "3",
+    name: "Dance",
+    title: "Creative Contemporary Dance",
+    imgSrc: "/classes/contemporary_class.jpg",
+    description: "Explorative, experimental.",
+    backgroundColor: "white",
+    fontColor: "black",
+  },
+  {
+    id: "4",
+    name: "Residency",
+    title: "daSH residency",
+    imgSrc: "/classes/ballet_class.png",
+    description: "Strength, posture.",
+    backgroundColor: "white",
+    fontColor: "black",
+  },
 ];
 
 const SegmentTwo: React.FC = () => {
@@ -50,7 +70,11 @@ const SegmentTwo: React.FC = () => {
   // const selectedItem = classes.find((item) => item.id === selectedId);
 
   const controls = useAnimation();
-  const { ref, inView } = useInView({ triggerOnce: true, threshold: 0.1 });
+  const { ref, inView } = useInView({
+    triggerOnce: true,
+    threshold: 0.1, // Adjust this to a smaller value to trigger earlier
+    rootMargin: "300px", // Adjust this to shift the trigger point upwards
+  });
 
   useEffect(() => {
     if (inView) {
@@ -65,6 +89,8 @@ const SegmentTwo: React.FC = () => {
   > = {
     Pilates,
     Fun,
+    Dance,
+    Residency,
   };
 
   const renderModal = () => {
@@ -96,6 +122,7 @@ const SegmentTwo: React.FC = () => {
           justifyContent: "center",
           gap: "20px",
           width: "70%",
+          flexWrap: "wrap", // This enables wrapping to the next row if contents overflow
         }}
       >
         {classes.map((classItem) => (
@@ -124,7 +151,6 @@ const SegmentTwo: React.FC = () => {
               style={{
                 width: "100%",
                 height: "900px",
-                minWidth: "280px",
                 cursor: "pointer",
               }}
             >
@@ -193,21 +219,17 @@ const SegmentTwo: React.FC = () => {
         <AnimatePresence>
           {activeModalName && openModal && (
             <motion.div
-              className="responsive-modal"
+              className="modal-container"
               layoutId={activeModalName}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               style={{
                 position: "fixed",
-                top: "15%",
-                transform: "translateX(-50%)",
-                backgroundColor: "white",
                 borderRadius: "16px",
                 boxShadow: "0 8px 16px rgba(0, 0, 0, 0.3)",
-                padding: "40px",
-                overflowY: "auto",
                 zIndex: 10,
+                backgroundColor: "white",
               }}
             >
               {renderModal()}

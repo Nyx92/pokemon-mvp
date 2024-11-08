@@ -1,6 +1,5 @@
 import SegmentOne from "./SegmentOne";
 import SegmentTwo from "./segmentTwo/SegmentTwo";
-import SegmentThree from "./segmentThree/SegmentThree";
 
 export default function Classes() {
   return (
@@ -8,7 +7,6 @@ export default function Classes() {
     <main>
       <SegmentOne />
       <SegmentTwo />
-      <SegmentThree />
     </main>
   );
 }

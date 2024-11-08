@@ -50,6 +50,10 @@ const SegmentTwo: React.FC = () => {
   // Inside the SegmentTwo component
   const selectedItem = items.find((item) => item.id === selectedId);
 
+  const handleClose = () => {
+    setSelectedId(null);
+  };
+
   return (
     <Box
       sx={{
@@ -108,106 +112,125 @@ const SegmentTwo: React.FC = () => {
       <AnimatePresence>
         {selectedId && (
           <motion.div
-            className="modal-container"
-            layoutId={selectedId}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            className="modal-backdrop"
+            onClick={handleClose} // Close modal on backdrop click
             style={{
-              padding: "40px",
-              borderRadius: "16px",
-              backgroundColor: "white",
               position: "fixed",
-              top: "15%", // Adjust for smaller screens
-              boxShadow: "0 8px 16px rgba(0, 0, 0, 0.3)",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 0, 0, 0.5)", // Semi-transparent backdrop
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 1000,
             }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: "center", // Center modal horizontally
+            <motion.div
+              className="modal-container"
+              layoutId={selectedId}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                padding: "40px",
+                borderRadius: "16px",
+                backgroundColor: "white",
+                position: "fixed",
+                top: "15%", // Adjust for smaller screens
+                boxShadow: "0 8px 16px rgba(0, 0, 0, 0.3)",
               }}
             >
-              {/* close modal button */}
-              <IconButton
-                onClick={() => setSelectedId(null)}
-                sx={{ position: "absolute", top: 8, right: 8 }}
-              >
-                <CloseIcon />
-              </IconButton>
-
-              {/* First sentence */}
-              <Typography sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}>
-                Key Pillars
-              </Typography>
-              {/* Title */}
-              <Typography
+              <Box
                 sx={{
-                  fontSize: { xs: "30px", sm: "40px" },
-                  fontWeight: "bold",
-                  mb: 2,
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "center", // Center modal horizontally
                 }}
               >
-                {selectedItem?.title || ""}
-              </Typography>
+                {/* close modal button */}
+                <IconButton
+                  onClick={() => setSelectedId(null)}
+                  sx={{ position: "absolute", top: 8, right: 8 }}
+                >
+                  <CloseIcon />
+                </IconButton>
 
-              {/* First Card */}
-              <Card sx={{ borderRadius: "8px", bgcolor: "grey.50", mb: 5 }}>
-                <CardContent sx={{ padding: "0" }}>
-                  <Box
-                    sx={{
-                      mx: "auto", // Sets both left and right margins to auto
-                      width: "70%",
-                      display: "flex",
-                      fontWeight: "bold",
-                      alignItems: "center",
-                      justifyContent: "center", // Add this line to center content horizontally
-                      mb: 5,
-                      mt: 5,
-                    }}
-                  >
-                    <Typography
+                {/* First sentence */}
+                <Typography
+                  sx={{ fontSize: "15px", fontWeight: "bold", mb: 2 }}
+                >
+                  Key Pillars
+                </Typography>
+                {/* Title */}
+                <Typography
+                  sx={{
+                    fontSize: { xs: "30px", sm: "40px" },
+                    fontWeight: "bold",
+                    mb: 2,
+                  }}
+                >
+                  {selectedItem?.title || ""}
+                </Typography>
+
+                {/* First Card */}
+                <Card sx={{ borderRadius: "8px", bgcolor: "grey.50", mb: 5 }}>
+                  <CardContent sx={{ padding: "0" }}>
+                    <Box
                       sx={{
-                        fontSize: { xs: "15px", sm: "20px" },
+                        mx: "auto", // Sets both left and right margins to auto
+                        width: "70%",
+                        display: "flex",
                         fontWeight: "bold",
-                        mb: 2,
-                        textAlign: "justify", // Justifies the text for alignment
+                        alignItems: "center",
+                        justifyContent: "center", // Add this line to center content horizontally
+                        mb: 5,
+                        mt: 5,
                       }}
                     >
-                      {selectedItem?.subtitle || ""}
-                      <span style={{ color: "#6E6E73" }}>
-                        {"  "}
-                        {selectedItem?.content || ""}
-                      </span>
-                    </Typography>
-                  </Box>
+                      <Typography
+                        sx={{
+                          fontSize: { xs: "15px", sm: "20px" },
+                          fontWeight: "bold",
+                          mb: 2,
+                          textAlign: "justify", // Justifies the text for alignment
+                        }}
+                      >
+                        {selectedItem?.subtitle || ""}
+                        <span style={{ color: "#6E6E73" }}>
+                          {"  "}
+                          {selectedItem?.content || ""}
+                        </span>
+                      </Typography>
+                    </Box>
 
-                  {/* Add an img tag here with src set to the image path */}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center", // Add this line to center conte
-                    }}
-                  >
                     {/* Add an img tag here with src set to the image path */}
-                    <Image
-                      src={selectedItem?.crdSrc || ""}
-                      alt={selectedItem?.title || "Image"}
-                      width={1200} // Specify a width for the image
-                      height={600} // Specify a height for the image
-                      style={{
-                        borderRadius: "20px",
-                        objectFit: "cover",
-                        width: "60%",
-                        height: "auto",
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center", // Add this line to center conte
                       }}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            </Box>
+                    >
+                      {/* Add an img tag here with src set to the image path */}
+                      <Image
+                        src={selectedItem?.crdSrc || ""}
+                        alt={selectedItem?.title || "Image"}
+                        width={1200} // Specify a width for the image
+                        height={600} // Specify a height for the image
+                        style={{
+                          borderRadius: "20px",
+                          objectFit: "cover",
+                          width: "60%",
+                          height: "auto",
+                        }}
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Box>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
