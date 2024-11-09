@@ -1,5 +1,6 @@
 // MenuKey is a union type, meaning it can only be one of the specified string values
-export type MenuKey = "About" | "Programmes" | "Classes" | "Blog" | "Contact";
+// add | "Blog" if required
+export type MenuKey = "About" | "Programmes" | "Classes" | "Contact";
 
 // interface: Primarily used to define the shape of an object (like a class or an object literal). It’s best when you want to describe the structure of an object that has properties and methods.
 export interface Section {
@@ -100,35 +101,35 @@ export const dropdownData: Record<MenuKey, { sections: Section[] }> = {
       },
     ],
   },
-  Blog: {
-    sections: [
-      {
-        mainTitle: "Blog",
-        items: [
-          "Explore Apple Watch",
-          "Apple Watch Series 9",
-          "Apple Watch Ultra 2",
-          "Apple Watch SE",
-          "Apple Watch Nike",
-          "Apple Watch Hermes",
-        ],
-      },
-      {
-        title: "Shop Watch",
-        items: [
-          "Find a Store",
-          "Order Status",
-          "Apple Trade In",
-          "Financing",
-          "University Student Offer",
-        ],
-      },
-      {
-        title: "More from Watch",
-        items: ["Certified Refurbish", "Education", "Business"],
-      },
-    ],
-  },
+  // Blog: {
+  //   sections: [
+  //     {
+  //       mainTitle: "Blog",
+  //       items: [
+  //         "Explore Apple Watch",
+  //         "Apple Watch Series 9",
+  //         "Apple Watch Ultra 2",
+  //         "Apple Watch SE",
+  //         "Apple Watch Nike",
+  //         "Apple Watch Hermes",
+  //       ],
+  //     },
+  //     {
+  //       title: "Shop Watch",
+  //       items: [
+  //         "Find a Store",
+  //         "Order Status",
+  //         "Apple Trade In",
+  //         "Financing",
+  //         "University Student Offer",
+  //       ],
+  //     },
+  //     {
+  //       title: "More from Watch",
+  //       items: ["Certified Refurbish", "Education", "Business"],
+  //     },
+  //   ],
+  // },
   Contact: {
     sections: [
       {

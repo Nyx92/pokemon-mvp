@@ -25,7 +25,10 @@ import "./Navbar.css";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { MenuKey } from "./DropdownStoreData";
 
-const pages: MenuKey[] = ["About", "Programmes", "Classes", "Blog", "Contact"];
+// Add "Blog" here if required
+const pages: MenuKey[] = ["About", "Programmes", "Classes", "Contact"];
+// Toggle this flag to enable or disable navbar effects
+const disableNavEffects = true;
 
 // React.FunctionComponent) type is a special type provided by React for functional components.
 // It automatically includes type definitions for props, including handling children as a prop.
@@ -70,6 +73,7 @@ const NavBar: React.FC = () => {
 
   // to prevent navbar dropdown to immediately fire on menu button click
   useEffect(() => {
+    if (disableNavEffects) return;
     const timer = setTimeout(() => {
       setAllowNavDropdown(true);
     }, 500); // Adjust the delay as needed
