@@ -1,8 +1,13 @@
 import { Modal, Box, Typography, Button } from "@mui/material";
 import CancelIcon from "@mui/icons-material/Cancel";
-import PropTypes from "prop-types";
+import { FC } from "react";
 
-function SignUpFail({ open, onClose }) {
+interface ContactSubmitFailProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+const ContactSubmitFail: FC<ContactSubmitFailProps> = ({ open, onClose }) => {
   return (
     <Modal
       open={open}
@@ -21,6 +26,7 @@ function SignUpFail({ open, onClose }) {
           minWidth: { xs: "300px", sm: "500px" },
           bgcolor: "background.paper",
           borderRadius: "16px", // Rounded corners
+          pb: "15px",
         }}
       >
         {/* Top half here */}
@@ -56,7 +62,7 @@ function SignUpFail({ open, onClose }) {
               mb: { xs: 1, sm: 2 },
             }}
           >
-            Failed to create account!
+            Failed to submit form.
           </Typography>
           {/* Second sentence */}
           <Typography
@@ -72,13 +78,13 @@ function SignUpFail({ open, onClose }) {
             onClick={onClose}
             sx={{
               color: "white",
-              backgroundColor: "#003366",
+              backgroundColor: "black",
               minWidth: "80px",
               borderRadius: "10px",
               textTransform: "none",
               fontSize: { xs: "10px", sm: "15px" },
               "&:hover": {
-                backgroundColor: "#003366", // Keeping the background the same on hover
+                backgroundColor: "black", // Keeping the background the same on hover
               },
             }}
           >
@@ -89,11 +95,6 @@ function SignUpFail({ open, onClose }) {
       </Box>
     </Modal>
   );
-}
-
-SignUpFail.propTypes = {
-  open: PropTypes.bool.isRequired,
-  onClose: PropTypes.func.isRequired,
 };
 
-export default SignUpFail;
+export default ContactSubmitFail;

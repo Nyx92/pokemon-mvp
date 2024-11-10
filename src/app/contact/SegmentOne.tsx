@@ -88,8 +88,8 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   };
 
   // Updated handleChange to work with AutoFillAwareTextField
-  const handleChange = (name: string, value: string) => {
-    setFormData((prevState) => ({ ...prevState, [name]: value }));
+  const handleChange = (name: keyof FormData, value: string | number) => {
+    setFormData((prevState) => ({ ...prevState, [name]: value.toString() })); // Convert `number` to `string` if necessary
   };
 
   // this is necessary as PhoneInput component from react-phone-input-2 does not use the standard event object, instead it uses value
@@ -220,7 +220,6 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                   label="Country / Region"
                   name="country"
                   onChange={(e) => handleChange("country", e.target.value)}
-                  options={countryOptions}
                   sx={{
                     backgroundColor: "white",
                   }}
