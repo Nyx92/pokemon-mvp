@@ -66,6 +66,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
               fontSize: { xs: "20px", md: "30px", lg: "40px" },
               fontWeight: "bold",
               marginBottom: theme.spacing(4),
+              textAlign: "center", // Centers the text within Typography
             }}
           >
             Creating healthy communities, one move at a time.

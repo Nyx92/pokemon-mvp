@@ -21,14 +21,15 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
         padding: "40px",
       }}
     >
+      {/* Edit Logo and tag line here */}
       <Box
         className="img-slide-in"
         sx={{
           width: { xs: "100%", sm: "80%" },
           display: "flex",
-          justifyContent: { xs: "flex-start", sm: "space-between" },
+          justifyContent: { sm: "space-between" },
           flexDirection: { xs: "column", sm: "row" },
-          alignItems: { xs: "flex-start", sm: "center" },
+          alignItems: "center",
           marginBottom: "30px",
         }}
       >
@@ -44,13 +45,13 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
 
         <Box
           sx={{
-            textAlign: { xs: "left", sm: "right" },
+            textAlign: "right",
           }}
         >
           <Typography
             variant="h5"
             component="span"
-            sx={{ fontSize: { xs: "18px", sm: "24px" } }}
+            sx={{ fontSize: "24px", display: { xs: "none" } }}
           >
             Creating healthy communities,
           </Typography>
@@ -58,7 +59,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
           <Typography
             variant="h5"
             component="span"
-            sx={{ fontSize: { xs: "18px", sm: "24px" } }}
+            sx={{ fontSize: "24px", display: { xs: "none" } }}
           >
             one move at a time.
           </Typography>

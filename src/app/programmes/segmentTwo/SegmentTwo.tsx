@@ -133,7 +133,13 @@ const SegmentTwo: React.FC<SegmentTwoProps> = () => {
               maxWidth: { xs: "90%", lg: "40%" },
             }}
           >
-            <Typography variant="h4" sx={{ fontWeight: "bold" }}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: "bold",
+                fontSize: { xs: "25px", md: "30px", lg: "35px" },
+              }}
+            >
               Our Dance Science and Health (daSH) Programmes
             </Typography>
             <Typography

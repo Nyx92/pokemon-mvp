@@ -35,7 +35,6 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            maxWidth: "1200px", // Optional, for better readability on very wide screens
           }}
         >
           <Typography
@@ -68,6 +67,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
               textAlign: "justify", // Justifies the text for alignment
               marginX: "auto", // Center the block horizontally
               fontSize: { xs: "18px", sm: "24px" },
+              maxWidth: { xs: "90%", sm: "80%", lg: "70%" },
             }}
           >
             We are committed to helping you explore movement in a manner that is

@@ -128,18 +128,18 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
               mb: 1,
             }}
           >
-            Submit your Details
+            We'd Love to Hear From You
           </Typography>
           <Typography
             variant="h4"
             sx={{
               color: "Black",
-              fontSize: { xs: "20px", lg: "25px" },
+              fontSize: { xs: "20px", lg: "20px" },
               letterSpacing: "-0.02em",
               mb: 4,
             }}
           >
-            We'll reach out to you!
+            Submit your details, and we'll reach out to you!
           </Typography>
           {/* if loading is true, show loading screen, otherwise show form */}
           {loading ? (

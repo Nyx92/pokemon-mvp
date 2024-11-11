@@ -37,7 +37,7 @@ const DanceHack: React.FC<DanceHackProps> = ({ open, onClose }) => {
           bgcolor: "background.paper",
           borderRadius: "16px", // Rounded corners
           boxShadow: 24,
-          p: 4,
+          p: { xs: 2, md: 3, xl: 4 },
           outline: "none", // Ensures no outline on the Box element
         }}
       >
@@ -53,7 +53,6 @@ const DanceHack: React.FC<DanceHackProps> = ({ open, onClose }) => {
           sx={{
             overflowY: "auto", // Enables scrolling within this content box
             maxHeight: "90vh", // Adjusts inner content height to ensure it fits within the modal
-            pr: 2, // Padding to prevent text from touching the edge
             "&::-webkit-scrollbar": { display: "none" }, // Hides scrollbar in WebKit browsers
             scrollbarWidth: "none", // Hides scrollbar in Firefox
           }}
@@ -65,7 +64,7 @@ const DanceHack: React.FC<DanceHackProps> = ({ open, onClose }) => {
           {/* Second sentence */}
           <Typography
             sx={{
-              fontSize: { xs: "30px", sm: "40px" },
+              fontSize: { xs: "20px", sm: "30px", md: "40px" },
               fontWeight: "bold",
               mb: 2,
             }}
@@ -79,7 +78,7 @@ const DanceHack: React.FC<DanceHackProps> = ({ open, onClose }) => {
               <Box
                 sx={{
                   mx: "auto", // Sets both left and right margins to auto
-                  width: "70%",
+                  width: { xs: "95%", xl: "70%" },
                   display: "flex",
                   fontWeight: "bold",
                   alignItems: "center",
@@ -90,7 +89,7 @@ const DanceHack: React.FC<DanceHackProps> = ({ open, onClose }) => {
               >
                 <Typography
                   sx={{
-                    fontSize: { xs: "15px", sm: "20px" },
+                    fontSize: { xs: "15px", sm: "18px", md: "20px" },
                     fontWeight: "bold",
                     mb: 2,
                     textAlign: "justify", // Justifies the text for alignment
@@ -161,7 +160,7 @@ const DanceHack: React.FC<DanceHackProps> = ({ open, onClose }) => {
                         borderRadius: "30px",
                         textTransform: "none",
                         backgroundColor: "black",
-                        fontSize: "20px",
+                        fontSize: { xs: "12px", xl: "20px" },
                       }}
                     >
                       Enquire more {">"}

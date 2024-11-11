@@ -133,7 +133,13 @@ const SegmentThree: React.FC<SegmentThreeProps> = (props) => {
               maxWidth: { xs: "90%", lg: "40%" },
             }}
           >
-            <Typography variant="h4" sx={{ fontWeight: "bold" }}>
+            <Typography
+              variant="h4"
+              sx={{
+                fontWeight: "bold",
+                fontSize: { xs: "25px", md: "30px", lg: "35px" },
+              }}
+            >
               Our Dance Education (dancED) Programmes
             </Typography>
             <Typography
