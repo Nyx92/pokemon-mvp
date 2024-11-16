@@ -26,7 +26,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { MenuKey } from "./DropdownStoreData";
 
 // Add "Blog" here if required
-const pages: MenuKey[] = ["About", "Programmes", "Classes", "Contact"];
+const pages: MenuKey[] = ["GenerateMC"];
 // Toggle this flag to enable or disable navbar effects
 const disableNavEffects = true;
 
@@ -268,7 +268,7 @@ const NavBar: React.FC = () => {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
+                justifyContent: "flex-start",
                 width: "80%",
               }}
             >
@@ -317,7 +317,6 @@ const NavBar: React.FC = () => {
                   onMouseEnter={() => handleMouseEnterNavButton(page)}
                   onMouseLeave={handleMouseLeaveNavButton}
                   sx={{
-                    flexGrow: 1, // buttons will be wider for wider screens
                     color: anchorElNav
                       ? "var(--r-globalnav-color-hover)"
                       : "var(--r-globalnav-color-secondary)",

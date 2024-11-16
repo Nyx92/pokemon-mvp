@@ -69,7 +69,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
               textAlign: "center", // Centers the text within Typography
             }}
           >
-            Creating healthy communities, one move at a time.
+            Looking for a place to generate a medical certificate?
           </Typography>
 
           <Box
@@ -85,12 +85,14 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
                 marginBottom: theme.spacing(4),
               }}
             >
-              We are howone, a Creative Health social enterprise with science at
-              play. As dancers and movers, we have experienced the tremendous
-              potential of dance to enhance our sense of connection and well
-              being. We want to bring the joy and benefits of dance to everyone
-              regardless of age, ability and background. We believe movement is
-              essential to health and we’re sincere about making it fun.
+              Feeling too 'sick' to face the daily grind? Whether it's dodging
+              work, skipping school, or just taking that much-needed 'you' day,
+              we’ve got you covered! Create your very own medical certificate in
+              minutes. Choose your symptoms—migraine, food poisoning, or that
+              mysterious headache - and pick as many days off as you need, all
+              without the hassle of waiting rooms or expensive doctor visits.
+              Why bother with the real deal when you can craft the perfect
+              excuse at a fraction of the cost? Your alibi, your rules!
             </Typography>
           </Box>
 
@@ -107,7 +109,7 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
               },
             }}
           >
-            Learn More
+            Generate now!
           </Link>
         </Box>
       </Box>
