@@ -48,20 +48,12 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
             textAlign: "right",
           }}
         >
-          <Typography
-            variant="h5"
-            component="span"
-            sx={{ fontSize: "24px", display: { xs: "none" } }}
-          >
-            Creating healthy communities,
+          <Typography variant="h5" component="span" sx={{ fontSize: "24px" }}>
+            A cheaper alternative
           </Typography>
           <br />
-          <Typography
-            variant="h5"
-            component="span"
-            sx={{ fontSize: "24px", display: { xs: "none" } }}
-          >
-            one move at a time.
+          <Typography variant="h5" component="span" sx={{ fontSize: "24px" }}>
+            for your chaokeng needs
           </Typography>
         </Box>
       </Box>

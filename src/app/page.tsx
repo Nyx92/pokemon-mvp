@@ -1,6 +1,5 @@
 import SegmentOne from "./home/SegmentOne";
 import SegmentTwo from "./home/SegmentTwo";
-import Carousel from "./home/Carousel";
 
 export default function Home() {
   return (
@@ -8,7 +7,6 @@ export default function Home() {
     <main>
       <SegmentOne />
       <SegmentTwo />
-      <Carousel />
     </main>
   );
 }
