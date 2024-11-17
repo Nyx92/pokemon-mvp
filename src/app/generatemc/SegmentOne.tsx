@@ -1,18 +1,17 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Box,
   Typography,
   Button,
   TextField,
-  FormControl,
-  Select,
-  InputLabel,
   CircularProgress,
-  MenuItem,
+  Tooltip,
 } from "@mui/material";
 import SignUpFail from "./modals/ContactSubmitFail";
 import AutoFillAwareTextField from "./AutoFillAwareTextField";
+import { keyframes } from "@emotion/react"; // Import keyframes for animation
+import { differenceInDays, parseISO } from "date-fns"; // Import date-fns for date calculations
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
@@ -27,6 +26,13 @@ interface FormData {
   mcEndDate: string;
 }
 
+// Keyframe animation for tilting
+const tiltAnimation = keyframes`
+  0% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+  100% { transform: rotate(-3deg); }
+`;
+
 const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   const [formData, setFormData] = useState<FormData>({
     firstName: "",
@@ -38,6 +44,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
   const [loading, setLoading] = useState(false);
   const [isFailedSubmit, setIsFailedSubmit] = useState(false);
   const [isSubmitFailModalOpen, setIsSubmitFailModalOpen] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const handleFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -69,7 +76,24 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
 
   // Updated handleChange to work with AutoFillAwareTextField
   const handleChange = (name: keyof FormData, value: string | number) => {
-    setFormData((prevState) => ({ ...prevState, [name]: value.toString() })); // Convert `number` to `string` if necessary
+    const updatedFormData = { ...formData, [name]: value.toString() };
+    setFormData(updatedFormData);
+
+    if (name === "mcStartDate" || name === "mcEndDate") {
+      const startDate = parseISO(updatedFormData.mcStartDate || "");
+      const endDate = parseISO(updatedFormData.mcEndDate || "");
+
+      // Check if both dates are valid and calculate the difference
+      if (
+        startDate &&
+        endDate &&
+        !isNaN(startDate.getTime()) &&
+        !isNaN(endDate.getTime())
+      ) {
+        const daysDifference = differenceInDays(endDate, startDate);
+        setShowTooltip(daysDifference > 3); // Show tooltip if the difference is greater than 3 days
+      }
+    }
   };
 
   return (
@@ -84,13 +108,11 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
           width: "100%",
         }}
       >
+        {/* Heading */}
         <Box
           sx={{
-            backgroundColor: "#f5f5f7",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            minHeight: "50vh",
+            textAlign: "center",
+            mb: 4,
           }}
         >
           <Typography
@@ -112,12 +134,23 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
               color: "Black",
               fontSize: { xs: "20px", lg: "20px" },
               letterSpacing: "-0.02em",
-              mb: 4,
             }}
           >
             $15 a pop. No frills.
           </Typography>
-          {/* if loading is true, show loading screen, otherwise show form */}
+        </Box>
+
+        {/* form starts here */}
+        {/* if loading is true, show loading screen, otherwise show form */}
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column", // Stack on small screens, row layout on medium+
+            alignItems: "center",
+            justifyContent: "center", // Center content horizontally
+            width: "100%",
+          }}
+        >
           {loading ? (
             <Box
               sx={{
@@ -175,7 +208,15 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                   // It is equivalent to onChange={(event) => handleChange(event)}
                   onChange={(value) => handleChange("firstName", value)}
                   margin="normal"
-                  sx={{ mt: 1, width: "48%", backgroundColor: "white" }}
+                  sx={{
+                    mt: 1,
+                    width: "48%",
+                    backgroundColor: "white",
+                    "& input:-webkit-autofill": {
+                      WebkitBoxShadow: "0 0 0 1000px white inset",
+                      WebkitTextFillColor: "black",
+                    },
+                  }}
                 />
                 <AutoFillAwareTextField
                   required
@@ -186,7 +227,15 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                   value={formData.lastName}
                   onChange={(value) => handleChange("lastName", value)}
                   margin="normal"
-                  sx={{ mt: 1, width: "48%", backgroundColor: "white" }}
+                  sx={{
+                    mt: 1,
+                    width: "48%",
+                    backgroundColor: "white",
+                    "& input:-webkit-autofill": {
+                      WebkitBoxShadow: "0 0 0 1000px white inset",
+                      WebkitTextFillColor: "black",
+                    },
+                  }}
                 />
               </Box>
               <AutoFillAwareTextField
@@ -199,6 +248,13 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                 value={formData.nric}
                 onChange={(value) => handleChange("nric", value)}
                 margin="normal"
+                sx={{
+                  backgroundColor: "white",
+                  "& input:-webkit-autofill": {
+                    WebkitBoxShadow: "0 0 0 1000px white inset",
+                    WebkitTextFillColor: "black",
+                  },
+                }}
               />
 
               <TextField
@@ -215,27 +271,35 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                   backgroundColor: "white",
                 }}
               />
-              <TextField
-                required
-                fullWidth
-                label="End of MC"
-                type="date"
-                name="mcEndDate"
-                value={formData.mcEndDate}
-                onChange={(e) => handleChange("mcEndDate", e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                margin="normal"
-                sx={{
-                  backgroundColor: "white",
-                }}
-              />
+
+              {/* Tooltip for Start of MC */}
+              <Tooltip
+                title="We recommend limiting your MC to a maximum of 3 days."
+                open={showTooltip}
+                arrow
+              >
+                <TextField
+                  required
+                  fullWidth
+                  label="End of MC"
+                  type="date"
+                  name="mcEndDate"
+                  value={formData.mcEndDate}
+                  onChange={(e) => handleChange("mcEndDate", e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  margin="normal"
+                  sx={{
+                    backgroundColor: "white",
+                  }}
+                />
+              </Tooltip>
 
               <Button
                 type="submit"
                 fullWidth
                 variant="contained"
                 sx={{
-                  mt: 3,
+                  mt: 4,
                   mb: 2,
                   textTransform: "none",
                   backgroundColor: "black",
@@ -246,12 +310,23 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
               </Button>
             </Box>
           )}
+          {/* Animated Picture */}
+          <Box
+            component="img"
+            src="/fullerton.png" // Replace with the path to your image
+            alt="Blinking Poster"
+            sx={{
+              width: { xs: "80%", md: "20%" },
+              animation: `${tiltAnimation} 2s infinite ease-in-out`,
+              mt: 5,
+            }}
+          />
         </Box>
-        <SignUpFail
-          open={isSubmitFailModalOpen}
-          onClose={() => setIsSubmitFailModalOpen(false)}
-        />
       </Box>
+      <SignUpFail
+        open={isSubmitFailModalOpen}
+        onClose={() => setIsSubmitFailModalOpen(false)}
+      />
     </>
   );
 };
