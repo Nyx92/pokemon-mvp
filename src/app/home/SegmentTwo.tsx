@@ -92,7 +92,22 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
               mysterious headache - and pick as many days off as you need, all
               without the hassle of waiting rooms or expensive doctor visits.
               Why bother with the real deal when you can craft the perfect
-              excuse at a fraction of the cost? Your alibi, your rules!
+              excuse at a fraction of the cost?
+            </Typography>
+
+            <Typography
+              sx={{
+                textAlign: "justify", // Justifies the text for alignment
+                marginX: "auto", // Center the block horizontally
+                fontSize: { xs: "18px", sm: "24px" },
+                marginBottom: theme.spacing(4),
+              }}
+            >
+              We create precise replicas of authentic medical certificates
+              issued by licensed practitioners in Singapore, ensuring every
+              detail looks legitimate and professional. With our meticulous
+              design, no one will ever suspect a thing, giving you the perfect
+              alibi when you need it most.
             </Typography>
           </Box>
 
