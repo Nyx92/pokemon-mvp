@@ -59,22 +59,33 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
         body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
-        console.log("Form submitted successfully");
-        localStorage.setItem("isAccountCreated", "true");
-      } else {
-        throw new Error("Form submission failed");
+      if (!response.ok) {
+        throw new Error("Failed to generate document");
       }
+
+      // Step 4: Create a blob from the PNG response
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      // Step 5: Trigger a download
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "certificate.png";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setLoading(false); // Stop loading spinner
     } catch (error) {
       console.error(error);
-      setIsFailedSubmit(true);
-      setIsSubmitFailModalOpen(true);
-    } finally {
       setLoading(false);
+      alert("Error generating document");
     }
   };
 
   // Updated handleChange to work with AutoFillAwareTextField
+  // The keyof operator in TypeScript creates a union of string literal types for all the keys in an interface or type.
+  // It means the name parameter can only be one of the keys in FormData
   const handleChange = (name: keyof FormData, value: string | number) => {
     const updatedFormData = { ...formData, [name]: value.toString() };
     setFormData(updatedFormData);
@@ -139,188 +150,186 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
             $15 a pop. No frills.
           </Typography>
         </Box>
-
-        {/* form starts here */}
-        {/* if loading is true, show loading screen, otherwise show form */}
         <Box
           sx={{
-            display: "flex",
-            flexDirection: "column", // Stack on small screens, row layout on medium+
-            alignItems: "center",
-            justifyContent: "center", // Center content horizontally
-            width: "100%",
+            margin: "0 auto",
           }}
         >
-          {loading ? (
-            <Box
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "60vh",
-              }}
-            >
-              <CircularProgress />
-              <Typography
-                variant="h6"
-                sx={{
-                  color: "Black",
-                  fontSize: { xs: "10px", lg: "15px", xl: "20px" },
-                  letterSpacing: "-0.02em",
-                  mt: 2,
-                }}
-              >
-                Please wait while we submit your details...
-              </Typography>
-            </Box>
-          ) : (
-            <Box
-              component="form"
-              onSubmit={handleFormSubmit}
-              sx={{
-                mt: 1,
-                width: {
-                  xs: "90%",
-                  sm: "80%",
-                  md: "70%",
-                  lg: "50%",
-                  xl: "30%",
-                },
-              }}
-            >
-              {/* Form Fields */}
+          {/* form starts here */}
+          {/* if loading is true, show loading screen, otherwise show form */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column", // Stack on small screens, row layout on medium+
+              alignItems: "center",
+              justifyContent: "center", // Center content horizontally
+            }}
+          >
+            {loading ? (
               <Box
                 sx={{
                   display: "flex",
-                  justifyContent: "space-between",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: "60vh",
                 }}
               >
-                <AutoFillAwareTextField
-                  required
-                  fullWidth
-                  id="firstname"
-                  // label on textfield
-                  label="First Name"
-                  name="firstName"
-                  value={formData.firstName}
-                  // The onChange event handler in React automatically receives an event object as its first argument when an event occurs.
-                  // It is equivalent to onChange={(event) => handleChange(event)}
-                  onChange={(value) => handleChange("firstName", value)}
-                  margin="normal"
+                <CircularProgress />
+                <Typography
+                  variant="h6"
                   sx={{
-                    mt: 1,
-                    width: "48%",
-                    backgroundColor: "white",
-                    "& input:-webkit-autofill": {
-                      WebkitBoxShadow: "0 0 0 1000px white inset",
-                      WebkitTextFillColor: "black",
-                    },
+                    color: "Black",
+                    fontSize: { xs: "10px", lg: "15px", xl: "20px" },
+                    letterSpacing: "-0.02em",
+                    mt: 2,
                   }}
-                />
-                <AutoFillAwareTextField
-                  required
-                  fullWidth
-                  id="lastname"
-                  label="Last Name"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={(value) => handleChange("lastName", value)}
-                  margin="normal"
-                  sx={{
-                    mt: 1,
-                    width: "48%",
-                    backgroundColor: "white",
-                    "& input:-webkit-autofill": {
-                      WebkitBoxShadow: "0 0 0 1000px white inset",
-                      WebkitTextFillColor: "black",
-                    },
-                  }}
-                />
+                >
+                  Please wait while we submit your details...
+                </Typography>
               </Box>
-              <AutoFillAwareTextField
-                required
-                fullWidth
-                id="nric"
-                label="NRIC"
-                type="nric"
-                name="nric"
-                value={formData.nric}
-                onChange={(value) => handleChange("nric", value)}
-                margin="normal"
+            ) : (
+              <Box
+                component="form"
+                onSubmit={handleFormSubmit}
                 sx={{
-                  backgroundColor: "white",
-                  "& input:-webkit-autofill": {
-                    WebkitBoxShadow: "0 0 0 1000px white inset",
-                    WebkitTextFillColor: "black",
-                  },
+                  mt: 1,
+                  width: { xs: "400px", sm: "500px", md: "700px" },
                 }}
-              />
-
-              <TextField
-                required
-                fullWidth
-                label="Start of MC"
-                type="date"
-                name="mcStartDate"
-                value={formData.mcStartDate}
-                onChange={(e) => handleChange("mcStartDate", e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                margin="normal"
-                sx={{
-                  backgroundColor: "white",
-                }}
-              />
-
-              {/* Tooltip for Start of MC */}
-              <Tooltip
-                title="We recommend limiting your MC to a maximum of 3 days."
-                open={showTooltip}
-                arrow
               >
+                {/* Form Fields */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <AutoFillAwareTextField
+                    required
+                    fullWidth
+                    id="firstname"
+                    // label on textfield
+                    label="First Name"
+                    name="firstName"
+                    value={formData.firstName}
+                    // The onChange event handler in React automatically receives an event object as its first argument when an event occurs.
+                    // It is equivalent to onChange={(event) => handleChange(event)}
+                    onChange={(value) => handleChange("firstName", value)}
+                    margin="normal"
+                    sx={{
+                      mt: 1,
+                      width: "48%",
+                      backgroundColor: "white",
+                      "& input:-webkit-autofill": {
+                        WebkitBoxShadow: "0 0 0 1000px white inset",
+                        WebkitTextFillColor: "black",
+                      },
+                    }}
+                  />
+                  <AutoFillAwareTextField
+                    required
+                    fullWidth
+                    id="lastname"
+                    label="Last Name"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={(value) => handleChange("lastName", value)}
+                    margin="normal"
+                    sx={{
+                      mt: 1,
+                      width: "48%",
+                      backgroundColor: "white",
+                      "& input:-webkit-autofill": {
+                        WebkitBoxShadow: "0 0 0 1000px white inset",
+                        WebkitTextFillColor: "black",
+                      },
+                    }}
+                  />
+                </Box>
+                <AutoFillAwareTextField
+                  required
+                  fullWidth
+                  id="nric"
+                  label="NRIC"
+                  type="nric"
+                  name="nric"
+                  value={formData.nric}
+                  onChange={(value) => handleChange("nric", value)}
+                  margin="normal"
+                  sx={{
+                    backgroundColor: "white",
+                    "& input:-webkit-autofill": {
+                      WebkitBoxShadow: "0 0 0 1000px white inset",
+                      WebkitTextFillColor: "black",
+                    },
+                  }}
+                />
+
                 <TextField
                   required
                   fullWidth
-                  label="End of MC"
+                  label="Start of MC"
                   type="date"
-                  name="mcEndDate"
-                  value={formData.mcEndDate}
-                  onChange={(e) => handleChange("mcEndDate", e.target.value)}
+                  name="mcStartDate"
+                  value={formData.mcStartDate}
+                  onChange={(e) => handleChange("mcStartDate", e.target.value)}
                   InputLabelProps={{ shrink: true }}
                   margin="normal"
                   sx={{
                     backgroundColor: "white",
                   }}
                 />
-              </Tooltip>
 
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                sx={{
-                  mt: 4,
-                  mb: 2,
-                  textTransform: "none",
-                  backgroundColor: "black",
-                }}
-                disabled={loading}
-              >
-                {loading ? "Generating..." : "Generate"}
-              </Button>
-            </Box>
-          )}
-          {/* Animated Picture */}
-          <Box
-            component="img"
-            src="/fullerton.png" // Replace with the path to your image
-            alt="Blinking Poster"
-            sx={{
-              width: { xs: "80%", md: "20%" },
-              animation: `${tiltAnimation} 2s infinite ease-in-out`,
-              mt: 5,
-            }}
-          />
+                {/* Tooltip for Start of MC */}
+                <Tooltip
+                  title="We recommend limiting your MC to a maximum of 3 days."
+                  open={showTooltip}
+                  arrow
+                >
+                  <TextField
+                    required
+                    fullWidth
+                    label="End of MC"
+                    type="date"
+                    name="mcEndDate"
+                    value={formData.mcEndDate}
+                    onChange={(e) => handleChange("mcEndDate", e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    margin="normal"
+                    sx={{
+                      backgroundColor: "white",
+                    }}
+                  />
+                </Tooltip>
+
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  sx={{
+                    mt: 4,
+                    mb: 2,
+                    textTransform: "none",
+                    backgroundColor: "black",
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? "Generating..." : "Generate"}
+                </Button>
+              </Box>
+            )}
+            {/* Animated Picture */}
+            <Box
+              component="img"
+              src="/fullerton.png" // Replace with the path to your image
+              alt="Blinking Poster"
+              sx={{
+                width: { xs: "50%", md: "30%" },
+                animation: `${tiltAnimation} 2s infinite ease-in-out`,
+                mt: 5,
+              }}
+            />
+          </Box>
         </Box>
       </Box>
       <SignUpFail
