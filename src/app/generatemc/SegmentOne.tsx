@@ -12,6 +12,7 @@ import SignUpFail from "./modals/ContactSubmitFail";
 import AutoFillAwareTextField from "./AutoFillAwareTextField";
 import { keyframes } from "@emotion/react"; // Import keyframes for animation
 import { differenceInDays, parseISO } from "date-fns"; // Import date-fns for date calculations
+import axios from "axios";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
@@ -48,26 +49,24 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
 
   const handleFormSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setLoading(true); // Start loading
+    setLoading(true);
 
     try {
-      const response = await fetch("/api/submitForm", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+      // By default, Axios assumes the response is in JSON format and attempts to parse it as such. Since the response from your server is a binary file (a PNG image in this case), you must explicitly tell Axios to treat the response as a blob (a raw binary object).
+      const response = await axios.post("/api/submitForm", formData, {
+        responseType: "blob", // Important to handle the binary response (PNG file)
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to generate document");
-      }
-
-      // Step 4: Create a blob from the PNG response
-      const blob = await response.blob();
+      // Create a blob from the response
+      // creating a new Blob allows you to explicitly set its type, without specifying the type, the file might not be handled correctly when displayed or downloaded.
+      const blob = new Blob([response.data], {
+        type: response.headers["content-type"],
+      });
+      // URL.createObjectURL(blob) generates a temporary URL that represents the data contained in the blob.
+      // This "Blob URL" serves as a reference to the raw data stored in memory, and by attaching it to an anchor (<a>) element with the download attribute, you effectively instruct the browser to: Recognize the Blob data as a file and allow the user to download the file when they click the link.
       const url = window.URL.createObjectURL(blob);
 
-      // Step 5: Trigger a download
+      // Trigger a download
       const link = document.createElement("a");
       link.href = url;
       link.download = "certificate.png";
@@ -75,7 +74,10 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       link.click();
       link.remove();
 
-      setLoading(false); // Stop loading spinner
+      // Revoke the object URL to release memory
+      URL.revokeObjectURL(url);
+
+      setLoading(false);
     } catch (error) {
       console.error(error);
       setLoading(false);
