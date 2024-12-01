@@ -14,7 +14,9 @@ interface FormData {
 }
 
 export default async function handler(
+  // req: NextApiRequest: Access the incoming request (e.g., body, query parameters, headers).
   req: NextApiRequest,
+  // res: NextApiResponse: Send a response back to the client (e.g., set HTTP status, send data).
   res: NextApiResponse
 ) {
   if (req.method === "POST") {
@@ -24,11 +26,18 @@ export default async function handler(
         req.body;
 
       // Step 2: Load the Word template (located in the `templates` directory)
+      // path is a Node.js core module used for handling and manipulating file and directory paths
+      // path.join joins multiple path segments into a single path string. It automatically handles the correct directory separator (/ or \) based on the operating system.
+      // In other words, templatePath combines the current/root working directory, "templates" folder, and "template.docx" file to get the full path.
       const templatePath = path.join(
-        process.cwd(),
-        "templates",
-        "template.docx"
+        process.cwd(), // Current working directory
+        "templates", // Directory name
+        "template.docx" // File name
       );
+
+      // fs stands for File System. It is a Node.js core module for interacting with the file system (reading, writing, deleting files, etc.).
+      // A synchronous method for reading the content of a file. It blocks the execution of the script until the file is fully read.
+      // The "binary" option tells Node.js to read the file as raw binary data instead of converting it to a string.
       const content = fs.readFileSync(templatePath, "binary");
 
       // Step 3: Load the template into Docxtemplater
