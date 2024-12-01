@@ -66,12 +66,17 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       // This "Blob URL" serves as a reference to the raw data stored in memory, and by attaching it to an anchor (<a>) element with the download attribute, you effectively instruct the browser to: Recognize the Blob data as a file and allow the user to download the file when they click the link.
       const url = window.URL.createObjectURL(blob);
 
-      // Trigger a download
+      // Creates an HTML <a> (anchor) element dynamically using JavaScript.
       const link = document.createElement("a");
+      // Assigns the temporary blob: URL to the href attribute of the <a> element.
       link.href = url;
+      // Sets the download attribute of the <a> element to "certificate.png".
       link.download = "certificate.png";
+      // Sets the download attribute of the <a> element to "certificate.png".
       document.body.appendChild(link);
+      // Simulates a user clicking the link.
       link.click();
+      //Removes the <a> element from the DOM after the download starts.
       link.remove();
 
       // Revoke the object URL to release memory
