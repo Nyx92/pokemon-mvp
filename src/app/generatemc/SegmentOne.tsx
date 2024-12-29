@@ -11,7 +11,7 @@ import {
 import SignUpFail from "./modals/ContactSubmitFail";
 import AutoFillAwareTextField from "./AutoFillAwareTextField";
 import { keyframes } from "@emotion/react"; // Import keyframes for animation
-import { differenceInDays, parseISO } from "date-fns"; // Import date-fns for date calculations
+import { differenceInDays, parseISO, format } from "date-fns"; // Import date-fns for date calculations
 import axios from "axios";
 
 // Define an interface for props if you expect to receive any props
@@ -25,6 +25,7 @@ interface FormData {
   nric: string;
   mcStartDate: string;
   mcEndDate: string;
+  days: string;
 }
 
 // Keyframe animation for tilting
@@ -41,6 +42,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
     nric: "",
     mcStartDate: "",
     mcEndDate: "",
+    days: "",
   });
   const [loading, setLoading] = useState(false);
   const [isFailedSubmit, setIsFailedSubmit] = useState(false);
@@ -52,8 +54,15 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
     setLoading(true);
 
     try {
+      // Prepare the form data with the date fields formatted
+      const formattedFormData = {
+        ...formData,
+        mcStartDate: format(parseISO(formData.mcStartDate), "dd MMM yy"),
+        mcEndDate: format(parseISO(formData.mcEndDate), "dd MMM yy"),
+      };
+
       // By default, Axios assumes the response is in JSON format and attempts to parse it as such. Since the response from your server is a binary file (a PNG image in this case), you must explicitly tell Axios to treat the response as a blob (a raw binary object).
-      const response = await axios.post("/api/submitForm", formData, {
+      const response = await axios.post("/api/submitForm", formattedFormData, {
         responseType: "blob", // Important to handle the binary response (PNG file)
       });
 
@@ -110,6 +119,12 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       ) {
         const daysDifference = differenceInDays(endDate, startDate);
         setShowTooltip(daysDifference > 3); // Show tooltip if the difference is greater than 3 days
+
+        // Add calculated days into form submission, to avoid having to calculate it again
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          days: daysDifference.toString(),
+        }));
       }
     }
   };
@@ -257,7 +272,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                   required
                   fullWidth
                   id="nric"
-                  label="NRIC"
+                  label="Last 4 digits of your NRIC (e.g., 777D)"
                   type="nric"
                   name="nric"
                   value={formData.nric}
