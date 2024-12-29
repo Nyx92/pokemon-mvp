@@ -3,8 +3,8 @@ import fs from "fs";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
 import { differenceInDays } from "date-fns";
+import { exec } from "child_process";
 import { NextApiRequest, NextApiResponse } from "next";
-import convertDocxToPdf from "docx-pdf";
 
 interface FormData {
   firstName: string;
@@ -12,6 +12,7 @@ interface FormData {
   nric: string;
   mcStartDate: string;
   mcEndDate: string;
+  days: string;
 }
 
 export default async function handler(
@@ -25,8 +26,14 @@ export default async function handler(
     try {
       // Step 1: Parse the form data from the request body
       // TypeScript will:Check that req.body contains these exact properties as specified in FormData
-      const { firstName, lastName, nric, mcStartDate, mcEndDate }: FormData =
-        req.body;
+      const {
+        firstName,
+        lastName,
+        nric,
+        mcStartDate,
+        mcEndDate,
+        days,
+      }: FormData = req.body;
 
       // Step 2: Load the Word template (located in the `templates` directory)
       // path is a Node.js core module used for handling and manipulating file and directory paths
@@ -52,62 +59,56 @@ export default async function handler(
         linebreaks: true,
       });
 
-      // Step 4: Replace placeholders in the template
-      // doc.setData({
-      //   name: `${firstName} ${lastName}`,
-      //   nric: nric,
-      //   startDate: mcStartDate,
-      //   endDate: mcEndDate,
-      //   days: `${
-      //     new Date(mcEndDate).getDate() - new Date(mcStartDate).getDate() + 1
-      //   }`,
-      // });
-
-      // Step 5: Render the document with replacements
+      // Step 4: Testing using some placeholders
       doc.render({
-        name: `testing`,
-        nric: `nric`,
-        startDate: `startDate`,
-        endDate: `endDate`,
-        days: `days`,
+        name: `${firstName} ${lastName}`,
+        nric: nric,
+        startDate: mcStartDate,
+        endDate: mcEndDate,
+        days: days,
       });
 
-      // Step 6: Generate the updated Word document
+      // Step 5: Generate the updated Word document
       const buffer = doc.getZip().generate({
         type: "nodebuffer", // Generate a Node.js buffer
       });
 
-      // Step 7: Save the updated document temporarily
+      // Step 6: Write the updated document to a temp folder
       const tempFolderPath = path.join(process.cwd(), "temp");
       if (!fs.existsSync(tempFolderPath)) {
         fs.mkdirSync(tempFolderPath);
       }
 
-      const outputPath = path.join(tempFolderPath, "output.docx");
-      fs.writeFileSync(outputPath, buffer);
+      // Step 7: Write the updated content to the temp folder
+      const outputDocxPath = path.join(tempFolderPath, "output.docx");
+      fs.writeFileSync(outputDocxPath, buffer);
 
-      // Step 8: Convert the .docx to .pdf
-      const pdfPath = path.join(tempFolderPath, "output.pdf");
+      const outputPngPath = path.join(tempFolderPath, "output.png");
+
+      // Step 8: Convert .docx to .png using LibreOffice CLI
       await new Promise<void>((resolve, reject) => {
-        convertDocxToPdf(outputPath, pdfPath, (err) => {
-          if (err) {
-            console.error("Error converting to PDF:", err);
-            reject(err);
-          } else {
-            resolve();
+        exec(
+          `libreoffice --headless --convert-to png --outdir ${tempFolderPath} ${outputDocxPath}`,
+          (err) => {
+            if (err) {
+              console.error("Error converting to PNG:", err);
+              reject(err);
+            } else {
+              resolve();
+            }
           }
-        });
+        );
       });
 
-      // Step 9: Send the PDF file to the client
-      const pdfBuffer = fs.readFileSync(pdfPath);
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", 'attachment; filename="output.pdf"');
-      res.send(pdfBuffer);
+      // Step 9: Send the PNG file to the client
+      const pngBuffer = fs.readFileSync(outputPngPath);
+      res.setHeader("Content-Type", "image/png");
+      res.setHeader("Content-Disposition", 'attachment; filename="output.png"');
+      res.send(pngBuffer);
 
-      // Clean up temporary files (optional)
-      fs.unlinkSync(outputPath);
-      fs.unlinkSync(pdfPath);
+      // Step 9: Cleanup temporary files
+      fs.unlinkSync(outputDocxPath);
+      fs.unlinkSync(outputPngPath);
     } catch (error) {
       console.error("Error generating document:", error);
       res.status(500).json({ error: "Error generating document" });
@@ -116,3 +117,14 @@ export default async function handler(
     res.status(405).json({ error: "Method Not Allowed" });
   }
 }
+
+// Step 4: Replace placeholders in the template
+// doc.setData({
+//   name: `${firstName} ${lastName}`,
+//   nric: nric,
+//   startDate: mcStartDate,
+//   endDate: mcEndDate,
+//   days: `${
+//     new Date(mcEndDate).getDate() - new Date(mcStartDate).getDate() + 1
+//   }`,
+// });
