@@ -26,6 +26,7 @@ interface FormData {
   mcStartDate: string;
   mcEndDate: string;
   days: string;
+  startDateNo: string;
 }
 
 // Keyframe animation for tilting
@@ -43,6 +44,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
     mcStartDate: "",
     mcEndDate: "",
     days: "",
+    startDateNo: "",
   });
   const [loading, setLoading] = useState(false);
   const [isFailedSubmit, setIsFailedSubmit] = useState(false);
@@ -59,6 +61,8 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
         ...formData,
         mcStartDate: format(parseISO(formData.mcStartDate), "dd MMM yy"),
         mcEndDate: format(parseISO(formData.mcEndDate), "dd MMM yy"),
+        firstName: formData.firstName.toUpperCase(),
+        lastName: formData.lastName.toUpperCase(),
       };
 
       // By default, Axios assumes the response is in JSON format and attempts to parse it as such. Since the response from your server is a binary file (a PNG image in this case), you must explicitly tell Axios to treat the response as a blob (a raw binary object).
@@ -117,13 +121,20 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
         !isNaN(startDate.getTime()) &&
         !isNaN(endDate.getTime())
       ) {
-        const daysDifference = differenceInDays(endDate, startDate);
+        const daysDifference = differenceInDays(endDate, startDate) + 1;
         setShowTooltip(daysDifference > 3); // Show tooltip if the difference is greater than 3 days
 
         // Add calculated days into form submission, to avoid having to calculate it again
         setFormData((prevFormData) => ({
           ...prevFormData,
           days: daysDifference.toString(),
+        }));
+
+        // Update `startDateNo` when `mcStartDate` changes
+        const startDateNo = format(startDate, "yyyyMMdd");
+        setFormData((prevFormData) => ({
+          ...prevFormData,
+          startDateNo,
         }));
       }
     }

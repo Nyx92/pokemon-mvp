@@ -5,6 +5,7 @@ import Docxtemplater from "docxtemplater";
 import { differenceInDays } from "date-fns";
 import { exec } from "child_process";
 import { NextApiRequest, NextApiResponse } from "next";
+import { doctors } from "../../app/shared-components/data/doctors";
 
 interface FormData {
   firstName: string;
@@ -12,7 +13,13 @@ interface FormData {
   nric: string;
   mcStartDate: string;
   mcEndDate: string;
+  startDateNo: string;
   days: string;
+  ran1: number;
+  ran2: number;
+  ran3: number;
+  ran4: number;
+  ran5: number;
 }
 
 export default async function handler(
@@ -25,7 +32,7 @@ export default async function handler(
   if (req.method === "POST") {
     try {
       // Step 1: Parse the form data from the request body
-      // TypeScript will:Check that req.body contains these exact properties as specified in FormData
+      // TypeScript will check that req.body contains these exact properties as specified in FormData
       const {
         firstName,
         lastName,
@@ -33,7 +40,18 @@ export default async function handler(
         mcStartDate,
         mcEndDate,
         days,
+        startDateNo,
       }: FormData = req.body;
+
+      // Generate random 3-digit numbers for ran1 to ran5
+      const ran1 = Math.floor(100 + Math.random() * 900);
+      const ran2 = Math.floor(100 + Math.random() * 900);
+      const ran3 = Math.floor(100 + Math.random() * 900);
+      const ran4 = Math.floor(100 + Math.random() * 900);
+      const ran5 = Math.floor(100 + Math.random() * 900);
+
+      // Select a random doctor from the list
+      const randomDoctor = doctors[Math.floor(Math.random() * doctors.length)];
 
       // Step 2: Load the Word template (located in the `templates` directory)
       // path is a Node.js core module used for handling and manipulating file and directory paths
@@ -59,13 +77,21 @@ export default async function handler(
         linebreaks: true,
       });
 
-      // Step 4: Testing using some placeholders
+      // Step 4: Dynamically replace values in word doc
       doc.render({
-        name: `${firstName} ${lastName}`,
+        name: `${lastName} ${firstName}`,
         nric: nric,
         startDate: mcStartDate,
         endDate: mcEndDate,
         days: days,
+        startDateNo: startDateNo,
+        ran1: ran1,
+        ran2: ran2,
+        ran3: ran3,
+        ran4: ran4,
+        ran5: ran5,
+        drName: randomDoctor.name,
+        drId: randomDoctor.id,
       });
 
       // Step 5: Generate the updated Word document
@@ -117,14 +143,3 @@ export default async function handler(
     res.status(405).json({ error: "Method Not Allowed" });
   }
 }
-
-// Step 4: Replace placeholders in the template
-// doc.setData({
-//   name: `${firstName} ${lastName}`,
-//   nric: nric,
-//   startDate: mcStartDate,
-//   endDate: mcEndDate,
-//   days: `${
-//     new Date(mcEndDate).getDate() - new Date(mcStartDate).getDate() + 1
-//   }`,
-// });
