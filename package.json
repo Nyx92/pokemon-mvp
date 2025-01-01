@@ -13,6 +13,7 @@
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^6.0.1",
     "@mui/material": "^6.0.1",
+    "@stripe/stripe-js": "^5.4.0",
     "axios": "^1.7.7",
     "date-fns": "^4.1.0",
     "docxtemplater": "^3.54.0",
@@ -25,6 +26,7 @@
     "react-intersection-observer": "^9.13.1",
     "recoil": "^0.7.7",
     "sharp": "^0.33.5",
+    "stripe": "^17.5.0",
     "swiper": "^11.1.14"
   },
   "devDependencies": {

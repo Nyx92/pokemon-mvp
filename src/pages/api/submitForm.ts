@@ -2,10 +2,12 @@ import path from "path";
 import fs from "fs";
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
-import { differenceInDays } from "date-fns";
 import { exec } from "child_process";
 import { NextApiRequest, NextApiResponse } from "next";
+import { Stripe } from "stripe";
 import { doctors } from "../../app/shared-components/data/doctors";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface FormData {
   firstName: string;
@@ -31,24 +33,37 @@ export default async function handler(
 ) {
   if (req.method === "POST") {
     try {
-      // Step 1: Parse the form data from the request body
-      // TypeScript will check that req.body contains these exact properties as specified in FormData
-      const {
-        firstName,
-        lastName,
-        nric,
-        mcStartDate,
-        mcEndDate,
-        days,
-        startDateNo,
-      }: FormData = req.body;
+      // Step 1: Retrieve the Stripe session ID from the request body
+      const { sessionId } = req.body;
 
-      // Generate random 3-digit numbers for ran1 to ran5
-      const ran1 = Math.floor(100 + Math.random() * 900);
-      const ran2 = Math.floor(100 + Math.random() * 900);
-      const ran3 = Math.floor(100 + Math.random() * 900);
-      const ran4 = Math.floor(100 + Math.random() * 900);
-      const ran5 = Math.floor(100 + Math.random() * 900);
+      if (!sessionId) {
+        return res.status(400).json({ error: "Missing Stripe session ID" });
+      }
+
+      // Step 2: Retrieve the session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      if (!session || !session.metadata) {
+        return res
+          .status(400)
+          .json({ error: "Invalid session or metadata missing" });
+      }
+
+      // Step 3: Extract metadata (form data) from the Stripe session
+      const formData: FormData = {
+        firstName: session.metadata.firstName!,
+        lastName: session.metadata.lastName!,
+        nric: session.metadata.nric!,
+        mcStartDate: session.metadata.mcStartDate!,
+        mcEndDate: session.metadata.mcEndDate!,
+        startDateNo: session.metadata.startDateNo!,
+        days: session.metadata.days!,
+        ran1: Math.floor(100 + Math.random() * 900),
+        ran2: Math.floor(100 + Math.random() * 900),
+        ran3: Math.floor(100 + Math.random() * 900),
+        ran4: Math.floor(100 + Math.random() * 900),
+        ran5: Math.floor(100 + Math.random() * 900),
+      };
 
       // Select a random doctor from the list
       const randomDoctor = doctors[Math.floor(Math.random() * doctors.length)];
@@ -79,17 +94,17 @@ export default async function handler(
 
       // Step 4: Dynamically replace values in word doc
       doc.render({
-        name: `${lastName} ${firstName}`,
-        nric: nric,
-        startDate: mcStartDate,
-        endDate: mcEndDate,
-        days: days,
-        startDateNo: startDateNo,
-        ran1: ran1,
-        ran2: ran2,
-        ran3: ran3,
-        ran4: ran4,
-        ran5: ran5,
+        name: `${formData.lastName} ${formData.firstName}`,
+        nric: formData.nric,
+        startDate: formData.mcStartDate,
+        endDate: formData.mcEndDate,
+        days: formData.days,
+        startDateNo: formData.startDateNo,
+        ran1: formData.ran1,
+        ran2: formData.ran2,
+        ran3: formData.ran3,
+        ran4: formData.ran4,
+        ran5: formData.ran5,
         drName: randomDoctor.name,
         drId: randomDoctor.id,
       });

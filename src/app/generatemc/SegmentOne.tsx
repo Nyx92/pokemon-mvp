@@ -12,7 +12,6 @@ import SignUpFail from "./modals/ContactSubmitFail";
 import AutoFillAwareTextField from "./AutoFillAwareTextField";
 import { keyframes } from "@emotion/react"; // Import keyframes for animation
 import { differenceInDays, parseISO, format } from "date-fns"; // Import date-fns for date calculations
-import axios from "axios";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
@@ -56,7 +55,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
     setLoading(true);
 
     try {
-      // Prepare the form data with the date fields formatted
+      // First prepare the form data with the date fields formatted
       const formattedFormData = {
         ...formData,
         mcStartDate: format(parseISO(formData.mcStartDate), "dd MMM yy"),
@@ -65,41 +64,21 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
         lastName: formData.lastName.toUpperCase(),
       };
 
-      // By default, Axios assumes the response is in JSON format and attempts to parse it as such. Since the response from your server is a binary file (a PNG image in this case), you must explicitly tell Axios to treat the response as a blob (a raw binary object).
-      const response = await axios.post("/api/submitForm", formattedFormData, {
-        responseType: "blob", // Important to handle the binary response (PNG file)
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ formattedFormData }),
       });
 
-      // Create a blob from the response
-      // creating a new Blob allows you to explicitly set its type, without specifying the type, the file might not be handled correctly when displayed or downloaded.
-      const blob = new Blob([response.data], {
-        type: response.headers["content-type"],
-      });
-      // URL.createObjectURL(blob) generates a temporary URL that represents the data contained in the blob.
-      // This "Blob URL" serves as a reference to the raw data stored in memory, and by attaching it to an anchor (<a>) element with the download attribute, you effectively instruct the browser to: Recognize the Blob data as a file and allow the user to download the file when they click the link.
-      const url = window.URL.createObjectURL(blob);
+      const { url } = await response.json();
 
-      // Creates an HTML <a> (anchor) element dynamically using JavaScript.
-      const link = document.createElement("a");
-      // Assigns the temporary blob: URL to the href attribute of the <a> element.
-      link.href = url;
-      // Sets the download attribute of the <a> element to "certificate.png".
-      link.download = "certificate.png";
-      // Sets the download attribute of the <a> element to "certificate.png".
-      document.body.appendChild(link);
-      // Simulates a user clicking the link.
-      link.click();
-      //Removes the <a> element from the DOM after the download starts.
-      link.remove();
-
-      // Revoke the object URL to release memory
-      URL.revokeObjectURL(url);
-
-      setLoading(false);
+      // Redirect user to Stripe Checkout
+      window.location.href = url;
     } catch (error) {
-      console.error(error);
+      console.error("Error initiating payment:", error);
+      alert("Payment initiation failed. Please try again.");
+    } finally {
       setLoading(false);
-      alert("Error generating document");
     }
   };
 
