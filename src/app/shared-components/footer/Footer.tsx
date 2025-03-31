@@ -1,3 +1,4 @@
+"use client";
 import {
   Box,
   Container,
@@ -9,8 +10,9 @@ import {
   AccordionDetails,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { forwardRef } from "react";
+import { forwardRef, useState } from "react";
 import "./Footer.css"; // Import your CSS file for media queries
+import TermsOfUse from "../../generatemc/modals/termsOfUse";
 
 // Define the type for FooterLink props
 interface FooterLinkProps {
@@ -25,6 +27,9 @@ interface FooterColumnProps {
     items: string[];
   }[];
 }
+
+// Define a union type for program names
+type FooterNames = "TermsOfUse";
 
 const FooterLink = ({ href, title }: FooterLinkProps) => (
   <Link
@@ -89,44 +94,58 @@ interface FooterProps {
 
 // Convert Footer component to TSX with forwardRef
 const Footer = forwardRef<HTMLDivElement, FooterProps>((props, ref) => {
+  // state to track the name of the currently active modal
+  const [activeModalName, setActiveModalName] = useState<FooterNames | "">("");
+  const [openModal, setOpenModal] = useState<boolean>(false);
+
+  // Create an object that maps button names to modal components
+  const modalComponentMap: Record<
+    FooterNames,
+    React.FC<{ open: boolean; onClose: () => void }>
+  > = {
+    TermsOfUse,
+  };
+
+  const renderModal = () => {
+    if (!activeModalName || !openModal) return null;
+    // based on current activeModalName - i.e., the button which was clicked
+    const ModalComponent = modalComponentMap[activeModalName as FooterNames];
+    if (!ModalComponent) return null; // In case there is no matching modal component
+
+    return <ModalComponent open={openModal} onClose={handleCloseModal} />;
+  };
+
+  const handleOpenModal = (modalName: FooterNames) => {
+    setActiveModalName(modalName);
+    setOpenModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setOpenModal(false);
+  };
   const footerColumns = [
+    // add as required
     {
       columnGroups: [
-        {
-          title: "Programmes",
-          items: ["daSH", "dancED"],
-        },
+        // {
+        //   title: "Programmes",
+        //   items: ["daSH", "dancED"],
+        // },
       ],
     },
-    {
-      columnGroups: [
-        {
-          title: "Classes",
-          items: [
-            "Mat Pilates",
-            "Fun-size movers",
-            "Creative Contemporary Dance",
-            "daSH residency",
-          ],
-        },
-      ],
-    },
-    {
-      columnGroups: [
-        {
-          title: "Blog",
-          items: ["Dance with us", "Business", "Ethics"],
-        },
-      ],
-    },
-    {
-      columnGroups: [
-        {
-          title: "HowOne's Values",
-          items: ["Ethos", "Responsibility", "Privacy"],
-        },
-      ],
-    },
+    // {
+    //   columnGroups: [
+    //     {
+    //       title: "Classes",
+    //       items: [
+    //         "Mat Pilates",
+    //         "Fun-size movers",
+    //         "Creative Contemporary Dance",
+    //         "daSH residency",
+    //       ],
+    //     },
+    //   ],
+    // },
   ];
 
   return (
@@ -137,7 +156,7 @@ const Footer = forwardRef<HTMLDivElement, FooterProps>((props, ref) => {
       sx={{ backgroundColor: "#f5f5f7", py: 4 }}
     >
       <Container maxWidth="lg">
-        <Divider sx={{ my: 4 }} />
+        {/* <Divider sx={{ my: 4 }} /> */}
         <Box
           sx={{
             display: "flex",
@@ -158,9 +177,8 @@ const Footer = forwardRef<HTMLDivElement, FooterProps>((props, ref) => {
         >
           Need to contact us?{" "}
           <Link href="#" color="inherit" underline="hover">
-            Click here to whatsapp us!
+            Click here to Email us!
           </Link>{" "}
-          Or call 1-800-HowOne.
         </Typography>
         <Divider sx={{ my: 1 }} />
         <Box
@@ -170,55 +188,24 @@ const Footer = forwardRef<HTMLDivElement, FooterProps>((props, ref) => {
           flexWrap="wrap"
         >
           <Typography variant="body2" color="text.secondary" align="left">
-            Copyright © 2023 HowOne Inc. All rights reserved.
+            Copyright © 2025 SG.MC Inc. All rights reserved.
           </Typography>
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
           <Link
-            href="#"
+            onClick={() => handleOpenModal("TermsOfUse")}
             color="inherit"
             underline="hover"
             fontSize={{ xs: 10, md: 15 }}
-          >
-            Privacy Policy
-          </Link>
-          <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
-          <Link
-            href="#"
-            color="inherit"
-            underline="hover"
-            fontSize={{ xs: 10, md: 15 }}
+            sx={{
+              cursor: "pointer", // Add pointer cursor on hover
+            }}
           >
             Terms of Use
           </Link>
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
-          <Link
-            href="#"
-            color="inherit"
-            underline="hover"
-            fontSize={{ xs: 10, md: 15 }}
-          >
-            Sales and Refunds
-          </Link>
-          <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
-          <Link
-            href="#"
-            color="inherit"
-            underline="hover"
-            fontSize={{ xs: 10, md: 15 }}
-          >
-            Legal
-          </Link>
-          <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
-          <Link
-            href="#"
-            color="inherit"
-            underline="hover"
-            fontSize={{ xs: 10, md: 15 }}
-          >
-            Site Map
-          </Link>
         </Box>
       </Container>
+      {renderModal()};
     </Box>
   );
 });

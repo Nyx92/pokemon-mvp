@@ -12,7 +12,6 @@ interface SegmentTwoProps {
 
 const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
   const theme = useTheme();
-  const scrollContainerRef = useRef(null);
 
   // Intersection Observer for the heading, to cause the elements to slide in when in view
   const { ref: headingRef, inView: headingInView } = useInView({
@@ -88,11 +87,10 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
               Feeling too 'sick' to face the daily grind? Whether it's dodging
               work, skipping school, or just taking that much-needed 'you' day,
               we’ve got you covered! Create your very own medical certificate in
-              minutes. Choose your symptoms—migraine, food poisoning, or that
-              mysterious headache - and pick as many days off as you need, all
-              without the hassle of waiting rooms or expensive doctor visits.
-              Why bother with the real deal when you can craft the perfect
-              excuse at a fraction of the cost?
+              minutes. Pick as many days off as you need, all without the hassle
+              of waiting rooms or expensive doctor visits. Why bother with the
+              real deal when you can craft the perfect excuse at a fraction of
+              the cost?
             </Typography>
 
             <Typography
@@ -103,16 +101,16 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
                 marginBottom: theme.spacing(4),
               }}
             >
-              We create precise replicas of authentic medical certificates
-              issued by licensed practitioners in Singapore, ensuring every
-              detail looks legitimate and professional. With our meticulous
-              design, no one will ever suspect a thing, giving you the perfect
-              alibi when you need it most.
+              We create precise replicas of medical certificates issued by
+              licensed practitioners in Singapore, ensuring every detail looks
+              legitimate and professional. With our meticulous design, no one
+              will ever suspect a thing, giving you the perfect alibi when you
+              need it most.
             </Typography>
           </Box>
 
           <Link
-            href="#"
+            href="/generatemc"
             sx={{
               color: "rgb(25, 118, 210)",
               textDecoration: "none",

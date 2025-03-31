@@ -8,10 +8,10 @@ import {
   CircularProgress,
   Tooltip,
 } from "@mui/material";
-import SignUpFail from "./modals/ContactSubmitFail";
 import AutoFillAwareTextField from "./AutoFillAwareTextField";
 import { keyframes } from "@emotion/react"; // Import keyframes for animation
 import { differenceInDays, parseISO, format } from "date-fns"; // Import date-fns for date calculations
+import TermsOfUse from "./modals/termsOfUse";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
@@ -46,12 +46,11 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
     startDateNo: "",
   });
   const [loading, setLoading] = useState(false);
-  const [isFailedSubmit, setIsFailedSubmit] = useState(false);
-  const [isSubmitFailModalOpen, setIsSubmitFailModalOpen] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [openModal, setOpenModal] = useState<boolean>(false);
 
-  const handleFormSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const handleFormSubmit = async (event?: React.FormEvent) => {
+    event?.preventDefault(); // Prevent default if the event is provided
     setLoading(true);
 
     try {
@@ -67,7 +66,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       const response = await fetch("/api/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ formattedFormData }),
+        body: JSON.stringify({ formData: formattedFormData }), // Send as 'formData'
       });
 
       const { url } = await response.json();
@@ -79,6 +78,27 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       alert("Payment initiation failed. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // This function is used to check if termsOfUse modal should be rendered, i.e., validated form, otherwise, report invalid fields
+  const handleFormSubmitWithValidation = (event: React.FormEvent) => {
+    event.preventDefault(); // Prevent default form submission
+    // Check if the form is valid using the browser's built-in validation
+    // event.currentTarget refers to the form element that triggered the onSubmit event.
+    // We cast it to HTMLFormElement using as HTMLFormElement to ensure TypeScript knows
+    // it’s a form element and provides proper type-checking and autocompletion for form-specific methods and properties.
+    const form = event.currentTarget as HTMLFormElement;
+    // form.checkValidity() is a built-in browser method that checks if all the form fields pass their validation constraints (e.g., required fields are filled, email fields are valid, etc.).
+    // It returns true if the form is valid and false if any field fails validation.
+    if (form.checkValidity()) {
+      // If the form is valid, open the modal
+      setOpenModal(true);
+    } else {
+      // If the form is invalid, trigger the browser's validation messages
+      // form.reportValidity() is a built-in browser method that triggers the browser's native validation messages.
+      // These messages will appear next to the problematic fields, informing the user what needs to be corrected.
+      form.reportValidity();
     }
   };
 
@@ -124,10 +144,10 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       <Box
         sx={{
           paddingTop: { xs: "30%", sm: "25%", md: "20%", lg: "12%", xl: "8%" },
-          backgroundColor: "#f5f5f7",
+          backgroundColor: "white",
           display: "flex",
           flexDirection: "column",
-          minHeight: { xs: "680px", sm: "750px" },
+          minHeight: { xs: "920px", lg: "950px" },
           width: "100%",
         }}
       >
@@ -159,7 +179,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
               letterSpacing: "-0.02em",
             }}
           >
-            $15 a pop. No frills.
+            $10 a pop. No frills.
           </Typography>
         </Box>
         <Box
@@ -203,7 +223,7 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
             ) : (
               <Box
                 component="form"
-                onSubmit={handleFormSubmit}
+                onSubmit={handleFormSubmitWithValidation}
                 sx={{
                   mt: 1,
                   width: { xs: "400px", sm: "500px", md: "700px" },
@@ -313,7 +333,6 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                     }}
                   />
                 </Tooltip>
-
                 <Button
                   type="submit"
                   fullWidth
@@ -328,26 +347,44 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
                 >
                   {loading ? "Generating..." : "Generate"}
                 </Button>
+                {/* <Button
+                  onClick={() => setOpenModal(true)}
+                  fullWidth
+                  variant="contained"
+                  sx={{
+                    mt: 4,
+                    mb: 2,
+                    textTransform: "none",
+                    backgroundColor: "black",
+                  }}
+                  disabled={loading}
+                >
+                  Submit
+                </Button> */}
               </Box>
             )}
             {/* Animated Picture */}
-            <Box
-              component="img"
-              src="/fullerton.png" // Replace with the path to your image
-              alt="Blinking Poster"
-              sx={{
-                width: { xs: "50%", md: "30%" },
-                animation: `${tiltAnimation} 2s infinite ease-in-out`,
-                mt: 5,
-              }}
-            />
+            {!loading && (
+              <Box
+                component="img"
+                src="/fullerton.png" // Replace with the path to your image
+                alt="Blinking Poster"
+                sx={{
+                  width: { xs: "50%", md: "30%" },
+                  animation: `${tiltAnimation} 2s infinite ease-in-out`,
+                  mt: 5,
+                }}
+              />
+            )}
           </Box>
         </Box>
+        <TermsOfUse
+          open={openModal}
+          onClose={() => setOpenModal(false)}
+          onAcknowledge={handleFormSubmit} // Pass handleFormSubmit to modal
+          showAcknowledge={true} // Pass prop to render the acknowledge button
+        />
       </Box>
-      <SignUpFail
-        open={isSubmitFailModalOpen}
-        onClose={() => setIsSubmitFailModalOpen(false)}
-      />
     </>
   );
 };
