@@ -59,20 +59,23 @@ const SegmentOne: React.FC<SegmentOneProps> = (props) => {
       </Box>
 
       <Box
-        component="video"
         className="slide-in"
         sx={{
-          width: "100%",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
           borderRadius: 5,
           boxShadow: 5,
-          outline: "none",
+          overflow: "hidden",
         }}
-        autoPlay
-        loop
-        muted
       >
-        <source src="/dance.mp4" type="video/mp4" />
-        Your browser does not support the video tag.
+        <iframe
+          src="https://giphy.com/embed/o28elTLxOjiRW"
+          width="720"
+          height="540"
+          style={{ border: "none" }}
+          allowFullScreen
+        ></iframe>
       </Box>
     </Box>
   );

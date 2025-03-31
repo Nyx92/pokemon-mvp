@@ -7,8 +7,6 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { Stripe } from "stripe";
 import { doctors } from "../../app/shared-components/data/doctors";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
 interface FormData {
   firstName: string;
   lastName: string;
@@ -33,31 +31,17 @@ export default async function handler(
 ) {
   if (req.method === "POST") {
     try {
-      // Step 1: Retrieve the Stripe session ID from the request body
-      const { sessionId } = req.body;
+      // Step 1: Extract form data from the request body
+      const inputData = req.body;
+      console.log("Submitted Form Data: ", inputData);
 
-      if (!sessionId) {
-        return res.status(400).json({ error: "Missing Stripe session ID" });
+      if (!inputData || !inputData.formData) {
+        return res.status(400).json({ error: "Missing form data" });
       }
 
-      // Step 2: Retrieve the session from Stripe
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-      if (!session || !session.metadata) {
-        return res
-          .status(400)
-          .json({ error: "Invalid session or metadata missing" });
-      }
-
-      // Step 3: Extract metadata (form data) from the Stripe session
-      const formData: FormData = {
-        firstName: session.metadata.firstName!,
-        lastName: session.metadata.lastName!,
-        nric: session.metadata.nric!,
-        mcStartDate: session.metadata.mcStartDate!,
-        mcEndDate: session.metadata.mcEndDate!,
-        startDateNo: session.metadata.startDateNo!,
-        days: session.metadata.days!,
+      // Step 2: Process and extend the extracted form data
+      const processedFormData: FormData = {
+        ...inputData.formData, // Access the nested formData
         ran1: Math.floor(100 + Math.random() * 900),
         ran2: Math.floor(100 + Math.random() * 900),
         ran3: Math.floor(100 + Math.random() * 900),
@@ -93,21 +77,24 @@ export default async function handler(
       });
 
       // Step 4: Dynamically replace values in word doc
-      doc.render({
-        name: `${formData.lastName} ${formData.firstName}`,
-        nric: formData.nric,
-        startDate: formData.mcStartDate,
-        endDate: formData.mcEndDate,
-        days: formData.days,
-        startDateNo: formData.startDateNo,
-        ran1: formData.ran1,
-        ran2: formData.ran2,
-        ran3: formData.ran3,
-        ran4: formData.ran4,
-        ran5: formData.ran5,
+      const renderValues = {
+        name: `${processedFormData.lastName} ${processedFormData.firstName}`,
+        nric: processedFormData.nric,
+        startDate: processedFormData.mcStartDate,
+        endDate: processedFormData.mcEndDate,
+        days: processedFormData.days,
+        startDateNo: processedFormData.startDateNo,
+        ran1: processedFormData.ran1,
+        ran2: processedFormData.ran2,
+        ran3: processedFormData.ran3,
+        ran4: processedFormData.ran4,
+        ran5: processedFormData.ran5,
         drName: randomDoctor.name,
         drId: randomDoctor.id,
-      });
+      };
+
+      // Pass the values to the document renderer
+      doc.render(renderValues);
 
       // Step 5: Generate the updated Word document
       const buffer = doc.getZip().generate({
@@ -120,21 +107,66 @@ export default async function handler(
         fs.mkdirSync(tempFolderPath);
       }
 
+      const uniqueId = Date.now(); // Generate a unique ID for the session
       // Step 7: Write the updated content to the temp folder
-      const outputDocxPath = path.join(tempFolderPath, "output.docx");
-      fs.writeFileSync(outputDocxPath, buffer);
+      const outputDocxPath = path.join(
+        tempFolderPath,
+        `output_${uniqueId}.docx`
+      );
 
-      const outputPngPath = path.join(tempFolderPath, "output.png");
+      console.log("Checking file exists at:", outputDocxPath);
+      console.log("File exists:", fs.existsSync(outputDocxPath));
+
+      fs.writeFileSync(outputDocxPath, buffer as unknown as Uint8Array); // Assert the buffer as Uint8Array
+
+      // const outputPngPath = path.join(tempFolderPath, "output.png");
+      const outputPngPath = path.join(tempFolderPath, `output_${uniqueId}.png`);
+
+      const validateFileAccess = async (
+        filePath: string,
+        retries = 5,
+        delay = 500
+      ) => {
+        for (let i = 0; i < retries; i++) {
+          if (fs.existsSync(filePath)) {
+            try {
+              await fs.promises.access(
+                filePath,
+                fs.constants.R_OK | fs.constants.W_OK
+              );
+              console.log("File is accessible:", filePath);
+              return;
+            } catch (err) {
+              console.warn(
+                `File not accessible yet (Attempt ${i + 1}/${retries})...`
+              );
+            }
+          }
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+        throw new Error(
+          `File not accessible after ${retries} attempts: ${filePath}`
+        );
+      };
+
+      // Validate before invoking LibreOffice
+      await validateFileAccess(outputDocxPath);
 
       // Step 8: Convert .docx to .png using LibreOffice CLI
       await new Promise<void>((resolve, reject) => {
         exec(
-          `libreoffice --headless --convert-to png --outdir ${tempFolderPath} ${outputDocxPath}`,
-          (err) => {
+          `libreoffice --headless --convert-to png --outdir ${path.dirname(
+            outputPngPath
+          )} ${outputDocxPath}`,
+          (err, stdout, stderr) => {
+            console.log("LibreOffice stdout:", stdout);
+            console.error("LibreOffice stderr:", stderr);
+
             if (err) {
-              console.error("Error converting to PNG:", err);
+              console.error("LibreOffice Conversion Error:", stderr);
               reject(err);
             } else {
+              console.log("LibreOffice Conversion Success:", stdout);
               resolve();
             }
           }
