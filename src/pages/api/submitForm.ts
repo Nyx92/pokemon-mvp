@@ -102,9 +102,14 @@ export default async function handler(
       });
 
       // Step 6: Write the updated document to a temp folder
-      const tempFolderPath = path.join(process.cwd(), "temp");
-      if (!fs.existsSync(tempFolderPath)) {
-        fs.mkdirSync(tempFolderPath);
+      const tempFolderPath =
+        process.platform === "win32"
+          ? path.join(process.cwd(), "temp")
+          : "/tmp";
+
+      // Ensure the temp folder exists (only needed for local Windows)
+      if (process.platform === "win32" && !fs.existsSync(tempFolderPath)) {
+        fs.mkdirSync(tempFolderPath, { recursive: true });
       }
 
       const uniqueId = Date.now(); // Generate a unique ID for the session
