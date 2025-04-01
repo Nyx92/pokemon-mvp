@@ -177,7 +177,7 @@ const TermsOfUse: React.FC<TermsOfUseProps> = ({
                       <Button
                         variant="contained"
                         onClick={() => {
-                          onAcknowledge(); // Call the callback
+                          if (onAcknowledge) onAcknowledge(); // Only call if defined
                           onClose(); // Close the modal
                         }}
                         sx={{
