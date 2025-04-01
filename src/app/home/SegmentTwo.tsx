@@ -84,13 +84,13 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
                 marginBottom: theme.spacing(4),
               }}
             >
-              Feeling too 'sick' to face the daily grind? Whether it's dodging
-              work, skipping school, or just taking that much-needed 'you' day,
-              we’ve got you covered! Create your very own medical certificate in
-              minutes. Pick as many days off as you need, all without the hassle
-              of waiting rooms or expensive doctor visits. Why bother with the
-              real deal when you can craft the perfect excuse at a fraction of
-              the cost?
+              Feeling too &#39;sick&#39; to face the daily grind? Whether
+              it&#39;s dodging work, skipping school, or just taking that
+              much-needed &#39;you&#39; day, we&#39;ve got you covered! Create
+              your very own medical certificate in minutes. Pick as many days
+              off as you need, all without the hassle of waiting rooms or
+              expensive doctor visits. Why bother with the real deal when you
+              can craft the perfect excuse at a fraction of the cost?
             </Typography>
 
             <Typography
