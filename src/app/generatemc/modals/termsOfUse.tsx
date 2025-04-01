@@ -14,7 +14,7 @@ import CloseIcon from "@mui/icons-material/Close";
 interface TermsOfUseProps {
   open: boolean;
   onClose: () => void;
-  onAcknowledge: () => void; // Callback for acknowledge button
+  onAcknowledge?: () => void; // Optional prop
   showAcknowledge?: boolean; // Prop to conditionally show the button
 }
 
