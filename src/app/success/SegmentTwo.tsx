@@ -86,11 +86,11 @@ const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
             >
               Your officially unofficial medical certificate is ready! 🎉
               Whether you needed a well-earned break, a strategic escape, or
-              just some "me time," we’ve got you covered. Rest easy knowing your
-              perfectly crafted excuse is in hand—now go forth and enjoy your
-              time off (responsibly, of course 😉). Stay healthy (or at least
-              look like it), and we’ll be here whenever you need another day to
-              recover from... life! 😏
+              just some &quot;me time,&quot; we’ve got you covered. Rest easy
+              knowing your perfectly crafted excuse is in hand—now go forth and
+              enjoy your time off (responsibly, of course 😉). Stay healthy (or
+              at least look like it), and we’ll be here whenever you need
+              another day to recover from... life! 😏
             </Typography>
           </Box>
         </Box>
