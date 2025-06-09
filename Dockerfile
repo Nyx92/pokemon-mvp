@@ -3,12 +3,17 @@
 # Use an official Node.js runtime as a parent image
 # FROM: Specifies the base image to use for the container.
 # node:18: Pulls the official Node.js Docker image with version 18. This image comes with Node.js and NPM pre-installed.
-FROM node:18
+FROM node:18-slim
 
 # Install necessary dependencies for LibreOffice and other potential needs
 # Combining the RUN instructions is generally better
 RUN apt-get update && \
-    apt-get install -y libreoffice
+    apt-get install -y --no-install-recommends \
+    libreoffice-writer \
+    libreoffice-impress \
+    libreoffice-base \
+    libreoffice-common \
+    fonts-freefont-ttf
 
 # Set the working directory inside the container
 # WORKDIR: Sets the current working directory inside the container to /usr/src/app.
