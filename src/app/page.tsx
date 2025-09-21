@@ -1,5 +1,5 @@
-import SegmentOne from "./home/SegmentOne";
 import SegmentTwo from "./home/SegmentTwo";
+import SegmentOne from "./home/segmentOne/SegmentOne";
 
 export default function Home() {
   return (
