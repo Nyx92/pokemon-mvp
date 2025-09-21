@@ -1,13 +1,15 @@
 {
-  "name": "howone",
+  "name": "pokemon-mvp",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.12.4",
   "scripts": {
+    "preinstall": "only-allow pnpm",
     "dev": "next dev -p 3000",
     "build": "next build",
-    "start": "next start -p 3001"
+    "start": "next start -p 3001",
+    "lint": "next lint"
   },
-  "lint": "next lint",
   "dependencies": {
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
@@ -37,6 +39,7 @@
     "@types/react-dom": "^18",
     "eslint": "^8",
     "eslint-config-next": "14.2.7",
+    "only-allow": "^1.2.1",
     "typescript": "^5"
   }
 }
