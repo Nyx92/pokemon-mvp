@@ -100,9 +100,9 @@ const TermsOfUse: React.FC<TermsOfUseProps> = ({
                   }}
                 >
                   <span style={{ color: "#6E6E73" }}>
-                    {"  "}Welcome to SG.MC (the “Service”). By accessing or
-                    using this Service, you agree to comply with and be bound by
-                    these Terms of Use (“Terms”). Please read these Terms
+                    {"  "}Welcome to PLACEHOLDER (the “Service”). By accessing
+                    or using this Service, you agree to comply with and be bound
+                    by these Terms of Use (“Terms”). Please read these Terms
                     carefully before using the Service. If you do not agree to
                     these Terms, you may not access or use the Service. By using
                     this Service, you acknowledge that you have read,
@@ -141,7 +141,7 @@ const TermsOfUse: React.FC<TermsOfUseProps> = ({
                     documentation. Use the Service in any way that violates
                     applicable local, national, or international laws or
                     regulations. Exploit the Service for purposes that could
-                    damage the reputation of SG.MC or its operators.
+                    damage the reputation of PLACEHOLDER or its operators.
                     <br></br>
                     <br></br>
                   </span>
@@ -158,11 +158,11 @@ const TermsOfUse: React.FC<TermsOfUseProps> = ({
                     <br></br>
                     <br></br>
                     Indemnification: You agree to indemnify and hold harmless
-                    SG.MC, its creators, operators, employees, and affiliates
-                    from and against any claims, damages, losses, liabilities,
-                    costs, or expenses (including legal fees) resulting from
-                    your use of the Service or Generated Content in violation of
-                    these Terms.
+                    PLACEHOLDER, its creators, operators, employees, and
+                    affiliates from and against any claims, damages, losses,
+                    liabilities, costs, or expenses (including legal fees)
+                    resulting from your use of the Service or Generated Content
+                    in violation of these Terms.
                     <br></br>
                     <br></br>
                   </span>

@@ -22,7 +22,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <RecoilProvider>
           <NavBar />
-          {children}
+          <main style={{ paddingTop: "60px" }}>{children}</main>
           <Footer />
         </RecoilProvider>{" "}
         {/* Wrap with Recoil */}

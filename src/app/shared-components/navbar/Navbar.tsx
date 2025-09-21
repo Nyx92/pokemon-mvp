@@ -11,6 +11,7 @@ import {
   AppBar,
   IconButton,
   Theme,
+  Typography,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { APP_BAR_HEIGHT } from "./constants";
@@ -26,7 +27,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { MenuKey } from "./DropdownStoreData";
 
 // Add "Blog" here if required
-const pages: MenuKey[] = ["GenerateMC"];
+const pages: MenuKey[] = ["Login"];
 // Toggle this flag to enable or disable navbar effects
 const disableNavEffects = true;
 
@@ -61,15 +62,15 @@ const NavBar: React.FC = () => {
     ? // .css file contains slide animation
       "slideDown 1s forwards"
     : // prevents default slide up on load because state is by default, false
-    hasInteractedNav
-    ? "slideUp .5s forwards"
-    : "none";
+      hasInteractedNav
+      ? "slideUp .5s forwards"
+      : "none";
 
   const dropdownAnimationMenu = anchorElMenuNav
     ? "slideDown 1s forwards"
     : hasInteractedMenu
-    ? "slideUp .5s forwards"
-    : "none";
+      ? "slideUp .5s forwards"
+      : "none";
 
   // to prevent navbar dropdown to immediately fire on menu button click
   useEffect(() => {
@@ -242,13 +243,13 @@ const NavBar: React.FC = () => {
           backgroundColor: anchorElMenuNav
             ? "black" // If anchorElMenuNav is true, set AppBar background to black immediately
             : anchorElNav
-            ? "black" // If anchorElNav is true, set AppBar background to black
-            : "rgba(22, 22, 23, .8)", // Default background color when neither is true
+              ? "black" // If anchorElNav is true, set AppBar background to black
+              : "rgba(22, 22, 23, .8)", // Default background color when neither is true
           transition: anchorElMenuNav
             ? "none" // No transition for anchorElMenuNav to change color immediately
             : anchorElNav
-            ? "background-color 0.3s" // Transition speed when anchorElNav is true
-            : "background-color 0.5s 0.3s", // Transition with delay when anchorElNav is false
+              ? "background-color 0.3s" // Transition speed when anchorElNav is true
+              : "background-color 0.5s 0.3s", // Transition with delay when anchorElNav is false
           display: "flex",
           justifyContent: "center",
         }}
@@ -296,7 +297,8 @@ const NavBar: React.FC = () => {
                   </IconButton>
                 ) : (
                   <Link href="/" underline="none">
-                    <Box
+                    {/* change to logo if applicable */}
+                    {/* <Box
                       aria-label="DevIcon"
                       component="img"
                       src="/logowhite.png"
@@ -305,7 +307,17 @@ const NavBar: React.FC = () => {
                         width: "100px",
                         cursor: "pointer", // Adds a pointer cursor on hover to indicate clickability
                       }}
-                    />
+                    /> */}
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        fontWeight: "bold",
+                        color: "white",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Logo here
+                    </Typography>
                   </Link>
                 )}
               </Box>

@@ -188,7 +188,7 @@ const Footer = forwardRef<HTMLDivElement, FooterProps>((props, ref) => {
           flexWrap="wrap"
         >
           <Typography variant="body2" color="text.secondary" align="left">
-            Copyright © 2025 SG.MC Inc. All rights reserved.
+            Copyright © 2025 PLACEHOLDER Inc. All rights reserved.
           </Typography>
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
           <Link

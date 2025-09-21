@@ -1,131 +1,244 @@
 "use client";
-import { useRef } from "react";
-import { useInView } from "react-intersection-observer";
-import { Box, Typography, Link } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
-import { keyframes } from "@mui/system";
 
-// Define an interface for props if you expect to receive any props
-interface SegmentTwoProps {
-  // add if required
+import React from "react";
+import Link from "next/link";
+import {
+  Box,
+  Card,
+  CardContent,
+  CardMedia,
+  Typography,
+  Grid,
+} from "@mui/material";
+
+interface Product {
+  id: number;
+  title: string;
+  price: number;
+  condition: "New" | "Used";
+  image: string;
+  url: string;
 }
 
-const SegmentTwo: React.FC<SegmentTwoProps> = (props) => {
-  const theme = useTheme();
+const products: Product[] = [
+  {
+    id: 1,
+    title: "Charizard VMAX",
+    price: 120,
+    condition: "New",
+    image: "/cards/charizard.png",
+    url: "/product/1",
+  },
+  {
+    id: 2,
+    title: "Pikachu Promo (McDonald's)",
+    price: 15.5,
+    condition: "Used",
+    image: "/cards/pikachu.png",
+    url: "/product/2",
+  },
+  {
+    id: 3,
+    title: "Mewtwo EX",
+    price: 40,
+    condition: "New",
+    image: "/cards/mewtwo.png",
+    url: "/product/3",
+  },
+  {
+    id: 4,
+    title: "Snorlax V",
+    price: 25,
+    condition: "New",
+    image: "/cards/snorlax.png",
+    url: "/product/4",
+  },
+  {
+    id: 5,
+    title: "Eevee GX",
+    price: 30,
+    condition: "Used",
+    image: "/cards/eevee.png",
+    url: "/product/5",
+  },
+  {
+    id: 6,
+    title: "Blastoise Holo Rare",
+    price: 80,
+    condition: "New",
+    image: "/cards/blastoise.png",
+    url: "/product/6",
+  },
+  {
+    id: 7,
+    title: "Venusaur V",
+    price: 55,
+    condition: "Used",
+    image: "/cards/venusaur.png",
+    url: "/product/7",
+  },
+  {
+    id: 8,
+    title: "Gyarados EX",
+    price: 35,
+    condition: "New",
+    image: "/cards/gyarados.png",
+    url: "/product/8",
+  },
+  {
+    id: 9,
+    title: "Alakazam Holo",
+    price: 45,
+    condition: "Used",
+    image: "/cards/alakazam.png",
+    url: "/product/9",
+  },
+  {
+    id: 10,
+    title: "Jigglypuff Promo",
+    price: 12,
+    condition: "New",
+    image: "/cards/jigglypuff.png",
+    url: "/product/10",
+  },
+  {
+    id: 11,
+    title: "Dragonite VSTAR",
+    price: 65,
+    condition: "New",
+    image: "/cards/dragonite.png",
+    url: "/product/11",
+  },
+  {
+    id: 12,
+    title: "Machamp Holo Rare",
+    price: 22,
+    condition: "Used",
+    image: "/cards/machamp.png",
+    url: "/product/12",
+  },
+  {
+    id: 13,
+    title: "Zapdos EX",
+    price: 50,
+    condition: "New",
+    image: "/cards/zapdos.png",
+    url: "/product/13",
+  },
+  {
+    id: 14,
+    title: "Moltres Promo",
+    price: 42,
+    condition: "Used",
+    image: "/cards/moltres.png",
+    url: "/product/14",
+  },
+  {
+    id: 15,
+    title: "Articuno GX",
+    price: 48,
+    condition: "New",
+    image: "/cards/articuno.png",
+    url: "/product/15",
+  },
+  {
+    id: 16,
+    title: "Gengar Holo",
+    price: 38,
+    condition: "New",
+    image: "/cards/gengar.png",
+    url: "/product/16",
+  },
+  {
+    id: 17,
+    title: "Lucario VSTAR",
+    price: 28,
+    condition: "Used",
+    image: "/cards/lucario.png",
+    url: "/product/17",
+  },
+  {
+    id: 18,
+    title: "Sylveon V",
+    price: 34,
+    condition: "New",
+    image: "/cards/sylveon.png",
+    url: "/product/18",
+  },
+  {
+    id: 19,
+    title: "Umbreon GX",
+    price: 70,
+    condition: "Used",
+    image: "/cards/umbreon.png",
+    url: "/product/19",
+  },
+  {
+    id: 20,
+    title: "Espeon EX",
+    price: 65,
+    condition: "New",
+    image: "/cards/espeon.png",
+    url: "/product/20",
+  },
+];
 
-  // Intersection Observer for the heading, to cause the elements to slide in when in view
-  const { ref: headingRef, inView: headingInView } = useInView({
-    triggerOnce: true, // Trigger animation only once
-    threshold: 0.1, // Trigger when 10% of the element is in view
-  });
-
-  const slideInFromBottomTypography = keyframes`
-    from {
-      transform: translateY(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  `;
-
+const SegmentTwo = () => {
   return (
-    <Box
-      sx={{
-        marginX: "auto", // Automatically adjust the horizontal margins
-        width: "80%",
-        marginTop: theme.spacing(8),
-        marginBottom: theme.spacing(8),
-      }}
-    >
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Box
-          ref={headingRef}
-          sx={{
-            width: { xs: "100%", sm: "80%" },
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: theme.spacing(4),
-            animation: headingInView
-              ? `${slideInFromBottomTypography} 1s ease-out both`
-              : "",
-          }}
-        >
-          <Typography
-            sx={{
-              fontSize: { xs: "20px", md: "30px", lg: "40px" },
-              fontWeight: "bold",
-              marginBottom: theme.spacing(4),
-              textAlign: "center", // Centers the text within Typography
-            }}
-          >
-            Looking for a place to generate a medical certificate?
-          </Typography>
+    <Box sx={{ px: 4, py: 6 }}>
+      <Typography variant="h4" fontWeight="bold" gutterBottom>
+        Pokémon Card Inventory
+      </Typography>
 
-          <Box
-            sx={{
-              width: "90%",
-            }}
-          >
-            <Typography
-              sx={{
-                textAlign: "justify", // Justifies the text for alignment
-                marginX: "auto", // Center the block horizontally
-                fontSize: { xs: "18px", sm: "24px" },
-                marginBottom: theme.spacing(4),
-              }}
-            >
-              Feeling too &#39;sick&#39; to face the daily grind? Whether
-              it&#39;s dodging work, skipping school, or just taking that
-              much-needed &#39;you&#39; day, we&#39;ve got you covered! Create
-              your very own medical certificate in minutes. Pick as many days
-              off as you need, all without the hassle of waiting rooms or
-              expensive doctor visits. Why bother with the real deal when you
-              can craft the perfect excuse at a fraction of the cost?
-            </Typography>
+      <Grid container spacing={2}>
+        {products.map((product) => (
+          <Grid key={product.id} item xs={6} sm={4} md={2}>
+            <Link href={product.url} style={{ textDecoration: "none" }}>
+              <Card
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  boxShadow: 2,
+                  borderRadius: 2,
+                  "&:hover": { boxShadow: 5, transform: "scale(1.02)" },
+                  transition: "0.2s",
+                }}
+              >
+                {/* Image section */}
+                <CardMedia
+                  component="img"
+                  image={product.image}
+                  alt={product.title}
+                  sx={{
+                    height: 280,
+                    objectFit: "contain",
+                    backgroundColor: "#f8f8f8",
+                  }}
+                />
 
-            <Typography
-              sx={{
-                textAlign: "justify", // Justifies the text for alignment
-                marginX: "auto", // Center the block horizontally
-                fontSize: { xs: "18px", sm: "24px" },
-                marginBottom: theme.spacing(4),
-              }}
-            >
-              We create precise replicas of medical certificates issued by
-              licensed practitioners in Singapore, ensuring every detail looks
-              legitimate and professional. With our meticulous design, no one
-              will ever suspect a thing, giving you the perfect alibi when you
-              need it most.
-            </Typography>
-          </Box>
-
-          <Link
-            href="/generatemc"
-            sx={{
-              color: "rgb(25, 118, 210)",
-              textDecoration: "none",
-              fontSize: { xs: "18px", sm: "24px" },
-              display: "inline-block",
-              marginRight: "20px",
-              "&:hover": {
-                textDecoration: "underline",
-              },
-            }}
-          >
-            Generate now!
-          </Link>
-        </Box>
-      </Box>
+                {/* Content */}
+                <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
+                  <Typography variant="subtitle2" fontWeight="bold" noWrap>
+                    {product.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Condition: {product.condition}
+                  </Typography>
+                  <Typography
+                    variant="subtitle1"
+                    fontWeight="bold"
+                    color="primary"
+                    sx={{ mt: 0.5 }}
+                  >
+                    ${product.price.toFixed(2)}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Link>
+          </Grid>
+        ))}
+      </Grid>
     </Box>
   );
 };
