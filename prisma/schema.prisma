@@ -1,0 +1,76 @@
+// prisma/schema.prisma
+
+// This block generates the Prisma Client (your typesafe database client)
+// and puts it in `src/generated/prisma` so you can import it in your code.
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// Datasource tells Prisma what DB you’re connecting to.
+// In this case: PostgreSQL, connection string in .env
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Main user table.
+// NextAuth requires `id`, `email`, `name`, `image`, etc.
+// We added `password` so you can later support credentials-based login.
+// Relations: a user can have multiple accounts (e.g., Google, GitHub) and sessions.
+model User {
+  id            String   @id @default(cuid()) // safer than Int
+  name          String?
+  email         String    @unique                      // required + unique
+  password      String                                // required
+  role          String    @default("user")             // keep role
+  emailVerified DateTime?                             // new for NextAuth
+  image         String?                               // new for NextAuth
+
+  accounts      Account[]
+  sessions      Session[]
+}
+
+
+// Stores provider account details (e.g. Google, GitHub, etc.)
+// Links back to User via userId
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// Stores active sessions
+// Each login creates a session with an expiry time
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  // Relation back to User
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// For email login flows (magic links, passwordless login, etc.)
+// Stores one-time-use tokens
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

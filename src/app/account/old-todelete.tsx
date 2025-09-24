@@ -8,10 +8,10 @@ import {
   CircularProgress,
   Tooltip,
 } from "@mui/material";
-import AutoFillAwareTextField from "./AutoFillAwareTextField";
+import AutoFillAwareTextField from "../shared-components/AutoFillAwareTextField";
 import { keyframes } from "@emotion/react"; // Import keyframes for animation
 import { differenceInDays, parseISO, format } from "date-fns"; // Import date-fns for date calculations
-import TermsOfUse from "./modals/termsOfUse";
+import TermsOfUse from "../shared-components/footer/modals/termsOfUse";
 
 // Define an interface for props if you expect to receive any props
 interface SegmentOneProps {
