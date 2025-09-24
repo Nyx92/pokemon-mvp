@@ -12,7 +12,7 @@ import {
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { forwardRef, useState } from "react";
 import "./Footer.css"; // Import your CSS file for media queries
-import TermsOfUse from "../../generatemc/modals/termsOfUse";
+import TermsOfUse from "./modals/termsOfUse";
 
 // Define the type for FooterLink props
 interface FooterLinkProps {
