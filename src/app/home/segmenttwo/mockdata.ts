@@ -1,16 +1,3 @@
-"use client";
-
-import React from "react";
-import Link from "next/link";
-import {
-  Box,
-  Card,
-  CardContent,
-  CardMedia,
-  Typography,
-  Grid,
-} from "@mui/material";
-
 interface Product {
   id: number;
   title: string;
@@ -20,7 +7,7 @@ interface Product {
   url: string;
 }
 
-const products: Product[] = [
+export const products: Product[] = [
   {
     id: 1,
     title: "Charizard VMAX",
@@ -182,65 +169,3 @@ const products: Product[] = [
     url: "/product/20",
   },
 ];
-
-const SegmentTwo = () => {
-  return (
-    <Box sx={{ px: 4, py: 6 }}>
-      <Typography variant="h4" fontWeight="bold" gutterBottom>
-        Pokémon Card Inventory
-      </Typography>
-
-      <Grid container spacing={2}>
-        {products.map((product) => (
-          <Grid key={product.id} item xs={6} sm={4} md={2}>
-            <Link href={product.url} style={{ textDecoration: "none" }}>
-              <Card
-                sx={{
-                  height: "100%",
-                  display: "flex",
-                  flexDirection: "column",
-                  boxShadow: 2,
-                  borderRadius: 2,
-                  "&:hover": { boxShadow: 5, transform: "scale(1.02)" },
-                  transition: "0.2s",
-                }}
-              >
-                {/* Image section */}
-                <CardMedia
-                  component="img"
-                  image={product.image}
-                  alt={product.title}
-                  sx={{
-                    height: 280,
-                    objectFit: "contain",
-                    backgroundColor: "#f8f8f8",
-                  }}
-                />
-
-                {/* Content */}
-                <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
-                  <Typography variant="subtitle2" fontWeight="bold" noWrap>
-                    {product.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Condition: {product.condition}
-                  </Typography>
-                  <Typography
-                    variant="subtitle1"
-                    fontWeight="bold"
-                    color="primary"
-                    sx={{ mt: 0.5 }}
-                  >
-                    ${product.price.toFixed(2)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Link>
-          </Grid>
-        ))}
-      </Grid>
-    </Box>
-  );
-};
-
-export default SegmentTwo;
