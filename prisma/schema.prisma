@@ -19,18 +19,21 @@ datasource db {
 // We added `password` so you can later support credentials-based login.
 // Relations: a user can have multiple accounts (e.g., Google, GitHub) and sessions.
 model User {
-  id            String   @id @default(cuid()) // safer than Int
+  id            String   @id @default(cuid())
   name          String?
-  email         String    @unique                      // required + unique
-  password      String                                // required
-  role          String    @default("user")             // keep role
-  emailVerified DateTime?                             // new for NextAuth
-  image         String?                               // new for NextAuth
+  email         String   @unique
+  password      String
+  role          String   @default("user")
+  emailVerified DateTime?
+  image         String?
+
+  // New fields
+  address       String?   // optional so it won’t break existing rows
+  phoneNumber   String?   // optional too
 
   accounts      Account[]
   sessions      Session[]
 }
-
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
 // Links back to User via userId

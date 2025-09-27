@@ -14,6 +14,8 @@ async function main() {
       email: "ash@pokemon.com",
       password: "pikachu1234", // ⚠️ plain text for now, hash later with bcrypt
       role: "user",
+      address: "some address",
+      phoneNumber: "some phoneNumber",
     },
   });
 
