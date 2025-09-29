@@ -8,12 +8,12 @@ import {
   Button,
   CircularProgress,
   Divider,
+  TextField,
 } from "@mui/material";
 
 import DescriptionBar, {
   DescriptionLabel,
 } from "../../shared-components/DescriptionBar";
-import AutoFillAwareTextField from "../../shared-components/AutoFillAwareTextField";
 
 const descriptionBarLabels: DescriptionLabel[] = [
   { title: "Pokemon ID", link: "/signUp" },
@@ -79,7 +79,7 @@ export default function SignInPage() {
             textAlign: "left",
           }}
         >
-          Sign in for faster checkout.
+          Sign in to view your profile
         </Typography>
 
         {/* Centered Form Section */}
@@ -87,6 +87,8 @@ export default function SignInPage() {
           sx={{
             display: "flex",
             justifyContent: "center",
+            minHeight: "50vh",
+            alignItems: "center", // ✅ horizontal center
           }}
         >
           <Box
@@ -108,31 +110,61 @@ export default function SignInPage() {
             </Typography>
 
             <form onSubmit={handleSubmit}>
-              <AutoFillAwareTextField
+              <TextField
                 fullWidth
                 id="email"
                 label="Email"
                 variant="outlined"
                 helperText={isFailedLogin ? "Invalid username or password" : ""}
                 value={email}
-                onChange={setEmail}
+                onChange={(e) => setEmail(e.target.value)}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
                 sx={{
-                  mb: 2,
+                  margin: "10px 0",
                   input: { backgroundColor: "white" },
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: isFailedLogin ? "red" : "grey.300",
+                    },
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "primary.main",
+                    borderWidth: "2px",
+                  },
+                  "& .MuiFormHelperText-root": {
+                    color: "red !important",
+                  },
                 }}
               />
 
-              <AutoFillAwareTextField
+              <TextField
                 fullWidth
                 id="password"
                 label="Password"
                 type={showPassword ? "text" : "password"}
                 variant="outlined"
                 value={password}
-                onChange={setPassword}
+                onChange={(e) => setPassword(e.target.value)}
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
                 sx={{
-                  mb: 2,
                   input: { backgroundColor: "white" },
+                  "& .MuiOutlinedInput-root": {
+                    "& fieldset": {
+                      borderColor: isFailedLogin ? "red" : "grey.300",
+                    },
+                    "&.Mui-focused fieldset": {
+                      borderColor: "primary.main",
+                      borderWidth: "2px",
+                    },
+                  },
                 }}
               />
 
