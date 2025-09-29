@@ -13,7 +13,7 @@ export const products: Product[] = [
     title: "Charizard VMAX",
     price: 120,
     condition: "New",
-    image: "/cards/charizard.png",
+    image: "/mock_inventory.png",
     url: "/product/1",
   },
   {
@@ -21,7 +21,7 @@ export const products: Product[] = [
     title: "Pikachu Promo (McDonald's)",
     price: 15.5,
     condition: "Used",
-    image: "/cards/pikachu.png",
+    image: "/mock_inventory.png",
     url: "/product/2",
   },
   {
@@ -29,7 +29,7 @@ export const products: Product[] = [
     title: "Mewtwo EX",
     price: 40,
     condition: "New",
-    image: "/cards/mewtwo.png",
+    image: "/mock_inventory.png",
     url: "/product/3",
   },
   {
@@ -37,7 +37,7 @@ export const products: Product[] = [
     title: "Snorlax V",
     price: 25,
     condition: "New",
-    image: "/cards/snorlax.png",
+    image: "/mock_inventory.png",
     url: "/product/4",
   },
   {
@@ -45,7 +45,7 @@ export const products: Product[] = [
     title: "Eevee GX",
     price: 30,
     condition: "Used",
-    image: "/cards/eevee.png",
+    image: "/mock_inventory.png",
     url: "/product/5",
   },
   {
@@ -53,7 +53,7 @@ export const products: Product[] = [
     title: "Blastoise Holo Rare",
     price: 80,
     condition: "New",
-    image: "/cards/blastoise.png",
+    image: "/mock_inventory.png",
     url: "/product/6",
   },
   {
@@ -61,7 +61,7 @@ export const products: Product[] = [
     title: "Venusaur V",
     price: 55,
     condition: "Used",
-    image: "/cards/venusaur.png",
+    image: "/mock_inventory.png",
     url: "/product/7",
   },
   {
@@ -69,7 +69,7 @@ export const products: Product[] = [
     title: "Gyarados EX",
     price: 35,
     condition: "New",
-    image: "/cards/gyarados.png",
+    image: "/mock_inventory.png",
     url: "/product/8",
   },
   {
@@ -77,7 +77,7 @@ export const products: Product[] = [
     title: "Alakazam Holo",
     price: 45,
     condition: "Used",
-    image: "/cards/alakazam.png",
+    image: "/mock_inventory.png",
     url: "/product/9",
   },
   {
@@ -85,7 +85,7 @@ export const products: Product[] = [
     title: "Jigglypuff Promo",
     price: 12,
     condition: "New",
-    image: "/cards/jigglypuff.png",
+    image: "/mock_inventory.png",
     url: "/product/10",
   },
   {
@@ -93,7 +93,7 @@ export const products: Product[] = [
     title: "Dragonite VSTAR",
     price: 65,
     condition: "New",
-    image: "/cards/dragonite.png",
+    image: "/mock_inventory.png",
     url: "/product/11",
   },
   {
@@ -101,7 +101,7 @@ export const products: Product[] = [
     title: "Machamp Holo Rare",
     price: 22,
     condition: "Used",
-    image: "/cards/machamp.png",
+    image: "/mock_inventory.png",
     url: "/product/12",
   },
   {
@@ -109,7 +109,7 @@ export const products: Product[] = [
     title: "Zapdos EX",
     price: 50,
     condition: "New",
-    image: "/cards/zapdos.png",
+    image: "/mock_inventory.png",
     url: "/product/13",
   },
   {
@@ -117,7 +117,7 @@ export const products: Product[] = [
     title: "Moltres Promo",
     price: 42,
     condition: "Used",
-    image: "/cards/moltres.png",
+    image: "/mock_inventory.png",
     url: "/product/14",
   },
   {
@@ -125,7 +125,7 @@ export const products: Product[] = [
     title: "Articuno GX",
     price: 48,
     condition: "New",
-    image: "/cards/articuno.png",
+    image: "/mock_inventory.png",
     url: "/product/15",
   },
   {
@@ -133,7 +133,7 @@ export const products: Product[] = [
     title: "Gengar Holo",
     price: 38,
     condition: "New",
-    image: "/cards/gengar.png",
+    image: "/mock_inventory.png",
     url: "/product/16",
   },
   {
@@ -141,7 +141,7 @@ export const products: Product[] = [
     title: "Lucario VSTAR",
     price: 28,
     condition: "Used",
-    image: "/cards/lucario.png",
+    image: "/mock_inventory.png",
     url: "/product/17",
   },
   {
@@ -149,7 +149,7 @@ export const products: Product[] = [
     title: "Sylveon V",
     price: 34,
     condition: "New",
-    image: "/cards/sylveon.png",
+    image: "/mock_inventory.png",
     url: "/product/18",
   },
   {
@@ -157,7 +157,7 @@ export const products: Product[] = [
     title: "Umbreon GX",
     price: 70,
     condition: "Used",
-    image: "/cards/umbreon.png",
+    image: "/mock_inventory.png",
     url: "/product/19",
   },
   {
@@ -165,7 +165,7 @@ export const products: Product[] = [
     title: "Espeon EX",
     price: 65,
     condition: "New",
-    image: "/cards/espeon.png",
+    image: "/mock_inventory.png",
     url: "/product/20",
   },
 ];
