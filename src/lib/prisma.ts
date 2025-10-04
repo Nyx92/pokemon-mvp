@@ -22,7 +22,7 @@
  */
 
 // Import the generated Prisma client (from your `prisma/schema.prisma` models)
-import { PrismaClient } from "@/generated/prisma";
+import { PrismaClient } from "@prisma/client";
 
 // Attach Prisma client to global object to avoid re-instantiating on hot reloads
 const globalForPrisma = global as unknown as { prisma: PrismaClient };

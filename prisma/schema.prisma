@@ -1,10 +1,8 @@
 // prisma/schema.prisma
 
-// This block generates the Prisma Client (your typesafe database client)
-// and puts it in `src/generated/prisma` so you can import it in your code.
+// This block generates the Prisma Client (your typesafe database client, default location)
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 // Datasource tells Prisma what DB you’re connecting to.
