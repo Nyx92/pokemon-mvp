@@ -4,19 +4,11 @@ set -e
 echo "📦 Installing dependencies..."
 pnpm install
 
-echo "🐘 Starting Postgres..."
-docker run --name pokemon-mvp-postgres \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_DB=pokemon_mvp \
-  -p 51214:5432 \
-  -d postgres:15 || echo "Postgres already running."
-
-echo "🔧 Running Prisma migrate..."
+echo "🔧 Running Prisma migrate against Supabase..."
 npx prisma migrate dev --name init_auth
 
-echo "🖥 Launching Prisma Studio..."
-npx prisma studio &
+echo "🌱 Seeding database..."
+pnpm seed
 
 echo "✅ Setup complete!"
-echo "👉 Prisma Studio is available at http://localhost:5555"
+echo "👉 You can now view and edit data via the Supabase Dashboard (Table Editor)."

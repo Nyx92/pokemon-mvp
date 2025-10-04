@@ -20,20 +20,24 @@ datasource db {
 // Relations: a user can have multiple accounts (e.g., Google, GitHub) and sessions.
 model User {
   id            String   @id @default(cuid())
-  name          String?
+  firstName     String?  
+  lastName      String?
+  username      String?  @unique
   email         String   @unique
   password      String
   role          String   @default("user")
   emailVerified DateTime?
-  image         String?
-
-  // New fields
-  address       String?   // optional so it won’t break existing rows
-  phoneNumber   String?   // optional too
+  verified      Boolean  @default(false)
+  country       String?
+  sex           String?
+  dob           DateTime?
+  address       String?
+  phoneNumber   String?
 
   accounts      Account[]
   sessions      Session[]
 }
+
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
 // Links back to User via userId

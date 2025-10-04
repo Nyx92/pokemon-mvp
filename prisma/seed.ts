@@ -10,12 +10,18 @@ async function main() {
   // insert a mock user
   await prisma.user.create({
     data: {
-      name: "Ash Ketchum",
+      firstName: "Ash",
+      lastName: "Ketchum",
       email: "ash@pokemon.com",
-      password: "pikachu1234", // ⚠️ plain text for now, hash later with bcrypt
+      username: "ashketchum",
+      password: "pikachu1234",
       role: "user",
-      address: "some address",
-      phoneNumber: "some phoneNumber",
+      verified: true,
+      country: "Japan",
+      sex: "Male",
+      dob: new Date("1990-05-22"),
+      address: "Pallet Town",
+      phoneNumber: "123456789",
     },
   });
 

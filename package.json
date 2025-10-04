@@ -12,6 +12,9 @@
     "format": "prettier --write .",
     "seed": "tsx prisma/seed.ts"
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",
     "@emotion/react": "^11.14.0",
@@ -24,16 +27,15 @@
     "@stripe/stripe-js": "^5.4.0",
     "axios": "^1.7.7",
     "bcrypt": "^6.0.0",
+    "country-list": "^2.4.1",
     "date-fns": "^4.1.0",
-    "docxtemplater": "^3.54.0",
-    "framer-motion": "^11.11.10",
     "next": "14.2.7",
     "next-auth": "^4.24.11",
     "nodemailer": "^6.9.16",
-    "pizzip": "^3.1.7",
     "react": "^18",
     "react-dom": "^18",
     "react-intersection-observer": "^9.13.1",
+    "react-phone-input-2": "^2.15.1",
     "recoil": "^0.7.7",
     "sharp": "^0.33.5",
     "stripe": "^17.5.0",
@@ -42,13 +44,12 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/country-list": "^2.1.4",
-    "@types/next-auth": "^3.15.0",
     "@types/node": "^20",
     "@types/nodemailer": "^6.4.16",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-slick": "^0.23.13",
-    "eslint": "^8",
+    "eslint": "^9.36.0",
     "eslint-config-next": "14.2.7",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",

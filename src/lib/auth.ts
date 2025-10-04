@@ -29,6 +29,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma"; // Prisma client for DB access
+import bcrypt from "bcrypt";
 
 // NextAuthOptions is a config object that tells NextAuth:
 // - Which database adapter to use
@@ -58,13 +59,21 @@ export const authOptions: NextAuthOptions = {
           where: { email: credentials.email },
         });
 
-        // 🚨 TODO: In production, store hashed passwords in DB and compare with bcrypt
-        // For now, just check plain text
-        if (!user || user.password !== credentials.password) {
-          return null; // invalid credentials → login fails
+        if (!user || !user.password) {
+          return null; // user not found or missing password
         }
 
-        // If valid, return the user object → becomes part of the session
+        // Compare hashed password
+        const isValid = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isValid) {
+          return null; // wrong password
+        }
+
+        // Authentication success → return user
         return user;
       },
     }),

@@ -33,3 +33,37 @@ To get the project up and running locally, follow these steps:
 - Start the development server.
 
 `pnpm dev`
+
+---
+
+## 🗄️ Using Supabase (Production Database)
+
+By default this project runs Postgres on a hosted Postgres instance on [Supabase](https://supabase.com/).
+
+### 🔑 Setup
+
+1. Create a new Supabase project in the dashboard.
+2. Go to **Settings → Database** and copy your connection string.
+3. Update your `.env` file:
+
+```env
+# For local dev / migrations
+DATABASE_URL="postgresql://postgres:<PASSWORD>@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require"
+
+# For production (Vercel / serverless)
+DATABASE_URL="postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require"
+
+```
+
+Use Session Pooler (5432) for local development and running migrations.
+Use Transaction Pooler (6543) in production (Vercel) to avoid connection exhaustion.
+Do not edit tables directly in the Supabase GUI — always update prisma/schema.prisma and run a migration.
+
+### To create and apply a migration locally:
+
+npx prisma migrate dev --name <migration_name>
+npx prisma migrate deploy
+
+### Seed data is defined in prisma/seed.ts.
+
+pnpm seed
