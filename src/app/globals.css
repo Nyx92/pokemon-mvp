@@ -1,22 +1,3 @@
-@keyframes slideInFromBottom {
-  from {
-    transform: translateY(10%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.slide-in {
-  animation: slideInFromBottom 1s ease-out both;
-}
-
-.img-slide-in {
-  animation: slideInFromBottom 1s ease-out both;
-}
-
 /* instructing the browser not to perform any adjustments to maintain the scroll position in response to layout changes. */
 body,
 html {
@@ -24,4 +5,15 @@ html {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0px 1000px white inset !important;
+  box-shadow: 0 0 0px 1000px white inset !important;
+  -webkit-text-fill-color: #000 !important;
+  transition: background-color 5000s ease-in-out 0s;
 }

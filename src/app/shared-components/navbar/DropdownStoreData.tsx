@@ -1,6 +1,6 @@
 // MenuKey is a union type, meaning it can only be one of the specified string values
 // add | "Blog" if required
-export type MenuKey = "Account";
+export type MenuKey = "Profile";
 
 // interface: Primarily used to define the shape of an object (like a class or an object literal). It’s best when you want to describe the structure of an object that has properties and methods.
 export interface Section {
@@ -12,11 +12,11 @@ export interface Section {
 
 // The Record utility type is a built-in TypeScript type that allows you to define an object type with a specific set of keys and values.
 export const dropdownData: Record<MenuKey, { sections: Section[] }> = {
-  Account: {
+  Profile: {
     sections: [
       {
         // inner subsection
-        mainTitle: "Account",
+        mainTitle: "Profile",
         items: [
           "Shop the Latest",
           "Mac",

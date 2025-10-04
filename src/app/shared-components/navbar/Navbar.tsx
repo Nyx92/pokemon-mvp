@@ -27,7 +27,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { MenuKey } from "./DropdownStoreData";
 
 // Add "Blog" here if required
-const pages: MenuKey[] = ["Account"];
+const pages: MenuKey[] = ["Profile"];
 // Toggle this flag to enable or disable navbar effects
 const disableNavEffects = true;
 

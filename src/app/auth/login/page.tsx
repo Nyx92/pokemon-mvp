@@ -13,16 +13,14 @@ import {
 
 import DescriptionBar, {
   DescriptionLabel,
-} from "../../shared-components/DescriptionBar";
+} from "../../../app/shared-components/DescriptionBar";
 
 const descriptionBarLabels: DescriptionLabel[] = [
   { title: "Pokemon ID", link: "/signUp" },
-  { button: "Sign In", link: "/auth/signin" },
-  { button: "Create Your Account", link: "/signUp" },
-  { button: "FAQ", link: "/faq" },
+  { button: "Create Your Account", link: "/auth/signup" },
 ];
 
-export default function SignInPage() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
