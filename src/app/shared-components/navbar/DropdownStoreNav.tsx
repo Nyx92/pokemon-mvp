@@ -1,4 +1,4 @@
-import { Button, Typography, Box, Grid2, SxProps, Theme } from "@mui/material";
+import { Button, Typography, Box, Grid, SxProps, Theme } from "@mui/material";
 import { dropdownData, MenuKey } from "./DropdownStoreData";
 import "./Navbar.css";
 
@@ -67,9 +67,9 @@ export default function DropdownStoreNav({
 
   return (
     <Box sx={{ ...sx }}>
-      <Grid2 container spacing={2}>
+      <Grid container spacing={2}>
         {menuData.sections.map((section, index) => (
-          <Grid2
+          <Grid
             key={index}
             sx={{
               // flexBasis determines the initial size of a flex item (in this case, your grid item).
@@ -98,17 +98,17 @@ export default function DropdownStoreNav({
                 )}
               </Box>
             ))}
-          </Grid2>
+          </Grid>
         ))}
         {/* For the final dropdown column, if it's necessary to explicitly render an empty column, you can do so here. */}
         {menuData.sections.length < 4 && (
-          <Grid2
+          <Grid
             sx={{
               flexBasis: { xs: "100%", md: "25%", lg: "40%", xl: "40%" },
             }}
           />
         )}
-      </Grid2>
+      </Grid>
     </Box>
   );
 }

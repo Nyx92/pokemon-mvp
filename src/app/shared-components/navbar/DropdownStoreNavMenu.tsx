@@ -1,7 +1,7 @@
 "use client"; // Add this line at the top
 
 import { useState, useEffect } from "react";
-import { Button, Typography, Box, Grid2, SxProps, Theme } from "@mui/material";
+import { Button, Typography, Box, Grid, SxProps, Theme } from "@mui/material";
 import { useRecoilState } from "recoil";
 import {
   anchorElMenuNavState,
@@ -66,7 +66,7 @@ export default function DropdownStoreNavMenu({
 
   const renderNavbarItems = () =>
     Object.keys(dropdownData).map((navbarItem, index) => (
-      <Grid2
+      <Grid
         key={index}
         onClick={() =>
           handleNavbarItemClick(dropdownData[navbarItem as MenuKey].sections[0])
@@ -105,7 +105,7 @@ export default function DropdownStoreNavMenu({
             <ArrowForwardIosIcon />
           </Box>
         </Typography>
-      </Grid2>
+      </Grid>
     ));
 
   const renderSection = (section: Section) => (
@@ -220,12 +220,12 @@ export default function DropdownStoreNavMenu({
     <Box sx={{ ...sx }}>
       {selectedSection ? (
         <Box>
-          <Grid2 container spacing={1}>
+          <Grid container spacing={1}>
             {renderSection(selectedSection)}
-          </Grid2>
+          </Grid>
         </Box>
       ) : (
-        <Grid2 container>{renderNavbarItems()}</Grid2>
+        <Grid container>{renderNavbarItems()}</Grid>
       )}
     </Box>
   );
