@@ -1,9 +1,30 @@
 {
+  /*
+    "root": true tells ESLint to stop looking for configuration files 
+    in parent directories. This ensures that only this file is used 
+    for configuring ESLint in your project root.
+  */
+  "root": true,
+
+  /*
+    "extends" loads pre-defined sets of rules and configurations. 
+    The order matters for tools that might conflict (like Prettier).
+  */
   "extends": [
+    /*
+      1. "next/core-web-vitals": 
+         Loads the official recommended ESLint configuration from Next.js, 
+         which includes rules for best practices and performance (Core Web Vitals).
+    */
     "next/core-web-vitals",
-    "plugin:prettier/recommended"
-  ],
-  "rules": {
-    // optional overrides
-  }
+
+    /*
+      2. "prettier": 
+         Uses the 'eslint-config-prettier' package. 
+         IMPORTANT: It must be the LAST item. It turns OFF all ESLint rules 
+         that conflict with Prettier's formatting, preventing annoying errors 
+         when Prettier formats your code.
+    */
+    "prettier"
+  ]
 }
