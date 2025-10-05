@@ -1,89 +1,120 @@
 /**
  * This file defines your NextAuth configuration (`authOptions`).
- *
- * ✅ What it does:
- * - Tells NextAuth how to handle authentication in your app
- * - Configures:
- *   - The database adapter (Prisma + Postgres)
- *   - Authentication providers (here: Credentials login with email + password)
- *   - Session strategy (JWT tokens)
- *   - Custom auth pages (e.g. sign-in page path)
- *
- * ✅ Why it’s needed:
- * - NextAuth itself is just a framework; it needs a config to know:
- *   - Where to store users (Prisma adapter → Postgres)
- *   - How users can log in (credentials provider, Google, GitHub, etc.)
- *   - How to manage sessions (JWT vs database sessions)
- *
- * ✅ How it works:
- * - `PrismaAdapter(prisma)` → stores users, accounts, sessions in your Postgres DB
- * - `CredentialsProvider` → allows login via email/password (checks with your DB)
- * - `session: { strategy: "jwt" }` → session data stored in encrypted JWT, not DB
- * - `pages.signIn` → tells NextAuth where your custom sign-in UI lives
- *
- * 👉 TL;DR: This file is the "blueprint" that powers authentication.
- * It gets passed into `NextAuth()` in `/api/auth/[...nextauth]/route.ts`.
  */
 
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "@/lib/prisma"; // Prisma client for DB access
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// NextAuthOptions is a config object that tells NextAuth:
-// - Which database adapter to use
-// - Which providers (Google, GitHub, Credentials, etc.)
-// - How sessions are handled
-// - Custom page routes (e.g., /auth/signin)
-
 export const authOptions: NextAuthOptions = {
-  // Adapter tells NextAuth how to store users, accounts, sessions, tokens in the DB
   adapter: PrismaAdapter(prisma),
 
-  // Define which login providers you want to allow
   providers: [
     CredentialsProvider({
-      name: "Credentials", // shows up on the sign-in page
+      name: "Credentials",
       credentials: {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      // The authorize() function runs whenever a user submits email+password
       async authorize(credentials) {
-        // Basic validation
         if (!credentials?.email || !credentials.password) return null;
 
-        // Look up the user in the database by email
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
         if (!user || !user.password) {
-          return null; // user not found or missing password
+          return null;
         }
 
-        // Compare hashed password
         const isValid = await bcrypt.compare(
           credentials.password,
           user.password
         );
 
-        if (!isValid) {
-          return null; // wrong password
-        }
+        if (!isValid) return null;
 
-        // Authentication success → return user
-        return user;
+        return {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          username: user.username,
+          role: user.role,
+          country: user.country,
+          sex: user.sex,
+          dob: user.dob ? user.dob.toISOString() : null,
+          address: user.address,
+          phoneNumber: user.phoneNumber,
+          emailVerified: user.emailVerified
+            ? user.emailVerified.toISOString()
+            : null,
+          verified: user.verified,
+        };
       },
     }),
   ],
 
-  // Session handling
-  session: { strategy: "jwt" }, // use JSON Web Tokens (no DB lookups on every request)
+  session: {
+    strategy: "jwt", // store session in encrypted JWT instead of DB
+  },
 
-  // Custom routes
   pages: {
-    signIn: "/auth/signin", // tell NextAuth to use your custom signin page
+    signIn: "/auth/signin",
+  },
+
+  /**
+   * ✅ Callbacks: customize what gets encoded in JWT & returned via /api/auth/session
+   */
+  callbacks: {
+    // 1️⃣ Runs whenever a JWT is created or updated
+    async jwt({ token, user }) {
+      function safeDateToISOString(value: unknown): string | null {
+        if (!value) return null;
+        if (value instanceof Date) return value.toISOString();
+        if (typeof value === "string") return value;
+        return null;
+      }
+
+      // If user just signed in, attach user details to the token
+      if (user) {
+        token.id = user.id;
+        token.email = user.email ?? "";
+        token.firstName = user.firstName;
+        token.lastName = user.lastName;
+        token.username = user.username;
+        token.role = user.role;
+        token.country = user.country;
+        token.sex = user.sex;
+        token.dob = safeDateToISOString(user.dob);
+        token.address = user.address;
+        token.phoneNumber = user.phoneNumber;
+        token.emailVerified = safeDateToISOString(user.emailVerified);
+        token.verified = user.verified ?? false;
+      }
+      return token;
+    },
+
+    // 2️⃣ Runs whenever /api/auth/session is called
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id as string;
+        session.user.email = token.email as string;
+        session.user.firstName = token.firstName as string | null;
+        session.user.lastName = token.lastName as string | null;
+        session.user.username = token.username as string | null;
+        session.user.role = token.role as string | null;
+        session.user.country = token.country as string | null;
+        session.user.sex = token.sex as string | null;
+        session.user.dob = token.dob as string | null;
+        session.user.address = token.address as string | null;
+        session.user.phoneNumber = token.phoneNumber as string | null;
+        session.user.emailVerified = token.emailVerified as string | null;
+        session.user.verified = token.verified as boolean;
+      }
+      return session;
+    },
   },
 };

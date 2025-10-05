@@ -10,6 +10,7 @@ import {
   Divider,
   TextField,
 } from "@mui/material";
+import { useUserStore } from "../../store/userStore";
 
 import DescriptionBar, {
   DescriptionLabel,
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [isFailedLogin, setIsFailedLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const { setUser } = useUserStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +43,29 @@ export default function LoginPage() {
     if (res?.error) {
       setIsFailedLogin(true);
     } else {
+      // ✅ Fetch the session to get user info
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+
+      // ✅ Update Zustand global user store
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email,
+          firstName: session.user.firstName,
+          lastName: session.user.lastName,
+          username: session.user.username,
+          role: session.user.role,
+          country: session.user.country,
+          sex: session.user.sex,
+          dob: session.user.dob,
+          address: session.user.address,
+          phoneNumber: session.user.phoneNumber,
+          emailVerified: session.user.emailVerified,
+          verified: session.user.verified,
+        });
+      }
+
       window.location.href = "/";
     }
   };

@@ -1,14 +1,10 @@
-"use client"; // Add this line at the top
+"use client";
 
 import { useState, useEffect } from "react";
 import { Button, Typography, Box, Grid, SxProps, Theme } from "@mui/material";
-import { useRecoilState } from "recoil";
-import {
-  anchorElMenuNavState,
-  selectedDropdownSectionState,
-} from "../../atoms/navbarState";
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos"; // For arrow indicators
-import { dropdownData, Section, MenuKey } from "./DropdownStoreData"; // Import Section interface for type
+import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
+import { dropdownData, Section, MenuKey } from "./DropdownStoreData";
+import { useNavbarStore } from "../../store/navbarStore";
 import "./Navbar.css";
 
 // Define the props interface
@@ -16,54 +12,51 @@ interface DropdownStoreNavMenuProps {
   sx?: SxProps<Theme>;
 }
 
-// Component definition
 export default function DropdownStoreNavMenu({
   sx,
 }: DropdownStoreNavMenuProps) {
-  // remembers which section was selected
-  const [selectedSection, setSelectedSection] = useRecoilState<Section | null>(
-    selectedDropdownSectionState
-  );
+  // ✅ Zustand global states + actions
+  const {
+    anchorElMenuNavOpen: anchorElMenuNav,
+    selectedDropdownSection,
+    setSelectedDropdownSection,
+    setAnchorElMenuNavOpen,
+  } = useNavbarStore();
 
-  // to store the value to align menu buttons with logo
+  // ✅ Local UI-only state
   const [menuButtonOffset, setMenuButtonOffset] = useState<number>(0);
 
-  const [anchorElMenuNav, setAnchorElMenuNav] =
-    useRecoilState(anchorElMenuNavState);
-
-  // this useEffect is to forget the selectedSection, whenever the dropdown is closed
+  // Whenever dropdown closes, clear selected section
   useEffect(() => {
     if (!anchorElMenuNav) {
-      setSelectedSection(null);
+      setSelectedDropdownSection(null);
     }
-  }, [anchorElMenuNav, setSelectedSection]);
+  }, [anchorElMenuNav, setSelectedDropdownSection]);
 
-  // This useEffect hook is used to calculate the offset required to align the arrow icons
+  // Calculate offset between right edge and hamburger menu for arrow alignment
   useEffect(() => {
     const calculateMenuButtonOffset = () => {
       const menuButton = document.querySelector(
         '[aria-label="menu"]'
       ) as HTMLElement;
       if (menuButton) {
-        // Calculate the right offset of the menu button
         const offset =
           window.innerWidth - menuButton.getBoundingClientRect().right;
         setMenuButtonOffset(offset);
       }
     };
 
-    // Calculate it initially and also on resize
     calculateMenuButtonOffset();
     window.addEventListener("resize", calculateMenuButtonOffset);
-
     return () =>
       window.removeEventListener("resize", calculateMenuButtonOffset);
   }, []);
 
   const handleNavbarItemClick = (section: Section) => {
-    setSelectedSection(section);
+    setSelectedDropdownSection(section);
   };
 
+  // Renders all top-level menu buttons
   const renderNavbarItems = () =>
     Object.keys(dropdownData).map((navbarItem, index) => (
       <Grid
@@ -73,12 +66,12 @@ export default function DropdownStoreNavMenu({
         }
         sx={{
           flexBasis: {
-            xs: "100%", // Full width on extra small screens
-            sm: "50%", // 50% width on small screens
-            md: "25%", // 25% width on medium screens
+            xs: "100%",
+            sm: "50%",
+            md: "25%",
           },
           "&:hover .arrow": {
-            opacity: 1, // Show the arrow when the grid item is hovered
+            opacity: 1,
           },
         }}
       >
@@ -96,9 +89,9 @@ export default function DropdownStoreNavMenu({
           <Box
             className="arrow"
             sx={{
-              opacity: 0, // Hide the arrow by default
+              opacity: 0,
               transition: "opacity 0.3s",
-              marginRight: `${menuButtonOffset}px`, // Align the arrow with the menu button
+              marginRight: `${menuButtonOffset}px`,
               color: "white",
             }}
           >
@@ -108,13 +101,14 @@ export default function DropdownStoreNavMenu({
       </Grid>
     ));
 
+  // Renders a section and its items
   const renderSection = (section: Section) => (
     <Box
       sx={{
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        alignItems: "flex-start", // Align items to the start of the flex container
+        alignItems: "flex-start",
       }}
     >
       {section.sections?.map((subSection: Section, subIndex: number) => {
@@ -183,11 +177,8 @@ export default function DropdownStoreNavMenu({
     </Box>
   );
 
-  const renderSectionItems = (
-    subSection: Section,
-    isFirstSection?: boolean
-  ) => {
-    return subSection.items.map((item, itemIndex) => (
+  const renderSectionItems = (subSection: Section, isFirstSection?: boolean) =>
+    subSection.items.map((item, itemIndex) => (
       <Box
         key={itemIndex}
         sx={{
@@ -214,14 +205,13 @@ export default function DropdownStoreNavMenu({
         </Button>
       </Box>
     ));
-  };
 
   return (
     <Box sx={{ ...sx }}>
-      {selectedSection ? (
+      {selectedDropdownSection ? (
         <Box>
           <Grid container spacing={1}>
-            {renderSection(selectedSection)}
+            {renderSection(selectedDropdownSection)}
           </Grid>
         </Box>
       ) : (

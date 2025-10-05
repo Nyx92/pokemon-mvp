@@ -37,7 +37,7 @@ const SegmentTwo = () => {
           {products.map((product) => (
             <Grid
               key={product.id}
-              size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }} // ✅ MUI v6 syntax
+              size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
               display="flex"
               justifyContent="center"
             >
