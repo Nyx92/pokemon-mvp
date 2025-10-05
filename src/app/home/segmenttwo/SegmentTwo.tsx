@@ -37,12 +37,7 @@ const SegmentTwo = () => {
           {products.map((product) => (
             <Grid
               key={product.id}
-              item
-              xs={12} // 1 per row on phones
-              sm={6} // 2 per row on small screens
-              md={4} // 3 per row on tablets
-              lg={3} // 4 per row on medium desktops
-              xl={2} // 5 per row on large desktops
+              size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }} // ✅ MUI v6 syntax
               display="flex"
               justifyContent="center"
             >
