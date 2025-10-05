@@ -16,6 +16,8 @@ interface DescriptionBarProps {
 export default function DescriptionBar({ labels }: DescriptionBarProps) {
   const router = useRouter();
 
+  const hasLeftTitle = labels.length > 0 && !!labels[0].title?.trim();
+
   return (
     <>
       <Box sx={{ width: "100%", display: "flex", justifyContent: "center" }}>
@@ -25,23 +27,25 @@ export default function DescriptionBar({ labels }: DescriptionBarProps) {
             height: "60px",
             width: { xs: "80%", lg: "55%" },
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            justifyContent: hasLeftTitle ? "space-between" : "flex-end", // handle layout if no title
+            px: 2,
           }}
         >
-          {/* Title button on left */}
-          <Button
-            onClick={() => router.push(labels[0].link)}
-            sx={{
-              textTransform: "none",
-              color: "Black",
-              fontWeight: "bold",
-              fontSize: { xs: "15px", lg: "20px" },
-              letterSpacing: "-0.02em",
-            }}
-          >
-            {labels.length > 0 ? labels[0].title : ""}
-          </Button>
+          {hasLeftTitle && (
+            <Button
+              onClick={() => router.push(labels[0].link)}
+              sx={{
+                textTransform: "none",
+                color: "black",
+                fontWeight: "bold",
+                fontSize: { xs: "15px", lg: "20px" },
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {labels[0].title}
+            </Button>
+          )}
 
           {/* Buttons on right */}
           <Box>

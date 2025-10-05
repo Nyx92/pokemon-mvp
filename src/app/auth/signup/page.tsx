@@ -20,8 +20,8 @@ import "react-phone-input-2/lib/style.css";
 import { getNames } from "country-list";
 
 const descriptionBarLabels: DescriptionLabel[] = [
-  { title: "User Profile", link: "/profile" },
-  { button: "Login", link: "auth/login" },
+  { title: "User Profile", link: "" },
+  { button: "Login", link: "/auth/login" },
   { button: "FAQ", link: "" },
 ];
 
