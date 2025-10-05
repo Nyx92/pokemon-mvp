@@ -29,7 +29,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma"; // Prisma client for DB access
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
 // NextAuthOptions is a config object that tells NextAuth:
 // - Which database adapter to use
