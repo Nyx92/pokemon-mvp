@@ -24,13 +24,16 @@ const items: CarouselItem[] = [
 ];
 
 export default function Carousel() {
-  const [mounted, setMounted] = useState(false);
+  const [width, setWidth] = useState<number | null>(null);
 
   useEffect(() => {
-    setMounted(true);
+    const handleResize = () => setWidth(window.innerWidth);
+    handleResize(); // initialize
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  if (!mounted) return null; // Prevent SSR/CSR mismatch
+  if (!width) return null; // Wait until we know width (avoids SSR mismatch)
 
   return (
     <Swiper
