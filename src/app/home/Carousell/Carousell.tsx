@@ -4,8 +4,10 @@ import "swiper/css";
 import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { Swiper, SwiperSlide } from "swiper/react";
+import { Swiper as SwiperCore } from "swiper/types";
+
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react"; // <-- Import useRef
 import { Box } from "@mui/material";
 import "./CarouselStyles.css";
 
@@ -24,9 +26,28 @@ const items: CarouselItem[] = [
 ];
 
 export default function Carousel() {
+  const swiperRef = useRef<SwiperCore | null>(null);
+
+  // 2. Use onSwiper to store the instance
+  const handleSwiper = (swiper: SwiperCore) => {
+    swiperRef.current = swiper;
+  };
+
+  useEffect(() => {
+    // 3. Update Swiper after component mounts and forces layout calculation
+    if (swiperRef.current) {
+      // Small timeout to ensure all DOM operations are complete
+      const timer = setTimeout(() => {
+        swiperRef.current!.update(); // Optional: use the non-null assertion '!' for clarity
+      }, 50); // Try 0, 50, or 100 milliseconds
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   return (
     <Swiper
       className="custom-carousel"
+      onSwiper={handleSwiper} // <-- 4. Store the swiper instance
       modules={[Navigation, Pagination, Autoplay]}
       speed={800}
       slidesPerView={1}
@@ -40,8 +61,8 @@ export default function Carousel() {
         1480: { slidesPerView: 1.6 },
         1700: { slidesPerView: 2.5 },
       }}
-      observer={true}
-      observeParents={true}
+      observer={true} //This dont work
+      observeParents={true} //This dont work
     >
       {items.map((item, index) => (
         <SwiperSlide key={index} className="custom-slide">
