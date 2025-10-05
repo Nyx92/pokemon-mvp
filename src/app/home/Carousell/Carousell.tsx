@@ -5,6 +5,7 @@ import "swiper/css/navigation";
 import "swiper/css/pagination";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
+import { useEffect, useState } from "react";
 import { Box } from "@mui/material";
 import "./CarouselStyles.css";
 
@@ -22,7 +23,15 @@ const items: CarouselItem[] = [
   { id: 5, image: "/carousell/carousell_5.png", url: "/default-url" },
 ];
 
-const Carousel = () => {
+export default function Carousel() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null; // Prevent SSR/CSR mismatch
+
   return (
     <Swiper
       className="custom-carousel"
@@ -71,6 +80,4 @@ const Carousel = () => {
       ))}
     </Swiper>
   );
-};
-
-export default Carousel;
+}
