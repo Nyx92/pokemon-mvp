@@ -55,18 +55,18 @@ export default function Carousel() {
             <Box
               sx={{
                 backgroundImage: `url(${item.image})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
+                // backgroundSize: "cover",
+                // backgroundPosition: "center",
                 height: {
                   xs: "450px",
                   xl: "550px",
                 },
-                width: "100%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                textAlign: "center",
+                // width: "100%",
+                // display: "flex",
+                // alignItems: "center",
+                // justifyContent: "center",
+                // color: "white",
+                // textAlign: "center",
               }}
             >
               {/* Optional overlay content */}
