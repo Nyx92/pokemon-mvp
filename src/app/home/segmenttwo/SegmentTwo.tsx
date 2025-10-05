@@ -28,24 +28,41 @@ const SegmentTwo = () => {
       {/* Wrapper to limit grid width */}
       <Box sx={{ width: "80%", mx: "auto" }}>
         {" "}
-        <Grid container spacing={3} justifyContent="center">
+        <Grid
+          container
+          spacing={3}
+          justifyContent="center"
+          alignItems="stretch"
+        >
           {products.map((product) => (
             <Grid
               key={product.id}
-              size={{ xs: 12, sm: 6, md: 3, lg: 2 }}
+              item
+              xs={12} // 1 per row on phones
+              sm={6} // 2 per row on small screens
+              md={4} // 3 per row on tablets
+              lg={3} // 4 per row on medium desktops
+              xl={2} // 5 per row on large desktops
               display="flex"
               justifyContent="center"
             >
-              <Link href={product.url} style={{ textDecoration: "none" }}>
+              <Link
+                href={product.url}
+                style={{ textDecoration: "none", width: "100%" }}
+              >
                 <Card
                   sx={{
-                    width: 320, // ✅ fixed card width
+                    width: "100%", // ✅ use full grid width instead of fixed px
+                    maxWidth: 300, // ✅ optional: prevent overexpansion on big screens
                     height: "100%",
                     display: "flex",
                     flexDirection: "column",
                     boxShadow: 2,
                     borderRadius: 2,
-                    "&:hover": { boxShadow: 5, transform: "scale(1.02)" },
+                    "&:hover": {
+                      boxShadow: 5,
+                      transform: "scale(1.02)",
+                    },
                     transition: "0.2s",
                   }}
                 >
@@ -54,13 +71,18 @@ const SegmentTwo = () => {
                     image={product.image}
                     alt={product.title}
                     sx={{
-                      height: 280,
+                      aspectRatio: "3 / 4", // ✅ keeps consistent image ratio
                       objectFit: "contain",
                       backgroundColor: "#f8f8f8",
                     }}
                   />
                   <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
-                    <Typography variant="subtitle2" fontWeight="bold" noWrap>
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight="bold"
+                      noWrap
+                      title={product.title}
+                    >
                       {product.title}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
