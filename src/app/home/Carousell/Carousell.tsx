@@ -24,17 +24,6 @@ const items: CarouselItem[] = [
 ];
 
 export default function Carousel() {
-  const [width, setWidth] = useState<number | null>(null);
-
-  useEffect(() => {
-    const handleResize = () => setWidth(window.innerWidth);
-    handleResize(); // initialize
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  if (!width) return null; // Wait until we know width (avoids SSR mismatch)
-
   return (
     <Swiper
       className="custom-carousel"
@@ -51,6 +40,8 @@ export default function Carousel() {
         1480: { slidesPerView: 1.6 },
         1700: { slidesPerView: 2.5 },
       }}
+      observer={true}
+      observeParents={true}
     >
       {items.map((item, index) => (
         <SwiperSlide key={index} className="custom-slide">
