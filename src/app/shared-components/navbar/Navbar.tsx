@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRecoilState } from "recoil";
 import {
   Button,
   Container,
@@ -15,13 +14,10 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import { APP_BAR_HEIGHT } from "./constants";
-import {
-  anchorElNavState,
-  anchorElMenuNavState,
-  selectedDropdownSectionState,
-} from "../../atoms/navbarState";
+import { useNavbarStore } from "../../store/navbarStore";
 import DropdownStoreNav from "./DropdownStoreNav";
 import DropdownStoreNavMenu from "./DropdownStoreNavMenu";
+
 import "./Navbar.css";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { MenuKey } from "./DropdownStoreData";
@@ -39,24 +35,28 @@ const NavBar: React.FC = () => {
   const navbarRef = useRef<HTMLDivElement | null>(null);
   const [devIconOffset, setDevIconOffset] = useState<number>(0);
 
-  // opens/closes the drop down nav
-  const [anchorElNav, setAnchorElNav] = useRecoilState(anchorElNavState);
   // opens/closes the hamburger drop down menu
   const [currentMenu, setCurrentMenu] = useState<MenuKey | "">(""); // This ensures the type is compatible
   // a timer that keeps track of the duration of mouse hover on page button
   const [delayTimer, setDelayTimer] = useState<NodeJS.Timeout | null>(null);
-  // opens/closes the hamburger drop down menu
-  const [anchorElMenuNav, setAnchorElMenuNav] =
-    useRecoilState(anchorElMenuNavState);
   // flag to prevent nav menu to close on load
   const [hasInteractedNav, setHasInteractedNav] = useState<boolean>(false);
   // flag to prevent hamburger menu to close on load
   const [hasInteractedMenu, setHasInteractedMenu] = useState<boolean>(false);
   // flag to prevent nav menu to open quickly on load
   const [allowNavDropdown, setAllowNavDropdown] = useState<boolean>(false);
-  const [selectedSection, setSelectedSection] = useRecoilState(
-    selectedDropdownSectionState
-  );
+
+  // Zustand store states + actions
+  const {
+    // opens/closes the drop down nav
+    anchorElNavOpen: anchorElNav,
+    anchorElMenuNavOpen: anchorElMenuNav,
+    selectedDropdownSection,
+    setAnchorElNavOpen: setAnchorElNav,
+    // opens/closes the hamburger drop down menu
+    setAnchorElMenuNavOpen: setAnchorElMenuNav,
+    setSelectedDropdownSection,
+  } = useNavbarStore();
 
   const dropdownAnimationNav = anchorElNav
     ? // .css file contains slide animation
@@ -168,7 +168,7 @@ const NavBar: React.FC = () => {
 
   // Handle back click to reset the selected section
   const handleBackToMenu = () => {
-    setSelectedSection(null); // Reset the selection
+    setSelectedDropdownSection(null); // Reset the selection
     // Additional logic to close dropdown or navigate can be added here
   };
 
@@ -234,7 +234,7 @@ const NavBar: React.FC = () => {
       <AppBar
         // attach a reference for menu to anchor
         ref={navbarRef}
-        className={anchorElNav ? "app-bar-bla ck-bg" : ""}
+        className={anchorElNav ? "app-bar-black-bg" : ""}
         position="fixed"
         sx={{
           zIndex: 1300,
@@ -281,7 +281,7 @@ const NavBar: React.FC = () => {
                   flexGrow: 1,
                 }}
               >
-                {selectedSection ? (
+                {selectedDropdownSection ? (
                   <IconButton
                     onClick={handleBackToMenu}
                     aria-label="Back"

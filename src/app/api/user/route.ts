@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+// This function is to store user details on successful sign up
 export async function POST(req: Request) {
   try {
     const data = await req.json();
