@@ -16,7 +16,7 @@ import DescriptionBar, {
 } from "../../../app/shared-components/DescriptionBar";
 
 const descriptionBarLabels: DescriptionLabel[] = [
-  { title: "Pokemon ID", link: "/signUp" },
+  { title: "", link: "" },
   { button: "Create Your Account", link: "/auth/signup" },
 ];
 
@@ -208,7 +208,7 @@ export default function LoginPage() {
               <Button
                 variant="text"
                 color="primary"
-                href="/signUp"
+                href="/auth/signup"
                 sx={{
                   textTransform: "none",
                   "&:hover": { textDecoration: "underline" },
