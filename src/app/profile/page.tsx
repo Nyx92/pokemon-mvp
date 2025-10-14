@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
-import ProfileCard from "@/app/components/account/ProfileCard";
+import ProfileCard from "./ProfileCard";
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);
@@ -10,5 +10,5 @@ export default async function ProfilePage() {
     redirect("/auth/login");
   }
 
-  return <ProfileCard user={session.user!} />;
+  return <ProfileCard initialUser={session.user} />;
 }

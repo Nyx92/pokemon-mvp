@@ -1,12 +1,12 @@
 /**
  * This file wires up NextAuth into Next.js App Router.
  *
- * ✅ What it does:
+ * What it does:
  * - Imports your authentication configuration (`authOptions`) from src/lib/auth.ts
  * - Creates a NextAuth request handler with that config
  * - Exposes that handler to Next.js for both GET and POST requests
  *
- * ✅ Why it’s needed:
+ * Why it’s needed:
  * - NextAuth centralizes all auth routes under `/api/auth/*`
  *   Examples:
  *   - GET /api/auth/signin → render the sign-in page
@@ -14,7 +14,7 @@
  *   - GET /api/auth/session → fetch the current session
  *   - POST /api/auth/signout → log the user out
  *
- * ✅ How it works:
+ * How it works:
  * - `NextAuth(authOptions)` generates a handler function that understands these routes
  * - `export { handler as GET, handler as POST }` tells Next.js to use that handler
  *   for any GET or POST request made to `/api/auth/[...nextauth]`

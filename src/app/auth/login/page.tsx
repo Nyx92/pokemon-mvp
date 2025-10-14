@@ -32,12 +32,18 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    // 🔐 Call NextAuth's built-in signIn() client helper to authenticate the user
+    // This sends a POST request to /api/auth/callback/credentials
+    // → triggers the CredentialsProvider.authorize() in auth.ts (server-side)
+    // If authorize() returns a user, NextAuth creates a JWT session and returns a response
+    // Setting `redirect: false` ensures we handle success/failure manually in this component
     const res = await signIn("credentials", {
       email,
       password,
-      redirect: false,
-      callbackUrl: "/",
+      redirect: false, // prevent automatic redirect; we’ll redirect manually after success
+      callbackUrl: "/", // where to go after successful login
     });
+
     setLoading(false);
 
     if (res?.error) {

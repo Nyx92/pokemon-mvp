@@ -5,6 +5,8 @@ import NavBar from "./shared-components/navbar/Navbar";
 import Footer from "./shared-components/footer/Footer";
 import SessionProviderWrapper from "@/providers/SessionProviderWrapper";
 import SessionSync from "@/providers/SessionSync";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const inter = Inter({ subsets: ["latin"] }); // Load Inter font with Latin subset
 
@@ -15,11 +17,14 @@ export const metadata: Metadata = {
 };
 
 // Root layout for the entire app (all pages share this structure)
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode; // Content of each page will be injected here
 }>) {
+  // Fetch session on the server before rendering
+  const session = await getServerSession(authOptions);
+
   return (
     <html lang="en">
       <body className={inter.className}>
@@ -28,7 +33,8 @@ export default function RootLayout({
           {/* ✅ Keeps Zustand store in sync with NextAuth session */}
           <SessionSync />
           {/* Global navigation bar */}
-          <NavBar />
+          {/* Pass initial user info down to NavBar */}
+          <NavBar initialUser={session?.user} />
           {/* Main content area with 60px padding to account for NavBar height */}
           <main style={{ paddingTop: "60px" }}>{children}</main>
           {/* Global footer */}
