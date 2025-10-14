@@ -16,7 +16,7 @@ export const dropdownData: Record<MenuKey, { sections: Section[] }> = {
     sections: [
       {
         // inner subsection
-        mainTitle: "Profile",
+        mainTitle: "Test",
         items: [
           "Shop the Latest",
           "Mac",

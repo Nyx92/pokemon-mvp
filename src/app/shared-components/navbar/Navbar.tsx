@@ -17,10 +17,16 @@ import { APP_BAR_HEIGHT } from "./constants";
 import { useNavbarStore } from "../../store/navbarStore";
 import DropdownStoreNav from "./DropdownStoreNav";
 import DropdownStoreNavMenu from "./DropdownStoreNavMenu";
+import { useUserStore } from "../../store/userStore";
 
 import "./Navbar.css";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { MenuKey } from "./DropdownStoreData";
+import type { Session } from "next-auth";
+
+interface NavBarProps {
+  initialUser?: Partial<Session["user"]> | null;
+}
 
 // Add "Blog" here if required
 const pages: MenuKey[] = ["Profile"];
@@ -29,7 +35,7 @@ const disableNavEffects = true;
 
 // React.FunctionComponent) type is a special type provided by React for functional components.
 // It automatically includes type definitions for props, including handling children as a prop.
-const NavBar: React.FC = () => {
+const NavBar: React.FC<NavBarProps> = ({ initialUser }) => {
   // these are used to calculated the left bound of the icon
   // so the elements in the drop down can be aligned
   const navbarRef = useRef<HTMLDivElement | null>(null);
@@ -46,7 +52,7 @@ const NavBar: React.FC = () => {
   // flag to prevent nav menu to open quickly on load
   const [allowNavDropdown, setAllowNavDropdown] = useState<boolean>(false);
 
-  // Zustand store states + actions
+  // Zustand: states + actions
   const {
     // opens/closes the drop down nav
     anchorElNavOpen: anchorElNav,
@@ -57,6 +63,12 @@ const NavBar: React.FC = () => {
     setAnchorElMenuNavOpen: setAnchorElMenuNav,
     setSelectedDropdownSection,
   } = useNavbarStore();
+
+  // Zustand: user store — get user info
+  const { user } = useUserStore();
+
+  // 👇 Combine server user and client user safely
+  const displayUser = user?.username ?? initialUser?.username;
 
   const dropdownAnimationNav = anchorElNav
     ? // .css file contains slide animation
@@ -81,6 +93,11 @@ const NavBar: React.FC = () => {
 
     return () => clearTimeout(timer); // Cleanup the timer
   }, []);
+
+  // // 🟡 On mount, hydrate Zustand with the initial user (if any)
+  // useEffect(() => {
+  //   if (initialUser) setUser(initialUser);
+  // }, [initialUser, setUser]);
 
   // to track if menu dropdown needs to be removed on large screen sizes
   useEffect(() => {
@@ -341,7 +358,7 @@ const NavBar: React.FC = () => {
                     display: { xs: "none", md: "flex" },
                   }}
                 >
-                  {page}
+                  {displayUser ?? page}{" "}
                 </Button>
               ))}
               {/* hamburger menu button */}

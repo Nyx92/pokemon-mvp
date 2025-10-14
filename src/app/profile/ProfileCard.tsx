@@ -12,19 +12,42 @@ import {
   ListItemButton,
   ListItemText,
   Grid,
+  CircularProgress,
 } from "@mui/material";
-import { Verified } from "@mui/icons-material";
-import LogoutButton from "./LogoutButton";
+import { Verified, ErrorOutline } from "@mui/icons-material";
+import LogoutButton from "../components/account/LogoutButton";
+import { useUserStore } from "@/app/store/userStore";
+import type { Session } from "next-auth";
 
 interface ProfileCardProps {
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
+  initialUser?: Partial<Session["user"]> | null;
 }
 
-export default function ProfileCard({ user }: ProfileCardProps) {
+export default function ProfileCard({ initialUser }: ProfileCardProps) {
+  const { user } = useUserStore();
+
+  // ✅ Merge SSR + client user safely
+  const displayUser = user ?? initialUser ?? null;
+
+  // ✅ If no user yet (first paint), show loader instead of placeholders
+  if (!displayUser) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "60vh",
+        }}
+      >
+        <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  // ✅ Helper for nullish values (used only after data ready)
+  const safe = (val?: string | null) => val || "—";
+
   return (
     <main>
       <Card
@@ -40,15 +63,17 @@ export default function ProfileCard({ user }: ProfileCardProps) {
           <Grid container alignItems="center" spacing={2}>
             <Grid>
               <Avatar
-                src={user?.image ?? ""}
-                alt={user?.name ?? ""}
+                src={displayUser.image ?? ""}
+                alt={displayUser.username ?? ""}
                 sx={{ width: 64, height: 64 }}
               />
             </Grid>
             <Grid size="grow">
-              <Typography variant="h6">{user?.name ?? "User"}</Typography>
+              <Typography variant="h6">
+                {safe(displayUser.firstName)} {safe(displayUser.lastName)}
+              </Typography>
               <Typography variant="body2" color="text.secondary">
-                {user?.email}
+                {safe(displayUser.email)}
               </Typography>
             </Grid>
           </Grid>
@@ -104,39 +129,50 @@ export default function ProfileCard({ user }: ProfileCardProps) {
             General
           </Typography>
           <List>
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Address" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Payment" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Currency" secondary="SGD" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Email" secondary={user?.email} />
-              </ListItemButton>
-            </ListItem>
+            {[
+              ["First Name", displayUser.firstName],
+              ["Last Name", displayUser.lastName],
+              ["Username", displayUser.username],
+              ["Email", displayUser.email],
+              ["Country", displayUser.country],
+              ["Sex", displayUser.sex],
+              ["Date of Birth", displayUser.dob],
+              ["Address", displayUser.address],
+            ].map(([label, value]) => (
+              <ListItem key={label} disablePadding>
+                <ListItemButton>
+                  <ListItemText primary={label} secondary={safe(value)} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+
+            {/* Phone */}
             <ListItem disablePadding>
               <ListItemButton>
                 <ListItemText
                   primary="Phone Number"
-                  secondary="Verified"
-                  secondaryTypographyProps={{ color: "success.main" }}
+                  secondary={safe(displayUser.phoneNumber)}
                 />
-                <Verified fontSize="small" color="success" />
+                {displayUser.verified ? (
+                  <Verified fontSize="small" color="success" />
+                ) : (
+                  <ErrorOutline fontSize="small" color="disabled" />
+                )}
               </ListItemButton>
             </ListItem>
+
+            {/* Email verified */}
             <ListItem disablePadding>
               <ListItemButton>
-                <ListItemText primary="Notification Settings" />
+                <ListItemText
+                  primary="Email Verified"
+                  secondary={displayUser.emailVerified ? "Yes" : "No"}
+                  secondaryTypographyProps={{
+                    color: displayUser.emailVerified
+                      ? "success.main"
+                      : "text.secondary",
+                  }}
+                />
               </ListItemButton>
             </ListItem>
           </List>
