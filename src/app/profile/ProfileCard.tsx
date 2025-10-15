@@ -18,6 +18,7 @@ import { Verified, ErrorOutline } from "@mui/icons-material";
 import LogoutButton from "../components/account/LogoutButton";
 import { useUserStore } from "@/app/store/userStore";
 import type { Session } from "next-auth";
+import { useRouter } from "next/navigation";
 
 interface ProfileCardProps {
   initialUser?: Partial<Session["user"]> | null;
@@ -25,9 +26,13 @@ interface ProfileCardProps {
 
 export default function ProfileCard({ initialUser }: ProfileCardProps) {
   const { user } = useUserStore();
-
+  const router = useRouter();
   // ✅ Merge SSR + client user safely
   const displayUser = user ?? initialUser ?? null;
+
+  const handleEditClick = () => {
+    router.push("/profile/edit/general");
+  };
 
   // ✅ If no user yet (first paint), show loader instead of placeholders
   if (!displayUser) {
@@ -140,7 +145,9 @@ export default function ProfileCard({ initialUser }: ProfileCardProps) {
               ["Address", displayUser.address],
             ].map(([label, value]) => (
               <ListItem key={label} disablePadding>
-                <ListItemButton>
+                <ListItemButton onClick={handleEditClick}>
+                  {" "}
+                  {/* 👈 add this */}
                   <ListItemText primary={label} secondary={safe(value)} />
                 </ListItemButton>
               </ListItem>
