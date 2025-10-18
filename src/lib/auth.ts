@@ -97,19 +97,12 @@ export const authOptions: NextAuthOptions = {
    */
   callbacks: {
     /**
-     * 1️⃣ JWT callback:
-     * Runs whenever a new JWT is created or updated (e.g., at login or token refresh).
-     * We attach all relevant user fields to the token for use later in `session()`.
+     * 🧠 JWT callback
+     * Called whenever a JWT is created or accessed (e.g. login, getSession()).
+     * We'll refresh user data from the DB whenever possible.
      */
-    async jwt({ token, user }) {
-      function safeDateToISOString(value: unknown): string | null {
-        if (!value) return null;
-        if (value instanceof Date) return value.toISOString();
-        if (typeof value === "string") return value;
-        return null;
-      }
-
-      // If the user just signed in, merge their details into the JWT payload
+    async jwt({ token, user, trigger }) {
+      // 1️⃣ On initial login — attach full user info
       if (user) {
         token.id = user.id;
         token.email = user.email ?? "";
@@ -119,20 +112,51 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.country = user.country;
         token.sex = user.sex;
-        token.dob = safeDateToISOString(user.dob);
+        token.dob = user.dob;
         token.address = user.address;
         token.phoneNumber = user.phoneNumber;
-        token.emailVerified = safeDateToISOString(user.emailVerified);
+        token.emailVerified = user.emailVerified
+          ? user.emailVerified instanceof Date
+            ? user.emailVerified.toISOString()
+            : user.emailVerified
+          : null;
         token.verified = user.verified ?? false;
+        return token;
       }
-      // Return the modified token for storage in the session cookie
+
+      // 2️⃣ If triggered by client-side `update()` or a new session request → re-fetch DB
+      // (only if we have a token.id)
+      if (trigger === "update") {
+        try {
+          const dbUser = await prisma.user.findUnique({
+            where: { id: token.id as string },
+          });
+          if (dbUser) {
+            token.firstName = dbUser.firstName;
+            token.lastName = dbUser.lastName;
+            token.username = dbUser.username;
+            token.role = dbUser.role;
+            token.country = dbUser.country;
+            token.sex = dbUser.sex;
+            token.dob = dbUser.dob ? dbUser.dob.toISOString() : null;
+            token.address = dbUser.address;
+            token.phoneNumber = dbUser.phoneNumber;
+            token.emailVerified = dbUser.emailVerified
+              ? dbUser.emailVerified.toISOString()
+              : null;
+            token.verified = dbUser.verified;
+          }
+        } catch (err) {
+          console.error("⚠️ JWT refresh error:", err);
+        }
+      }
+
       return token;
     },
 
     /**
-     * 2️⃣ Session callback:
-     * Runs whenever the client requests `/api/auth/session`.
-     * It maps JWT fields into the `session.user` object (what you access in the client).
+     * 💡 Session callback
+     * Maps token fields back into `session.user` (what frontend receives)
      */
     async session({ session, token }) {
       if (session.user) {
@@ -150,7 +174,6 @@ export const authOptions: NextAuthOptions = {
         session.user.emailVerified = token.emailVerified as string | null;
         session.user.verified = token.verified as boolean;
       }
-      // Return the full session object to the client
       return session;
     },
   },

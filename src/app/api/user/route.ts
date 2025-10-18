@@ -43,3 +43,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const data = await req.json();
+
+    if (!data.email) {
+      return NextResponse.json({ error: "Email is required" }, { status: 400 });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { email: data.email },
+      data: {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        username: data.username,
+        country: data.country,
+        sex: data.sex,
+        dob: data.dob ? new Date(data.dob) : null,
+        address: data.address,
+      },
+    });
+
+    return NextResponse.json(
+      { success: true, user: updatedUser },
+      { status: 200 }
+    );
+  } catch (err: any) {
+    console.error("❌ Error updating user:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
