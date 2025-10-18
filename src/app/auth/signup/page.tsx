@@ -18,6 +18,7 @@ import DescriptionBar, {
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { getNames } from "country-list";
+import { useRouter } from "next/navigation";
 
 const descriptionBarLabels: DescriptionLabel[] = [
   { title: "User Profile", link: "" },
@@ -26,6 +27,7 @@ const descriptionBarLabels: DescriptionLabel[] = [
 ];
 
 export default function UserProfileForm() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -87,6 +89,9 @@ export default function UserProfileForm() {
 
       alert("✅ Account created successfully!");
       console.log(result.user);
+
+      // ✅ Redirect after success
+      router.push("/auth/login");
     } catch (err) {
       console.error("❌ Registration failed:", err);
       alert("Failed to create account. Check console for details.");
@@ -120,8 +125,8 @@ export default function UserProfileForm() {
           sx={{
             fontWeight: "bold",
             fontSize: { xs: "24px", lg: "32px" },
-            mt: 2,
-            mb: 1,
+            mt: 8,
+            mb: 6,
           }}
         >
           Create Your Profile
