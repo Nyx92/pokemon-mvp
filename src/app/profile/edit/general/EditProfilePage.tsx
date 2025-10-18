@@ -137,7 +137,6 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
         pb: 10,
         display: "flex",
         flexDirection: "column",
-        backgroundColor: "yellow",
       }}
     >
       {/* Keep title fixed at the top */}
