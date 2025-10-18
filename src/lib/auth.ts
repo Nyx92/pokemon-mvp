@@ -1,6 +1,12 @@
 /**
  * ✅ This file defines your NextAuth configuration (`authOptions`).
- * It tells NextAuth how to authenticate users, store sessions, and what data to expose.
+ * It controls:
+ *   - How users log in (providers)
+ *   - How their data is stored (adapter)
+ *   - How sessions are managed (JWT vs DB)
+ *   - What user data is exposed to the frontend (callbacks)
+ *
+ * 👉 Think of it as the “brain” of your authentication system.
  */
 
 import type { NextAuthOptions } from "next-auth";
@@ -14,14 +20,27 @@ import bcrypt from "bcryptjs";
  * This is passed into NextAuth() in `/api/auth/[...nextauth]/route.ts`.
  */
 export const authOptions: NextAuthOptions = {
+  /* ------------------------------------------------------------------------ */
+  /* 1️⃣ ADAPTER — CONNECT NEXTAUTH TO YOUR DATABASE                           */
+  /* ------------------------------------------------------------------------ */
   /**
-   * 🔌 The Prisma adapter links NextAuth with your Prisma-managed database.
-   * It automatically handles users, sessions, and account linking when applicable.
+   * The Prisma adapter makes NextAuth talk to your database through Prisma.
+   * It automatically creates / updates / deletes:
+   *   - Users
+   *   - Accounts (OAuth, etc.)
+   *   - Sessions
+   *   - Verification tokens
+   *
+   * Even though we’re using JWTs for sessions (stateless), the adapter still
+   * helps handle user persistence when needed.
    */
   adapter: PrismaAdapter(prisma),
+  /* ------------------------------------------------------------------------ */
+  /* 2️⃣ PROVIDERS — HOW USERS LOG IN                                          */
+  /* ------------------------------------------------------------------------ */
   /**
-   * 🧩 Define which authentication methods (providers) are available.
-   * In this case, we use a custom "Credentials" provider (email + password login).
+   * NextAuth supports many providers (Google, GitHub, etc.)
+   * Here we define our own “Credentials” provider for email + password login.
    */
   providers: [
     CredentialsProvider({
@@ -30,21 +49,23 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
+      /* 🔒 The `authorize()` function runs on LOGIN. */
       /**
-       * 🔒 The `authorize()` function runs on the server when a user tries to log in
-       * via `signIn("credentials", { email, password })`.
-       *
-       * Its job: verify the user's identity and return their profile if valid.
-       * If null is returned → login fails.
+       * 🔁 Flow summary:
+       *  1. User calls `signIn("credentials", { email, password })`
+       *  2. NextAuth calls this `authorize()` function server-side
+       *  3. You verify the credentials
+       *  4. If valid → return a user object
+       *     If invalid → return null (reject login)
        */
       async authorize(credentials) {
-        // If email or password missing, immediately reject
+        // Reject immediately if missing email/password
         if (!credentials?.email || !credentials.password) return null;
-        // 1️⃣ Look up the user in the database by email
+        // 1️⃣ Look up the user by email in the Prisma `User` table
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
-        // If no user or password hash found → reject
+        // 2️⃣ Compare entered password to the hashed password in DB
         if (!user || !user.password) {
           return null;
         }
@@ -54,7 +75,8 @@ export const authOptions: NextAuthOptions = {
           user.password
         );
         if (!isValid) return null; // wrong password → reject
-        // 3️⃣ If valid → return the full user object (this becomes `user` in JWT callback)
+        // 3️⃣ Return a sanitized user object (this becomes `user` in JWT callback)
+        //    ⚠️ Never return `password` or sensitive info
         return {
           id: user.id,
           email: user.email,
@@ -75,34 +97,57 @@ export const authOptions: NextAuthOptions = {
       },
     }),
   ],
+  /* ------------------------------------------------------------------------ */
+  /* 3️⃣ SESSION STRATEGY — HOW WE STORE SESSION STATE                         */
+  /* ------------------------------------------------------------------------ */
   /**
-   * ⚙️ Session settings
-   * By default, NextAuth can store sessions in the DB or in JWTs.
-   * Here we use JWTs (more stateless, no DB reads per request).
+   * Options:
+   *  - "database" → store active sessions in DB (persistent)
+   *  - "jwt"       → store session info in encrypted JWT cookie (stateless)
+   *
+   * We choose "jwt" because:
+   *  ✅ faster (no DB lookup on every request)
+   *  ✅ scales easily
+   *  ⚠️ user data must be manually kept in sync with DB (we handle below)
    */
   session: {
     strategy: "jwt", // store session in encrypted JWT instead of DB
   },
+  /* ------------------------------------------------------------------------ */
+  /* 4️⃣ PAGES — CUSTOM ROUTES                                                 */
+  /* ------------------------------------------------------------------------ */
   /**
-   * 📄 Custom page overrides (optional)
-   * Here we tell NextAuth to use our own custom sign-in page route.
+   * By default, NextAuth shows its own login UI.
+   * This tells it to use your custom page at `/auth/login` instead.
    */
   pages: {
     signIn: "/auth/login",
   },
-
+  /* ------------------------------------------------------------------------ */
+  /* 5️⃣ CALLBACKS — MODIFY DATA DURING AUTH FLOW                              */
+  /* ------------------------------------------------------------------------ */
   /**
-   * 🧠 Callbacks — run automatically at key points in the auth lifecycle.
-   * Used to customize what data is stored in JWTs or exposed in sessions.
+   * Callbacks let you hook into internal events.
+   * The two key ones here:
+   *  - `jwt()` runs when tokens are created or updated
+   *  - `session()` runs when the frontend requests session data
    */
   callbacks: {
+    /* ---------------------------------------------------------------------- */
+    /* 🔹 JWT CALLBACK — internal "source of truth" for user state             */
+    /* ---------------------------------------------------------------------- */
     /**
-     * 🧠 JWT callback
-     * Called whenever a JWT is created or accessed (e.g. login, getSession()).
-     * We'll refresh user data from the DB whenever possible.
+     * Runs every time a token is created or accessed.
+     * Used to:
+     *   - Attach user data at login
+     *   - Re-sync with the database when profile updates happen
+     *
+     * The token is stored in the browser cookie (client side) and
+     * decrypted automatically by NextAuth on each request.
      */
     async jwt({ token, user, trigger }) {
-      // 1️⃣ On initial login — attach full user info
+      // 🧩 CASE 1 — When a user just logged in
+      //   → Attach all the user info to the token payload.
       if (user) {
         token.id = user.id;
         token.email = user.email ?? "";
@@ -124,8 +169,8 @@ export const authOptions: NextAuthOptions = {
         return token;
       }
 
-      // 2️⃣ If triggered by client-side `update()` or a new session request → re-fetch DB
-      // (only if we have a token.id)
+      // 🧩 CASE 2 — When `useSession().update()` is called client-side
+      //   → Re-fetch the latest user record from DB to keep session fresh.
       if (trigger === "update") {
         try {
           const dbUser = await prisma.user.findUnique({
@@ -154,9 +199,16 @@ export const authOptions: NextAuthOptions = {
       return token;
     },
 
+    /* ---------------------------------------------------------------------- */
+    /* 🔹 SESSION CALLBACK — what the frontend receives from `useSession()`    */
+    /* ---------------------------------------------------------------------- */
     /**
-     * 💡 Session callback
-     * Maps token fields back into `session.user` (what frontend receives)
+     * This runs whenever the client or server calls:
+     *   - `useSession()` (React hook)
+     *   - `getServerSession()` (server-side)
+     *
+     * Whatever you attach here is what your frontend sees in `session.user`.
+     * (It’s a “projection” of the JWT payload)
      */
     async session({ session, token }) {
       if (session.user) {
