@@ -34,13 +34,21 @@ export default async function RootLayout({
           {/* ✅ Keeps Zustand store in sync with NextAuth session */}
           <SessionSync />
           <ThemeRegistry>
-            {/* Global navigation bar */}
-            {/* Pass initial user info down to NavBar */}
-            <NavBar initialUser={session?.user} />
-            {/* Main content area with 60px padding to account for NavBar height */}
-            <main style={{ paddingTop: "60px" }}>{children}</main>
-            {/* Global footer */}
-            <Footer />
+            <div
+              style={{
+                minHeight: "100vh",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {/* Global navigation bar */}
+              {/* Pass initial user info down to NavBar */}
+              <NavBar initialUser={session?.user} />
+              {/* Main content area with 60px padding to account for NavBar height */}
+              <main style={{ flex: 1, paddingTop: "60px" }}>{children}</main>
+              {/* Global footer */}
+              <Footer />
+            </div>
           </ThemeRegistry>
         </SessionProviderWrapper>
       </body>
