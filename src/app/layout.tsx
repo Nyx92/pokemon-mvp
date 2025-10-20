@@ -7,6 +7,7 @@ import SessionProviderWrapper from "@/providers/SessionProviderWrapper";
 import SessionSync from "@/providers/SessionSync";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import ThemeRegistry from "@/providers/ThemeRegistry";
 
 const inter = Inter({ subsets: ["latin"] }); // Load Inter font with Latin subset
 
@@ -32,13 +33,15 @@ export default async function RootLayout({
         <SessionProviderWrapper>
           {/* ✅ Keeps Zustand store in sync with NextAuth session */}
           <SessionSync />
-          {/* Global navigation bar */}
-          {/* Pass initial user info down to NavBar */}
-          <NavBar initialUser={session?.user} />
-          {/* Main content area with 60px padding to account for NavBar height */}
-          <main style={{ paddingTop: "60px" }}>{children}</main>
-          {/* Global footer */}
-          <Footer />
+          <ThemeRegistry>
+            {/* Global navigation bar */}
+            {/* Pass initial user info down to NavBar */}
+            <NavBar initialUser={session?.user} />
+            {/* Main content area with 60px padding to account for NavBar height */}
+            <main style={{ paddingTop: "60px" }}>{children}</main>
+            {/* Global footer */}
+            <Footer />
+          </ThemeRegistry>
         </SessionProviderWrapper>
       </body>
     </html>
