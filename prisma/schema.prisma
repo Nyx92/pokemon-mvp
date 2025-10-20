@@ -32,8 +32,15 @@ model User {
   address       String?
   phoneNumber   String?
 
+  // 🔗  Relations
   accounts      Account[]
   sessions      Session[]
+  // A user can own multiple cards and binders, make offers, send messages, and participate in conversations.
+  cards         Card[]
+  binders       Binder[]
+  offers        Offer[]          @relation("UserOffers")
+  messages      Message[]        @relation("UserMessages")
+  conversations Conversation[]   @relation("UserConversations")
 }
 
 
@@ -78,4 +85,93 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+//////////////////////////////////////////////////////////////
+// 🧩 Custom Models for Pokémon Marketplace & Inventory System
+//////////////////////////////////////////////////////////////
+
+// 🗂️ Binder — represents a user's collection folder or grouping of cards
+model Binder {
+  id        String   @id @default(uuid())
+  name      String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  // Relation: A binder contains multiple cards
+  cards     Card[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 🃏 Card — represents a single Pokémon card in a user's collection
+model Card {
+  id           String     @id @default(uuid())
+  title        String
+  price        Float
+  condition    String
+  description  String?
+  imageUrls    String[]   // URLs to Supabase Storage images
+  forSale      Boolean    @default(false)
+  status       String     @default("available") // available | sold | reserved
+
+  // Optional enrichment fields (future-proof)
+  officialId   String?    // External API ID (Pokémon TCG API)
+  setName      String?
+  rarity       String?
+  type         String?
+
+  // Relations
+  binder       Binder?    @relation(fields: [binderId], references: [id], onDelete: SetNull)
+  binderId     String?
+  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  ownerId      String
+  offers       Offer[]
+  conversations Conversation[] @relation("CardConversations")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 💸 Offer — represents an offer made by a buyer on a card
+model Offer {
+  id          String   @id @default(uuid())
+  price       Float
+  message     String?
+  status      String   @default("pending") // pending | accepted | rejected
+
+  // Relations
+  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId      String
+  buyer       User     @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId     String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 💬 Conversation — represents a chat thread (usually tied to a card)
+model Conversation {
+  id            String       @id @default(uuid())
+  topic         String?
+  card          Card?        @relation("CardConversations", fields: [cardId], references: [id], onDelete: SetNull)
+  cardId        String?
+  participants  User[]       @relation("UserConversations")
+  messages      Message[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// 💭 Message — represents a single message sent in a conversation
+model Message {
+  id              String         @id @default(uuid())
+  content         String
+  createdAt       DateTime @default(now())
+
+  // Relations
+  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId  String
+  sender          User           @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId        String
 }
