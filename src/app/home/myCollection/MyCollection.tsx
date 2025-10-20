@@ -262,17 +262,32 @@ export default function MyCollection() {
                   {product.status === "sold" && (
                     <Chip
                       label="Sold"
-                      color="error"
                       size="small"
-                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      sx={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        backgroundColor: "#A15C5C", // warm muted crimson
+                        color: "#FFF",
+                        fontWeight: 600,
+                        "& .MuiChip-label": { fontSize: "0.8rem" },
+                      }}
                     />
                   )}
+
                   {product.forSale && product.status !== "sold" && (
                     <Chip
                       label="For Sale"
-                      color="success"
                       size="small"
-                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      sx={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        backgroundColor: "#3FA796", // fresh muted teal
+                        color: "#FFF",
+                        fontWeight: 600,
+                        "& .MuiChip-label": { fontSize: "0.8rem" },
+                      }}
                     />
                   )}
 
