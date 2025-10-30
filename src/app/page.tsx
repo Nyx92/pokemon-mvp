@@ -7,6 +7,7 @@ import Carousell from "./home/Carousell/Carousell";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import { useSession } from "next-auth/react";
 
 // Placeholder components for the other tabs (we’ll replace these later)
 function Marketplace() {
@@ -31,22 +32,27 @@ function Community() {
 
 export default function Home() {
   const [tab, setTab] = useState(0);
+  const { data: session, status } = useSession();
+  const isLoggedIn = !!session?.user;
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTab(newValue);
   };
 
   const renderContent = () => {
-    switch (tab) {
-      case 0:
-        return <MyCollection />; // Your collection
-      case 1:
-        return <Marketplace />;
-      case 2:
-        return <Community />;
-      default:
-        return <MyCollection />;
-    }
+    // ✅ Dynamically render based on tab index & login
+    if (isLoggedIn && tab === 0) return <MyCollection />;
+    if (!isLoggedIn && tab === 0)
+      return (
+        <Box sx={{ py: 4 }}>
+          <Typography textAlign="center" variant="h6" color="text.secondary">
+            Please log in to view your collection.
+          </Typography>
+        </Box>
+      );
+
+    if (tab === (isLoggedIn ? 1 : 0)) return <Marketplace />;
+    if (tab === (isLoggedIn ? 2 : 1)) return <Community />;
   };
 
   return (
@@ -87,11 +93,14 @@ export default function Home() {
               },
             }}
           >
-            <Tab
-              icon={<CollectionsIcon />}
-              label="My Collection"
-              iconPosition="start"
-            />
+            {/* ✅ Only show "My Collection" if logged in */}
+            {isLoggedIn && (
+              <Tab
+                icon={<CollectionsIcon />}
+                label="My Collection"
+                iconPosition="start"
+              />
+            )}
             <Tab
               icon={<StorefrontIcon />}
               label="Marketplace"
