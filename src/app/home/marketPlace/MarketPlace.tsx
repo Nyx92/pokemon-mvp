@@ -27,7 +27,6 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
-import { useUserStore } from "@/app/store/userStore";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 
 interface CardItem {
@@ -52,18 +51,14 @@ export default function MyCollection() {
   const [search, setSearch] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [newBinderName, setNewBinderName] = useState("");
-  const user = useUserStore((state) => state.user);
 
   // ✅ Fetch cards from Prisma via API
   useEffect(() => {
-    if (!user?.id) return; // no logged-in user yet
-
     const fetchCards = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/user/cards");
+        const res = await fetch("/api/cards");
         const data = await res.json();
-
         if (res.ok) {
           setCards(data.cards);
 
@@ -72,7 +67,6 @@ export default function MyCollection() {
           data.cards.forEach((c: any) => {
             if (c.binder) binderMap.set(c.binder.id, c.binder.name);
           });
-
           setBinders([
             { id: "all", name: "All Cards" },
             ...Array.from(binderMap).map(([id, name]) => ({ id, name })),
@@ -88,7 +82,7 @@ export default function MyCollection() {
     };
 
     fetchCards();
-  }, [user?.id]); // rerun when user changes
+  }, []);
 
   // Fuzzy search setup
   const searchResults = useFuzzySearch({
