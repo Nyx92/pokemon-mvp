@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Button,
@@ -24,10 +24,28 @@ export default function UploadCard() {
     rarity: "",
     type: "",
   });
+  const [users, setUsers] = useState<
+    { id: string; username: string | null; email: string }[]
+  >([]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  // ✅ Fetch users for dropdown
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch("/api/users");
+        const data = await res.json();
+        if (res.ok) setUsers(data.users);
+        else throw new Error(data.error || "Failed to load users");
+      } catch (err: any) {
+        console.error("❌ Error fetching users:", err);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -64,11 +82,7 @@ export default function UploadCard() {
       );
       body.append("image", imageFile);
 
-      const res = await fetch("/api/cards", {
-        method: "POST",
-        body,
-      });
-
+      const res = await fetch("/api/cards", { method: "POST", body });
       if (!res.ok) throw new Error("Failed to upload card.");
       const data = await res.json();
       setSuccessMsg(`✅ Card "${data.card.title}" uploaded successfully!`);
@@ -105,13 +119,7 @@ export default function UploadCard() {
           backgroundColor: "#fafafa",
         }}
       >
-        <Typography
-          variant="h5"
-          fontWeight={700}
-          textAlign="center"
-          mb={1}
-          color="text.primary"
-        >
+        <Typography variant="h5" fontWeight={700} textAlign="center" mb={1}>
           Upload a Card (Admin)
         </Typography>
         <Typography
@@ -132,7 +140,7 @@ export default function UploadCard() {
               gap: 4,
             }}
           >
-            {/* Left: Form Fields */}
+            {/* Left column */}
             <Box sx={{ flex: 1 }}>
               <TextField
                 label="Title"
@@ -185,16 +193,54 @@ export default function UploadCard() {
 
               <Divider sx={{ my: 2 }} />
 
+              {/* 🧩 Owner dropdown */}
               <TextField
-                label="Owner ID"
+                select
+                label="Select Owner"
                 name="ownerId"
                 value={form.ownerId}
                 onChange={handleChange}
                 fullWidth
                 required
                 sx={{ mb: 2 }}
-                helperText="Enter the user's ID or username."
-              />
+                helperText="Pick the card owner's username"
+                SelectProps={{
+                  MenuProps: {
+                    PaperProps: {
+                      sx: {
+                        maxHeight: 300,
+                      },
+                    },
+                  },
+                }}
+              >
+                {users.map((u) => (
+                  <MenuItem
+                    key={u.id}
+                    value={u.id}
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "flex-start",
+                      py: 1,
+                    }}
+                  >
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                      {u.username || "(no username)"}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        fontSize: "0.8rem",
+                        wordBreak: "break-all",
+                      }}
+                    >
+                      User ID: {u.id}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </TextField>
 
               <TextField
                 label="Set Name"
@@ -223,7 +269,7 @@ export default function UploadCard() {
               </Box>
             </Box>
 
-            {/* Right: Image Preview */}
+            {/* Right: image preview */}
             <Box
               sx={{
                 flexBasis: { md: "35%", xs: "100%" },
