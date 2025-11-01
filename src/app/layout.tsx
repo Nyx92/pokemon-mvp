@@ -30,7 +30,7 @@ export default async function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {/* Wrap with SessionProvider so NextAuth session is available throughout */}
-        <SessionProviderWrapper>
+        <SessionProviderWrapper session={session}>
           {/* ✅ Keeps Zustand store in sync with NextAuth session */}
           <SessionSync />
           <ThemeRegistry>

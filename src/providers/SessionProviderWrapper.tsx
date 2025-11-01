@@ -29,8 +29,10 @@ import { SessionProvider } from "next-auth/react";
 // Wraps your entire app tree with <SessionProvider>.
 export default function SessionProviderWrapper({
   children,
+  session,
 }: {
   children: React.ReactNode;
+  session?: any; // NextAuth Session object
 }) {
-  return <SessionProvider>{children}</SessionProvider>;
+  return <SessionProvider session={session}>{children}</SessionProvider>;
 }

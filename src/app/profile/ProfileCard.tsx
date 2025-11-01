@@ -15,7 +15,7 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Verified, ErrorOutline } from "@mui/icons-material";
-import LogoutButton from "../components/account/LogoutButton";
+import LogoutButton from "@/app/utils/account/LogoutButton";
 import { useUserStore } from "@/app/store/userStore";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";

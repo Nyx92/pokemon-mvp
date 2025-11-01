@@ -25,7 +25,6 @@ async function uploadMockImage(filename: string): Promise<string> {
 
   if (error) throw new Error(`Failed to upload ${filename}: ${error.message}`);
 
-  // ✅ Generate public URL
   const { data: publicUrl } = supabase.storage
     .from("card-images")
     .getPublicUrl(data.path);
@@ -36,7 +35,7 @@ async function uploadMockImage(filename: string): Promise<string> {
 async function main() {
   console.log("🚀 Starting database seed...");
 
-  // Optional cleanup (use carefully in production)
+  // Clean up
   await prisma.message.deleteMany();
   await prisma.conversation.deleteMany();
   await prisma.offer.deleteMany();
@@ -44,11 +43,11 @@ async function main() {
   await prisma.binder.deleteMany();
   await prisma.user.deleteMany();
 
-  // 🧂 Hash passwords before storing
+  // Hash passwords
   const ashPassword = await bcrypt.hash("123", 10);
   const mistyPassword = await bcrypt.hash("123", 10);
 
-  // 🧍‍♂️ Create mock users
+  // Users
   const ash = await prisma.user.create({
     data: {
       firstName: "Ash",
@@ -56,7 +55,7 @@ async function main() {
       email: "ash@pokemon.com",
       username: "ashketchum",
       password: ashPassword,
-      role: "user",
+      role: "admin",
       verified: true,
       country: "Japan",
       sex: "Male",
@@ -85,29 +84,30 @@ async function main() {
 
   console.log("✅ Users created:", ash.username, misty.username);
 
-  // 📚 Create binders for Ash
+  // Binders
   const rareBinder = await prisma.binder.create({
-    data: {
-      name: "Rare Holos",
-      userId: ash.id,
-    },
+    data: { name: "Rare Holos", userId: ash.id },
   });
-
   const grassBinder = await prisma.binder.create({
-    data: {
-      name: "Grass-Type Binder",
-      userId: ash.id,
-    },
+    data: { name: "Grass-Type Binder", userId: ash.id },
+  });
+  const waterBinder = await prisma.binder.create({
+    data: { name: "Water Wonders", userId: misty.id },
   });
 
-  console.log("✅ Binders created:", rareBinder.name, grassBinder.name);
+  console.log(
+    "✅ Binders created:",
+    rareBinder.name,
+    grassBinder.name,
+    waterBinder.name
+  );
 
-  // Upload mock image to Supabase
+  // Upload mock image
   const mockImageUrl = await uploadMockImage("mock_inventory.png");
   console.log("✅ Uploaded mock image:", mockImageUrl);
 
-  // 🃏 Create some cards
-  const cards = await prisma.card.createMany({
+  // Ash’s Cards
+  await prisma.card.createMany({
     data: [
       {
         title: "Charizard VMAX",
@@ -154,9 +154,58 @@ async function main() {
     ],
   });
 
-  console.log("✅ Cards created:", cards.count);
+  // Misty’s Cards 💧
+  await prisma.card.createMany({
+    data: [
+      {
+        title: "Starmie GX",
+        price: 60,
+        condition: "Mint",
+        description:
+          "Misty’s loyal Water-type partner with a dazzling spin attack.",
+        imageUrls: [mockImageUrl],
+        forSale: true,
+        status: "available",
+        setName: "Hidden Fates",
+        rarity: "Ultra Rare",
+        type: "Water",
+        binderId: waterBinder.id,
+        ownerId: misty.id,
+      },
+      {
+        title: "Psyduck Reverse Holo",
+        price: 25,
+        condition: "Lightly Played",
+        description: "A confused Psyduck that Misty adores.",
+        imageUrls: [mockImageUrl],
+        forSale: false,
+        status: "available",
+        setName: "Evolving Skies",
+        rarity: "Rare",
+        type: "Water",
+        binderId: waterBinder.id,
+        ownerId: misty.id,
+      },
+      {
+        title: "Gyarados VMAX",
+        price: 95,
+        condition: "Near Mint",
+        description: "A mighty Gyarados that dominates Misty’s team.",
+        imageUrls: [mockImageUrl],
+        forSale: true,
+        status: "available",
+        setName: "Crown Zenith",
+        rarity: "Ultra Rare",
+        type: "Water",
+        binderId: waterBinder.id,
+        ownerId: misty.id,
+      },
+    ],
+  });
 
-  // 💸 Create an offer from Misty on one of Ash’s cards
+  console.log("✅ Cards created for Ash and Misty");
+
+  // Offer + conversation (same as before)
   const charizard = await prisma.card.findFirst({
     where: { title: "Charizard VMAX" },
   });
@@ -173,7 +222,6 @@ async function main() {
 
   console.log("✅ Offer created from Misty on:", charizard?.title);
 
-  // 💬 Create a conversation between Ash and Misty about the Charizard
   const conversation = await prisma.conversation.create({
     data: {
       topic: "Negotiation about Charizard VMAX",
@@ -184,9 +232,6 @@ async function main() {
     },
   });
 
-  console.log("✅ Conversation created:", conversation.topic);
-
-  // 💭 Add messages in the conversation
   await prisma.message.createMany({
     data: [
       {

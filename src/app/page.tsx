@@ -3,22 +3,14 @@
 import React, { useState } from "react";
 import { Box, Tabs, Tab, Typography } from "@mui/material";
 import MyCollection from "./home/myCollection/MyCollection";
-import Carousell from "./home/Carousell/Carousell";
+import Marketplace from "./home/marketPlace/MarketPlace";
+import Carousell from "./home/carousell/Carousell";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
+import UploadIcon from "@mui/icons-material/Upload";
 import { useSession } from "next-auth/react";
-
-// Placeholder components for the other tabs (we’ll replace these later)
-function Marketplace() {
-  return (
-    <Box sx={{ py: 4 }}>
-      <Typography textAlign="center" variant="h6" color="text.secondary">
-        Marketplace coming soon...
-      </Typography>
-    </Box>
-  );
-}
+import UploadCard from "./home/uploadCard/UploadCard";
 
 function Community() {
   return (
@@ -31,38 +23,49 @@ function Community() {
 }
 
 export default function Home() {
-  const [tab, setTab] = useState(0);
-  const { data: session, status } = useSession();
+  // ✅ use string identifiers instead of numeric indexes
+  const [tab, setTab] = useState("marketplace");
+  const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
 
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: string) => {
     setTab(newValue);
   };
 
+  // ✅ Much cleaner: no ternary logic required
   const renderContent = () => {
-    // ✅ Dynamically render based on tab index & login
-    if (isLoggedIn && tab === 0) return <MyCollection />;
-    if (!isLoggedIn && tab === 0)
-      return (
-        <Box sx={{ py: 4 }}>
-          <Typography textAlign="center" variant="h6" color="text.secondary">
-            Please log in to view your collection.
-          </Typography>
-        </Box>
-      );
-
-    if (tab === (isLoggedIn ? 1 : 0)) return <Marketplace />;
-    if (tab === (isLoggedIn ? 2 : 1)) return <Community />;
+    switch (tab) {
+      case "collection":
+        return isLoggedIn ? <MyCollection /> : <LoginPrompt />;
+      case "marketplace":
+        return <Marketplace />;
+      case "community":
+        return <Community />;
+      case "upload":
+        return isLoggedIn ? <UploadCard /> : <LoginPrompt />;
+      default:
+        return <Marketplace />;
+    }
   };
+
+  // Small helper for unauthenticated users
+  function LoginPrompt() {
+    return (
+      <Box sx={{ py: 4 }}>
+        <Typography textAlign="center" variant="h6" color="text.secondary">
+          Please log in to view this section.
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <main>
-      {/* 🧭 Hero Carousel at the top */}
+      {/* 🧭 Hero Carousel */}
       <Carousell />
 
       {/* 🧭 Tab Bar Section */}
       <Box sx={{ mt: 4, px: { xs: 2, md: 4 } }}>
-        {/* Tabs for navigation */}
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Tabs
             value={tab}
@@ -73,7 +76,7 @@ export default function Home() {
             scrollButtons="auto"
             sx={{
               "& .MuiTabs-flexContainer": {
-                justifyContent: "center", // ensures equal centering inside the Tabs container
+                justifyContent: "center",
               },
               "& .MuiTab-root": {
                 fontWeight: 600,
@@ -83,9 +86,7 @@ export default function Home() {
                 color: "#333",
                 minHeight: 50,
               },
-              "& .Mui-selected": {
-                color: "black",
-              },
+              "& .Mui-selected": { color: "black" },
               "& .MuiTabs-indicator": {
                 backgroundColor: "black",
                 height: 3,
@@ -93,24 +94,34 @@ export default function Home() {
               },
             }}
           >
-            {/* ✅ Only show "My Collection" if logged in */}
             {isLoggedIn && (
               <Tab
                 icon={<CollectionsIcon />}
                 label="My Collection"
                 iconPosition="start"
+                value="collection"
               />
             )}
             <Tab
               icon={<StorefrontIcon />}
               label="Marketplace"
               iconPosition="start"
+              value="marketplace"
             />
             <Tab
               icon={<PeopleAltIcon />}
               label="Community"
               iconPosition="start"
+              value="community"
             />
+            {isLoggedIn && (
+              <Tab
+                icon={<UploadIcon />}
+                label="Upload Card"
+                iconPosition="start"
+                value="upload"
+              />
+            )}
           </Tabs>
         </Box>
 
