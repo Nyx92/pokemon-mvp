@@ -16,10 +16,11 @@ export default function UploadCard() {
   const [form, setForm] = useState({
     title: "",
     price: "",
+    conditionType: "",
     condition: "",
     description: "",
     ownerId: "",
-    forSale: true,
+    forSale: false,
     setName: "",
     rarity: "",
     type: "",
@@ -31,6 +32,43 @@ export default function UploadCard() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+
+  const rarities = [
+    "Common",
+    "Uncommon",
+    "Rare",
+    "Rare Holo",
+    "Rare Holo V",
+    "Rare Holo VSTAR",
+    "Rare Holo VMAX",
+    "Rare Holo EX",
+    "Double Rare",
+    "Ultra Rare",
+    "Illustration Rare",
+    "Special Illustration Rare",
+    "Hyper Rare",
+    "Secret Rare",
+    "Promo",
+    "Trainer Gallery",
+    "Shiny Rare",
+    "Shiny Ultra Rare",
+    "Radiant Rare",
+    "Amazing Rare",
+    "Legend",
+    "Prism Star",
+    "ACE SPEC",
+    "Rare BREAK",
+    "Rare Prime",
+    "Rare Shining",
+    "Rare Holo GX",
+    "Rare Rainbow",
+    "Rare Shiny GX",
+    "Rare Secret",
+    "Rare Ultra",
+    "Rare Shiny",
+    "Promo (Black Star)",
+    "Other / Error / Misc",
+  ];
 
   // ✅ Fetch users for dropdown
   useEffect(() => {
@@ -89,10 +127,11 @@ export default function UploadCard() {
       setForm({
         title: "",
         price: "",
+        conditionType: "",
         condition: "",
         description: "",
         ownerId: "",
-        forSale: true,
+        forSale: false,
         setName: "",
         rarity: "",
         type: "",
@@ -164,22 +203,149 @@ export default function UploadCard() {
                 sx={{ mb: 2 }}
               />
 
-              <TextField
-                select
-                label="Condition"
-                name="condition"
-                value={form.condition}
-                onChange={handleChange}
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-              >
-                {["Mint", "Near Mint", "Good", "Fair", "Poor"].map((c) => (
-                  <MenuItem key={c} value={c}>
-                    {c}
-                  </MenuItem>
-                ))}
-              </TextField>
+              {/* 🧩 Condition (RAW / Graded) */}
+              <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
+                {/* Primary type */}
+                <TextField
+                  select
+                  label="Condition Type"
+                  name="conditionType"
+                  value={form.conditionType}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      conditionType: e.target.value,
+                      condition: "",
+                    })
+                  }
+                  fullWidth
+                  required
+                >
+                  <MenuItem value="RAW">RAW (Ungraded)</MenuItem>
+                  <MenuItem value="PSA">PSA</MenuItem>
+                  <MenuItem value="Beckett">Beckett / BGS</MenuItem>
+                  <MenuItem value="CGC">CGC</MenuItem>
+                  <MenuItem value="SGC">SGC</MenuItem>
+                </TextField>
+
+                {/* Dynamic grade list */}
+                {form.conditionType === "RAW" && (
+                  <TextField
+                    select
+                    label="Raw Condition"
+                    name="condition"
+                    value={form.condition}
+                    onChange={handleChange}
+                    fullWidth
+                    required
+                  >
+                    {["Mint", "Near Mint", "Good", "Fair", "Poor"].map((c) => (
+                      <MenuItem key={c} value={c}>
+                        {c}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+
+                {form.conditionType === "PSA" && (
+                  <TextField
+                    select
+                    label="PSA Grade"
+                    name="condition"
+                    value={form.condition}
+                    onChange={handleChange}
+                    fullWidth
+                    required
+                  >
+                    {[...Array(10)].map((_, i) => (
+                      <MenuItem key={i + 1} value={`PSA ${i + 1}`}>
+                        PSA {i + 1}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+
+                {form.conditionType === "Beckett" && (
+                  <TextField
+                    select
+                    label="Beckett Grade"
+                    name="condition"
+                    value={form.condition}
+                    onChange={handleChange}
+                    fullWidth
+                    required
+                  >
+                    {[
+                      "Beckett 10 Black Label",
+                      "Beckett 10 Pristine",
+                      "Beckett 9.5 Gem Mint",
+                      "Beckett 9 Mint",
+                      "Beckett 8.5 NM-MT+",
+                      "Beckett 8 NM-MT",
+                      "Beckett 7.5 NM+",
+                      "Beckett 7 NM",
+                      "Beckett 6.5 EX-MT+",
+                      "Beckett 6 EX-MT",
+                    ].map((g) => (
+                      <MenuItem key={g} value={g}>
+                        {g}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+
+                {form.conditionType === "CGC" && (
+                  <TextField
+                    select
+                    label="CGC Grade"
+                    name="condition"
+                    value={form.condition}
+                    onChange={handleChange}
+                    fullWidth
+                    required
+                  >
+                    {[
+                      "CGC 10 Pristine",
+                      "CGC 9.5 Gem Mint",
+                      "CGC 9 Mint",
+                      "CGC 8.5 NM-MT+",
+                      "CGC 8 NM-MT",
+                      "CGC 7.5 NM+",
+                      "CGC 7 NM",
+                    ].map((g) => (
+                      <MenuItem key={g} value={g}>
+                        {g}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+
+                {form.conditionType === "SGC" && (
+                  <TextField
+                    select
+                    label="SGC Grade"
+                    name="condition"
+                    value={form.condition}
+                    onChange={handleChange}
+                    fullWidth
+                    required
+                  >
+                    {[
+                      "SGC 10 Pristine",
+                      "SGC 9.5 Gem Mint",
+                      "SGC 9 Mint",
+                      "SGC 8.5 NM-MT+",
+                      "SGC 8 NM-MT",
+                      "SGC 7.5 NM+",
+                      "SGC 7 NM",
+                    ].map((g) => (
+                      <MenuItem key={g} value={g}>
+                        {g}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              </Box>
 
               <TextField
                 label="Description"
@@ -207,11 +373,7 @@ export default function UploadCard() {
                 helperText="Pick the card owner's username"
                 SelectProps={{
                   MenuProps: {
-                    PaperProps: {
-                      sx: {
-                        maxHeight: 300,
-                      },
-                    },
+                    PaperProps: { sx: { maxHeight: 300 } },
                   },
                 }}
               >
@@ -249,25 +411,54 @@ export default function UploadCard() {
                 value={form.setName}
                 onChange={handleChange}
                 fullWidth
+                helperText="(Optional)"
                 sx={{ mb: 2 }}
               />
+              <TextField
+                select
+                label="Rarity"
+                name="rarity"
+                value={form.rarity}
+                onChange={handleChange}
+                fullWidth
+                sx={{ mb: 2 }}
+                helperText="(Optional)"
+                slotProps={{
+                  select: {
+                    MenuProps: {
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 250,
+                          overflowY: "auto",
+                        },
+                      },
+                    },
+                  },
+                }}
+              >
+                <MenuItem value="">None</MenuItem>
+                {rarities.map((r) => (
+                  <MenuItem key={r} value={r}>
+                    {r}
+                  </MenuItem>
+                ))}
+              </TextField>
 
-              <Box sx={{ display: "flex", gap: 2 }}>
-                <TextField
-                  label="Rarity"
-                  name="rarity"
-                  value={form.rarity}
-                  onChange={handleChange}
-                  fullWidth
-                />
-                <TextField
-                  label="Type"
-                  name="type"
-                  value={form.type}
-                  onChange={handleChange}
-                  fullWidth
-                />
-              </Box>
+              <TextField
+                select
+                label="For Sale?"
+                name="forSale"
+                value={form.forSale ? "true" : "false"}
+                onChange={(e) =>
+                  setForm({ ...form, forSale: e.target.value === "true" })
+                }
+                fullWidth
+                sx={{ mb: 2 }}
+                helperText="Specify if this card is listed for sale or only in the user's collection"
+              >
+                <MenuItem value="true">Yes — List for Sale</MenuItem>
+                <MenuItem value="false">No — Collection Only</MenuItem>
+              </TextField>
             </Box>
 
             {/* Right: image preview */}

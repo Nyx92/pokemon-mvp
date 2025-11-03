@@ -67,6 +67,7 @@ export async function POST(req: Request) {
       .from("card-images")
       .getPublicUrl(data.path);
     const imageUrl = publicUrlData.publicUrl;
+    const forSale = formData.get("forSale") === "true";
 
     // ✅ Save new card
     const card = await prisma.card.create({
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
         condition,
         description,
         imageUrls: [imageUrl],
-        forSale: true,
+        forSale,
         setName,
         rarity,
         type,
