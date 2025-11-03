@@ -128,8 +128,9 @@ export default function UploadCard() {
           textAlign="center"
           mb={4}
         >
-          Add a new card to a specific user's collection and make it available
-          in the marketplace.
+          {
+            "Add a new card to a specific user's collection and make it available in the marketplace."
+          }
         </Typography>
 
         <form onSubmit={handleSubmit}>
