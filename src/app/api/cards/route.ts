@@ -33,55 +33,89 @@ export async function POST(req: Request) {
   try {
     const formData = await req.formData();
 
-    const image = formData.get("image") as File;
-    const title = formData.get("title") as string;
-    const price = parseFloat(formData.get("price") as string);
-    const condition = formData.get("condition") as string;
-    const description = formData.get("description") as string;
-    const ownerId = formData.get("ownerId") as string;
-    const setName = formData.get("setName") as string;
-    const rarity = formData.get("rarity") as string;
-    const type = formData.get("type") as string;
+    // ✅ Basic fields
+    const title = formData.get("title") as string | null;
+    const priceRaw = formData.get("price") as string | null;
+    const condition = formData.get("condition") as string | null;
+    const description = (formData.get("description") as string | null) || "";
+    const ownerId = formData.get("ownerId") as string | null;
+    const setName = (formData.get("setName") as string | null) || "";
+    const rarity = (formData.get("rarity") as string | null) || "";
+    const type = (formData.get("type") as string | null) || "";
+    const forSale = formData.get("forSale") === "true";
 
-    if (!title || !price || !condition || !ownerId || !image) {
+    const price = priceRaw ? parseFloat(priceRaw) : NaN;
+
+    // ✅ Multiple image files
+    const images = formData
+      .getAll("images")
+      .filter((v): v is File => v instanceof File);
+
+    // ✅ Validation
+    if (
+      !title ||
+      !priceRaw ||
+      Number.isNaN(price) ||
+      !condition ||
+      !ownerId ||
+      images.length === 0
+    ) {
+      console.error("❌ Missing required fields", {
+        title,
+        priceRaw,
+        price,
+        condition,
+        ownerId,
+        imagesCount: images.length,
+        formKeys: Array.from(formData.keys()),
+      });
+
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // ✅ Upload image to Supabase
-    const arrayBuffer = await image.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const filename = `cards/${Date.now()}-${image.name}`;
-    const { data, error } = await supabase.storage
-      .from("card-images")
-      .upload(filename, buffer, {
-        contentType: image.type,
-        upsert: true,
-      });
+    // ✅ Upload all images to Supabase
+    const imageUrls: string[] = [];
 
-    if (error) throw error;
+    for (const image of images) {
+      const arrayBuffer = await image.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      const filename = `cards/${Date.now()}-${image.name}`;
 
-    const { data: publicUrlData } = supabase.storage
-      .from("card-images")
-      .getPublicUrl(data.path);
-    const imageUrl = publicUrlData.publicUrl;
-    const forSale = formData.get("forSale") === "true";
+      const { data, error } = await supabase.storage
+        .from("card-images")
+        .upload(filename, buffer, {
+          contentType: image.type,
+          upsert: true,
+        });
 
-    // ✅ Save new card
+      if (error) {
+        console.error("❌ Supabase upload error:", error);
+        throw error;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("card-images")
+        .getPublicUrl(data.path);
+
+      imageUrls.push(publicUrlData.publicUrl);
+    }
+
+    // ✅ Save new card with multiple image URLs
     const card = await prisma.card.create({
       data: {
         title,
         price,
         condition,
         description,
-        imageUrls: [imageUrl],
+        imageUrls,
         forSale,
         setName,
         rarity,
         type,
-        owner: { connect: { id: ownerId } }, // attach to the user
+        owner: { connect: { id: ownerId } },
       },
     });
 

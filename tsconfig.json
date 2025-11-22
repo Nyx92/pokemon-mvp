@@ -1,27 +1,70 @@
 {
   "compilerOptions": {
+    // ====== LANGUAGE TARGET ======
+    // Determines what JS version TS will compile to.
+    // ES2017 enables modern iteration (for..of), async/await, FormData iteration, etc.
+    "target": "es2017",
+
+    // ====== LIBRARIES TO INCLUDE ======
+    // Adds global types for browser APIs (DOM), iterable APIs, and latest ES features.
     "lib": ["dom", "dom.iterable", "esnext"],
+
+    // ====== JS + TS BEHAVIOUR ======
+    // Allow importing/compiling .js files inside TS.
     "allowJs": true,
+
+    // Skip type-checking node_modules for faster builds.
     "skipLibCheck": true,
+
+    // Enforce strict mode (better type safety but more errors).
     "strict": true,
+
+    // Do not output compiled JS files since Next.js handles that automatically.
     "noEmit": true,
+
+    // Allow default import syntax even when module uses CommonJS.
     "esModuleInterop": true,
+
+    // ====== MODULE SYSTEM ======
+    // Use modern ES Modules.
     "module": "esnext",
+
+    // How TS resolves imports. Next.js recommends "bundler".
     "moduleResolution": "bundler",
+
+    // Allow importing .json files via `import data from "./file.json"`
     "resolveJsonModule": true,
+
+    // Required for Next.js to properly isolate each file during build.
     "isolatedModules": true,
+
+    // Preserve JSX as-is (Next.js will transpile it later).
     "jsx": "preserve",
+
+    // Improves rebuild speed by caching previous compilation state.
     "incremental": true,
+
+    // Where TS should look for type definitions.
     "typeRoots": ["./node_modules/@types", "./src/types"],
+
+    // ====== NEXT.JS PLUGIN ======
+    // Enables Next.js-powered TS rules and optimizations.
     "plugins": [
       {
         "name": "next"
       }
     ],
+
+    // ====== PATH ALIASES ======
+    // Allows you to write "@/components/Button" instead of long relative paths.
     "paths": {
       "@/*": ["./src/*", "./app/*"]
     }
   },
+
+  // ====== WHAT FILES SHOULD TS CHECK ======
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+
+  // Ignore dependencies
   "exclude": ["node_modules"]
 }

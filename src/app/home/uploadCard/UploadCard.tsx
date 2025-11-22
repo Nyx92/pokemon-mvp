@@ -10,7 +10,20 @@ import {
   Typography,
   Paper,
   Divider,
+  IconButton,
 } from "@mui/material";
+import DeleteIcon from "@mui/icons-material/Delete";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+
+import { POKEMON_RARITIES } from "@/constants/pokemon";
+import {
+  RAW_GRADES,
+  PSA_GRADES,
+  BECKETT_GRADES,
+  CGC_GRADES,
+  SGC_GRADES,
+} from "@/constants/grades";
 
 export default function UploadCard() {
   const [form, setForm] = useState({
@@ -28,47 +41,11 @@ export default function UploadCard() {
   const [users, setUsers] = useState<
     { id: string; username: string | null; email: string }[]
   >([]);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0); // which image is shown
   const [uploading, setUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
-
-  const rarities = [
-    "Common",
-    "Uncommon",
-    "Rare",
-    "Rare Holo",
-    "Rare Holo V",
-    "Rare Holo VSTAR",
-    "Rare Holo VMAX",
-    "Rare Holo EX",
-    "Double Rare",
-    "Ultra Rare",
-    "Illustration Rare",
-    "Special Illustration Rare",
-    "Hyper Rare",
-    "Secret Rare",
-    "Promo",
-    "Trainer Gallery",
-    "Shiny Rare",
-    "Shiny Ultra Rare",
-    "Radiant Rare",
-    "Amazing Rare",
-    "Legend",
-    "Prism Star",
-    "ACE SPEC",
-    "Rare BREAK",
-    "Rare Prime",
-    "Rare Shining",
-    "Rare Holo GX",
-    "Rare Rainbow",
-    "Rare Shiny GX",
-    "Rare Secret",
-    "Rare Ultra",
-    "Rare Shiny",
-    "Promo (Black Star)",
-    "Other / Error / Misc",
-  ];
 
   // ✅ Fetch users for dropdown
   useEffect(() => {
@@ -91,24 +68,68 @@ export default function UploadCard() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // ✅ Handle multiple image uploads
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
+    const files = e.target.files ? Array.from(e.target.files) : [];
+    if (files.length > 0) {
+      const newFiles = [...imageFiles, ...files];
+      const newPreviews = [
+        ...previewUrls,
+        ...files.map((f) => URL.createObjectURL(f)),
+      ];
+
+      setImageFiles(newFiles);
+      setPreviewUrls(newPreviews);
+
+      // show the latest uploaded image
+      setCurrentImageIndex(newPreviews.length - 1);
     }
+  };
+
+  // ✅ Delete currently selected image
+  const handleRemoveImage = (index: number) => {
+    const newFiles = imageFiles.filter((_, i) => i !== index);
+    const newPreviews = previewUrls.filter((_, i) => i !== index);
+
+    setImageFiles(newFiles);
+    setPreviewUrls(newPreviews);
+
+    if (newPreviews.length === 0) {
+      setCurrentImageIndex(0);
+    } else {
+      // clamp index so we don't go out of bounds
+      setCurrentImageIndex((prev) =>
+        prev >= newPreviews.length ? newPreviews.length - 1 : prev
+      );
+    }
+  };
+
+  const handlePrevImage = () => {
+    setCurrentImageIndex((prev) =>
+      prev === 0 ? previewUrls.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextImage = () => {
+    setCurrentImageIndex((prev) =>
+      prev === previewUrls.length - 1 ? 0 : prev + 1
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (
       !form.title ||
       !form.price ||
       !form.condition ||
       !form.ownerId ||
-      !imageFile
-    )
-      return alert("Please fill in all required fields and select an image.");
+      imageFiles.length === 0
+    ) {
+      return alert(
+        "Please fill in all required fields and upload at least one image."
+      );
+    }
 
     setUploading(true);
     setSuccessMsg("");
@@ -118,7 +139,7 @@ export default function UploadCard() {
       Object.entries(form).forEach(([key, val]) =>
         body.append(key, String(val))
       );
-      body.append("image", imageFile);
+      imageFiles.forEach((file) => body.append("images", file)); // 👈 multiple images
 
       const res = await fetch("/api/cards", { method: "POST", body });
       if (!res.ok) throw new Error("Failed to upload card.");
@@ -136,8 +157,9 @@ export default function UploadCard() {
         rarity: "",
         type: "",
       });
-      setImageFile(null);
-      setPreviewUrl(null);
+      setImageFiles([]);
+      setPreviewUrls([]);
+      setCurrentImageIndex(0);
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Something went wrong.");
@@ -156,6 +178,8 @@ export default function UploadCard() {
           maxWidth: 850,
           width: "100%",
           backgroundColor: "#fafafa",
+          userSelect: "none", // can't select text inside
+          caretColor: "transparent", // hide the blinking text cursor
         }}
       >
         <Typography variant="h5" fontWeight={700} textAlign="center" mb={1}>
@@ -239,9 +263,9 @@ export default function UploadCard() {
                     fullWidth
                     required
                   >
-                    {["Mint", "Near Mint", "Good", "Fair", "Poor"].map((c) => (
-                      <MenuItem key={c} value={c}>
-                        {c}
+                    {RAW_GRADES.map((g) => (
+                      <MenuItem key={g} value={g}>
+                        {g}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -257,9 +281,9 @@ export default function UploadCard() {
                     fullWidth
                     required
                   >
-                    {[...Array(10)].map((_, i) => (
-                      <MenuItem key={i + 1} value={`PSA ${i + 1}`}>
-                        PSA {i + 1}
+                    {PSA_GRADES.map((g) => (
+                      <MenuItem key={g} value={g}>
+                        {g}
                       </MenuItem>
                     ))}
                   </TextField>
@@ -275,18 +299,7 @@ export default function UploadCard() {
                     fullWidth
                     required
                   >
-                    {[
-                      "Beckett 10 Black Label",
-                      "Beckett 10 Pristine",
-                      "Beckett 9.5 Gem Mint",
-                      "Beckett 9 Mint",
-                      "Beckett 8.5 NM-MT+",
-                      "Beckett 8 NM-MT",
-                      "Beckett 7.5 NM+",
-                      "Beckett 7 NM",
-                      "Beckett 6.5 EX-MT+",
-                      "Beckett 6 EX-MT",
-                    ].map((g) => (
+                    {BECKETT_GRADES.map((g) => (
                       <MenuItem key={g} value={g}>
                         {g}
                       </MenuItem>
@@ -304,15 +317,7 @@ export default function UploadCard() {
                     fullWidth
                     required
                   >
-                    {[
-                      "CGC 10 Pristine",
-                      "CGC 9.5 Gem Mint",
-                      "CGC 9 Mint",
-                      "CGC 8.5 NM-MT+",
-                      "CGC 8 NM-MT",
-                      "CGC 7.5 NM+",
-                      "CGC 7 NM",
-                    ].map((g) => (
+                    {CGC_GRADES.map((g) => (
                       <MenuItem key={g} value={g}>
                         {g}
                       </MenuItem>
@@ -330,15 +335,7 @@ export default function UploadCard() {
                     fullWidth
                     required
                   >
-                    {[
-                      "SGC 10 Pristine",
-                      "SGC 9.5 Gem Mint",
-                      "SGC 9 Mint",
-                      "SGC 8.5 NM-MT+",
-                      "SGC 8 NM-MT",
-                      "SGC 7.5 NM+",
-                      "SGC 7 NM",
-                    ].map((g) => (
+                    {SGC_GRADES.map((g) => (
                       <MenuItem key={g} value={g}>
                         {g}
                       </MenuItem>
@@ -437,7 +434,7 @@ export default function UploadCard() {
                 }}
               >
                 <MenuItem value="">None</MenuItem>
-                {rarities.map((r) => (
+                {POKEMON_RARITIES.map((r) => (
                   <MenuItem key={r} value={r}>
                     {r}
                   </MenuItem>
@@ -461,17 +458,18 @@ export default function UploadCard() {
               </TextField>
             </Box>
 
-            {/* Right: image preview */}
+            {/* Right: multiple image upload */}
             <Box
               sx={{
-                flexBasis: { md: "35%", xs: "100%" },
+                flexBasis: { md: "40%", xs: "100%" },
                 textAlign: "center",
                 mt: { xs: 3, md: 0 },
               }}
             >
               <Typography fontWeight={600} mb={1}>
-                Card Image
+                Card Images
               </Typography>
+
               <Button
                 variant="outlined"
                 component="label"
@@ -482,40 +480,132 @@ export default function UploadCard() {
                   borderColor: "#ccc",
                 }}
               >
-                Choose File
+                Choose Images
                 <input
                   type="file"
                   hidden
+                  multiple
                   accept="image/*"
                   onChange={handleImageChange}
                 />
               </Button>
 
-              {previewUrl && (
-                <Paper
-                  elevation={4}
-                  sx={{
-                    mt: 1,
-                    p: 1.5,
-                    borderRadius: 3,
-                    overflow: "hidden",
-                    backgroundColor: "#fff",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    style={{
-                      width: "100%",
-                      borderRadius: "10px",
-                      objectFit: "contain",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+              {previewUrls.length > 0 && (
+                <>
+                  {/* Main image area */}
+                  <Box
+                    sx={{
+                      position: "relative",
+                      mt: 1,
+                      borderRadius: 3,
+                      overflow: "hidden",
+                      backgroundColor: "#fff",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.18)", // shadow around the box
+                      p: 1.5,
                     }}
-                  />
-                </Paper>
+                  >
+                    <img
+                      src={previewUrls[currentImageIndex]}
+                      alt={`Preview ${currentImageIndex + 1}`}
+                      style={{
+                        width: "100%",
+                        maxHeight: 320,
+                        objectFit: "contain",
+                        borderRadius: 12,
+                        display: "block",
+                      }}
+                    />
+
+                    {/* Left/right arrows */}
+                    {previewUrls.length > 1 && (
+                      <>
+                        <IconButton
+                          onClick={handlePrevImage}
+                          sx={{
+                            position: "absolute",
+                            top: "50%",
+                            left: 12,
+                            transform: "translateY(-50%)",
+                            backgroundColor: "rgba(255,255,255,0.9)",
+                            "&:hover": { backgroundColor: "#eee" },
+                          }}
+                        >
+                          <ChevronLeftIcon />
+                        </IconButton>
+                        <IconButton
+                          onClick={handleNextImage}
+                          sx={{
+                            position: "absolute",
+                            top: "50%",
+                            right: 12,
+                            transform: "translateY(-50%)",
+                            backgroundColor: "rgba(255,255,255,0.9)",
+                            "&:hover": { backgroundColor: "#eee" },
+                          }}
+                        >
+                          <ChevronRightIcon />
+                        </IconButton>
+                      </>
+                    )}
+
+                    {/* Delete current image */}
+                    <IconButton
+                      onClick={() => handleRemoveImage(currentImageIndex)}
+                      size="small"
+                      sx={{
+                        position: "absolute",
+                        top: 10,
+                        right: 10,
+                        backgroundColor: "rgba(255,255,255,0.95)",
+                        "&:hover": { backgroundColor: "#f8d7da" },
+                      }}
+                    >
+                      <DeleteIcon color="error" fontSize="small" />
+                    </IconButton>
+                  </Box>
+
+                  {/* Thumbnails */}
+                  {previewUrls.length > 1 && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 1,
+                        mt: 2,
+                        justifyContent: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      {previewUrls.map((url, i) => (
+                        <Box
+                          key={i}
+                          onClick={() => setCurrentImageIndex(i)}
+                          sx={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: 1.5,
+                            overflow: "hidden",
+                            cursor: "pointer",
+                            border:
+                              i === currentImageIndex
+                                ? "2px solid #1976d2"
+                                : "1px solid #ddd",
+                          }}
+                        >
+                          <img
+                            src={url}
+                            alt={`Thumb ${i + 1}`}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain", // show whole pic
+                              display: "block",
+                            }}
+                          />
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                </>
               )}
             </Box>
           </Box>

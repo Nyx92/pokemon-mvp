@@ -27,6 +27,7 @@ export default function Home() {
   const [tab, setTab] = useState("marketplace");
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
+  const isAdmin = session?.user && (session.user as any).role === "admin";
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: string) => {
     setTab(newValue);
@@ -114,7 +115,7 @@ export default function Home() {
               iconPosition="start"
               value="community"
             />
-            {isLoggedIn && (
+            {isAdmin && (
               <Tab
                 icon={<UploadIcon />}
                 label="Upload Card"
