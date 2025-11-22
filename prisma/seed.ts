@@ -125,7 +125,7 @@ async function main() {
       },
       {
         title: "Venusaur V",
-        price: 55,
+        price: null,
         condition: "Good",
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrl],
@@ -139,7 +139,7 @@ async function main() {
       },
       {
         title: "Blastoise Holo Rare",
-        price: 80,
+        price: 120,
         condition: "Mint",
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrl],
@@ -174,7 +174,7 @@ async function main() {
       },
       {
         title: "Psyduck Reverse Holo",
-        price: 25,
+        price: null,
         condition: "Lightly Played",
         description: "A confused Psyduck that Misty adores.",
         imageUrls: [mockImageUrl],

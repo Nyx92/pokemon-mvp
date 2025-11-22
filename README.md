@@ -67,3 +67,10 @@ npx prisma migrate deploy
 ### Seed data is defined in prisma/seed.ts.
 
 pnpm seed
+
+### To reset the db when there's updates to schema
+
+rm -rf prisma/migrations
+npx prisma db push --force-reset
+npx prisma migrate dev --name init
+npx prisma db seed

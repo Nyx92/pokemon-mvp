@@ -33,7 +33,7 @@ export default function UploadCard() {
     condition: "",
     description: "",
     ownerId: "",
-    forSale: false,
+    forSale: true,
     setName: "",
     rarity: "",
     type: "",
@@ -119,12 +119,15 @@ export default function UploadCard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const priceRequiredButMissing =
+      form.forSale && (!form.price || Number.isNaN(Number(form.price)));
+
     if (
       !form.title ||
-      !form.price ||
       !form.condition ||
       !form.ownerId ||
-      imageFiles.length === 0
+      imageFiles.length === 0 ||
+      priceRequiredButMissing
     ) {
       return alert(
         "Please fill in all required fields and upload at least one image."
@@ -217,14 +220,20 @@ export default function UploadCard() {
               />
 
               <TextField
-                label="Price (USD)"
+                label="Price (SGD)"
                 name="price"
                 type="number"
                 value={form.price}
                 onChange={handleChange}
                 fullWidth
-                required
+                required={form.forSale} // ⬅ required only if selling
+                disabled={!form.forSale} // ⬅ disabled for collection-only
                 sx={{ mb: 2 }}
+                helperText={
+                  form.forSale
+                    ? "Required for cards listed for sale"
+                    : "Optional — price is not needed for collection-only cards"
+                }
               />
 
               {/* 🧩 Condition (RAW / Graded) */}
@@ -446,9 +455,15 @@ export default function UploadCard() {
                 label="For Sale?"
                 name="forSale"
                 value={form.forSale ? "true" : "false"}
-                onChange={(e) =>
-                  setForm({ ...form, forSale: e.target.value === "true" })
-                }
+                onChange={(e) => {
+                  const isForSale = e.target.value === "true";
+                  setForm((prev) => ({
+                    ...prev,
+                    forSale: isForSale,
+                    // if not for sale, clear price
+                    price: isForSale ? prev.price : "",
+                  }));
+                }}
                 fullWidth
                 sx={{ mb: 2 }}
                 helperText="Specify if this card is listed for sale or only in the user's collection"

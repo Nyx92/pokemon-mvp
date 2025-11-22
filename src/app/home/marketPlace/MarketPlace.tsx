@@ -32,7 +32,7 @@ import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 interface CardItem {
   id: string;
   title: string;
-  price: number;
+  price: number | null;
   condition: string;
   status: string;
   forSale: boolean;
@@ -40,7 +40,7 @@ interface CardItem {
   binder?: { id: string; name: string };
 }
 
-export default function MyCollection() {
+export default function Marketplace() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [binders, setBinders] = useState<{ id: string; name: string }[]>([
@@ -309,17 +309,30 @@ export default function MyCollection() {
                     >
                       {product.title}
                     </Typography>
+
                     <Typography variant="body2" color="text.secondary">
                       Condition: {product.condition}
                     </Typography>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="bold"
-                      color="primary"
-                      sx={{ mt: 0.5 }}
-                    >
-                      ${product.price.toFixed(2)}
-                    </Typography>
+
+                    {product.forSale ? (
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight="bold"
+                        color="primary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        ${product.price!.toFixed(2)}
+                      </Typography>
+                    ) : (
+                      <Typography
+                        variant="subtitle1"
+                        fontWeight="bold"
+                        color="primary"
+                        sx={{ mt: 0.5 }}
+                      >
+                        NFS
+                      </Typography>
+                    )}
                   </CardContent>
                 </Card>
               </Grid>

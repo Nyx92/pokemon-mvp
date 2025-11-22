@@ -109,7 +109,7 @@ model Binder {
 model Card {
   id           String     @id @default(uuid())
   title        String
-  price        Float
+  price        Float?
   condition    String
   description  String?
   imageUrls    String[]   // URLs to Supabase Storage images
