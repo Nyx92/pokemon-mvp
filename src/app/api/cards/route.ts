@@ -35,7 +35,6 @@ export async function POST(req: Request) {
 
     // ✅ Basic fields
     const title = formData.get("title") as string | null;
-    const priceRaw = formData.get("price") as string | null;
     const condition = formData.get("condition") as string | null;
     const description = (formData.get("description") as string | null) || "";
     const ownerId = formData.get("ownerId") as string | null;
@@ -44,28 +43,36 @@ export async function POST(req: Request) {
     const type = (formData.get("type") as string | null) || "";
     const forSale = formData.get("forSale") === "true";
 
-    const price = priceRaw ? parseFloat(priceRaw) : NaN;
+    // Price logic (may be omitted when NOT for sale)
+    const priceRaw = formData.get("price");
+    let price: number | null = null;
+
+    if (typeof priceRaw === "string" && priceRaw.trim() !== "") {
+      price = parseFloat(priceRaw);
+    }
+
+    const priceRequiredButMissing =
+      forSale && (price === null || Number.isNaN(price));
 
     // ✅ Multiple image files
     const images = formData
       .getAll("images")
       .filter((v): v is File => v instanceof File);
 
-    // ✅ Validation
+    // Validation
     if (
       !title ||
-      !priceRaw ||
-      Number.isNaN(price) ||
       !condition ||
       !ownerId ||
-      images.length === 0
+      images.length === 0 ||
+      priceRequiredButMissing
     ) {
       console.error("❌ Missing required fields", {
         title,
-        priceRaw,
-        price,
         condition,
         ownerId,
+        forSale,
+        price,
         imagesCount: images.length,
         formKeys: Array.from(formData.keys()),
       });
