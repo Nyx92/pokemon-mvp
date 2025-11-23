@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import {
   Box,
   Card,
@@ -11,48 +10,25 @@ import {
   Grid,
   TextField,
   InputAdornment,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   ToggleButtonGroup,
   ToggleButton,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
   CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import AddIcon from "@mui/icons-material/Add";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
-
-interface CardItem {
-  id: string;
-  title: string;
-  price: number | null;
-  condition: string;
-  status: string;
-  forSale: boolean;
-  imageUrls: string[];
-  binder?: { id: string; name: string };
-}
+import CardDetailDialog from "../../shared-components/cards/CardDetailDialog";
+import type { CardItem } from "@/types/card";
 
 export default function Marketplace() {
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [binders, setBinders] = useState<{ id: string; name: string }[]>([
-    { id: "all", name: "All Cards" },
-  ]);
-  const [binder, setBinder] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [openDialog, setOpenDialog] = useState(false);
-  const [newBinderName, setNewBinderName] = useState("");
 
-  // ✅ Fetch cards from Prisma via API
+  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
+
+  // ✅ Fetch cards
   useEffect(() => {
     const fetchCards = async () => {
       setLoading(true);
@@ -61,16 +37,6 @@ export default function Marketplace() {
         const data = await res.json();
         if (res.ok) {
           setCards(data.cards);
-
-          // dynamically extract binders
-          const binderMap = new Map<string, string>();
-          data.cards.forEach((c: any) => {
-            if (c.binder) binderMap.set(c.binder.id, c.binder.name);
-          });
-          setBinders([
-            { id: "all", name: "All Cards" },
-            ...Array.from(binderMap).map(([id, name]) => ({ id, name })),
-          ]);
         } else {
           console.error("Error loading cards:", data.error);
         }
@@ -84,37 +50,21 @@ export default function Marketplace() {
     fetchCards();
   }, []);
 
-  // Fuzzy search setup
+  // Fuzzy search
   const searchResults = useFuzzySearch({
     data: cards,
     query: search,
-    keys: ["title", "binder.name", "status", "condition"],
+    keys: ["title", "status", "condition", "setName", "rarity", "type"],
   });
 
   // Filters
   const filteredProducts = searchResults.filter((product) => {
-    const matchesBinder = binder === "all" || product.binder?.id === binder;
     const matchesFilter =
       filter === "all" ||
       (filter === "forsale" && product.forSale) ||
       (filter === "sold" && product.status === "sold");
-    return matchesBinder && matchesFilter;
+    return matchesFilter;
   });
-
-  // Handle binder creation
-  const handleCreateBinder = () => {
-    if (!newBinderName.trim()) return;
-    const newId = newBinderName.toLowerCase().replace(/\s+/g, "-");
-    if (binders.find((b) => b.id === newId)) {
-      alert("Binder name already exists!");
-      return;
-    }
-    const newBinder = { id: newId, name: newBinderName };
-    setBinders([...binders, newBinder]);
-    setBinder(newId);
-    setNewBinderName("");
-    setOpenDialog(false);
-  };
 
   if (loading) {
     return (
@@ -139,34 +89,10 @@ export default function Marketplace() {
           mx: "auto",
         }}
       >
-        {/* Left side: Binder + Search */}
+        {/* Left: search */}
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
-            <InputLabel>Binder</InputLabel>
-            <Select
-              value={binder}
-              onChange={(e) => {
-                if (e.target.value === "new") {
-                  setOpenDialog(true);
-                } else {
-                  setBinder(e.target.value);
-                }
-              }}
-              label="Binder"
-            >
-              {binders.map((b) => (
-                <MenuItem key={b.id} value={b.id}>
-                  {b.name}
-                </MenuItem>
-              ))}
-              <MenuItem value="new">
-                <AddIcon fontSize="small" sx={{ mr: 1 }} /> Create New Binder
-              </MenuItem>
-            </Select>
-          </FormControl>
-
           <TextField
-            placeholder="Search your cards..."
+            placeholder="Search cards..."
             variant="outlined"
             size="small"
             value={search}
@@ -182,7 +108,7 @@ export default function Marketplace() {
           />
         </Box>
 
-        {/* Right side: Filter Toggle */}
+        {/* Right: filters */}
         <ToggleButtonGroup
           value={filter}
           exclusive
@@ -214,7 +140,7 @@ export default function Marketplace() {
               },
             },
             "& .MuiToggleButtonGroup-grouped:not(:last-of-type)": {
-              marginRight: "8px", // spacing between buttons
+              marginRight: "8px",
             },
           }}
         >
@@ -241,6 +167,7 @@ export default function Marketplace() {
                 justifyContent="center"
               >
                 <Card
+                  onClick={() => setSelectedCard(product)}
                   sx={{
                     position: "relative",
                     width: "100%",
@@ -250,6 +177,7 @@ export default function Marketplace() {
                     flexDirection: "column",
                     boxShadow: 2,
                     borderRadius: 2,
+                    cursor: "pointer",
                     "&:hover": {
                       boxShadow: 5,
                       transform: "scale(1.02)",
@@ -266,7 +194,7 @@ export default function Marketplace() {
                         position: "absolute",
                         top: 8,
                         right: 8,
-                        backgroundColor: "#A15C5C", // warm muted crimson
+                        backgroundColor: "#A15C5C",
                         color: "#FFF",
                         fontWeight: 600,
                         "& .MuiChip-label": { fontSize: "0.8rem" },
@@ -282,7 +210,7 @@ export default function Marketplace() {
                         position: "absolute",
                         top: 8,
                         right: 8,
-                        backgroundColor: "#3FA796", // fresh muted teal
+                        backgroundColor: "#3FA796",
                         color: "#FFF",
                         fontWeight: 600,
                         "& .MuiChip-label": { fontSize: "0.8rem" },
@@ -314,23 +242,23 @@ export default function Marketplace() {
                       Condition: {product.condition}
                     </Typography>
 
-                    {product.forSale ? (
+                    {product.forSale && product.price != null ? (
                       <Typography
                         variant="subtitle1"
                         fontWeight="bold"
                         color="primary"
                         sx={{ mt: 0.5 }}
                       >
-                        ${product.price!.toFixed(2)}
+                        ${product.price.toFixed(2)}
                       </Typography>
                     ) : (
                       <Typography
                         variant="subtitle1"
                         fontWeight="bold"
-                        color="primary"
+                        color="text.secondary"
                         sx={{ mt: 0.5 }}
                       >
-                        NFS
+                        Not for sale
                       </Typography>
                     )}
                   </CardContent>
@@ -350,28 +278,13 @@ export default function Marketplace() {
         </Grid>
       </Box>
 
-      {/* ✅ Create Binder Dialog */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <DialogTitle>Create a New Binder</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Binder Name"
-            type="text"
-            fullWidth
-            variant="outlined"
-            value={newBinderName}
-            onChange={(e) => setNewBinderName(e.target.value)}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button onClick={handleCreateBinder} variant="contained">
-            Create
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* 🔍 Reusable Card Detail Modal */}
+      <CardDetailDialog
+        open={!!selectedCard}
+        card={selectedCard}
+        mode="market" // 👈 important
+        onClose={() => setSelectedCard(null)}
+      />
     </Box>
   );
 }

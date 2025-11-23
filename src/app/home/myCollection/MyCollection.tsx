@@ -28,17 +28,8 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
-
-interface CardItem {
-  id: string;
-  title: string;
-  price: number | null;
-  condition: string;
-  status: string;
-  forSale: boolean;
-  imageUrls: string[];
-  binder?: { id: string; name: string };
-}
+import type { CardItem } from "@/types/card"; // 👈 instead of local interface
+import CardDetailDialog from "../../shared-components/cards/CardDetailDialog";
 
 export default function MyCollection() {
   const [cards, setCards] = useState<CardItem[]>([]);
@@ -51,6 +42,8 @@ export default function MyCollection() {
   const [search, setSearch] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
   const [newBinderName, setNewBinderName] = useState("");
+  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // ✅ Fetch cards from Prisma via API
   useEffect(() => {
@@ -241,6 +234,10 @@ export default function MyCollection() {
                 justifyContent="center"
               >
                 <Card
+                  onClick={() => {
+                    setSelectedCard(product as CardItem);
+                    setDetailOpen(true);
+                  }}
                   sx={{
                     position: "relative",
                     width: "100%",
@@ -349,6 +346,14 @@ export default function MyCollection() {
           )}
         </Grid>
       </Box>
+
+      {/* 🔍 Reusable Card Detail Modal */}
+      <CardDetailDialog
+        open={detailOpen}
+        card={selectedCard}
+        mode="owner" // 👈 owner view
+        onClose={() => setDetailOpen(false)}
+      />
 
       {/* ✅ Create Binder Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
