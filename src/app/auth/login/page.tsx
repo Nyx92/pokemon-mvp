@@ -14,7 +14,7 @@ import { useUserStore } from "../../store/userStore";
 
 import DescriptionBar, {
   DescriptionLabel,
-} from "../../../app/shared-components/DescriptionBar";
+} from "../../shared-components/DescriptionBar";
 
 const descriptionBarLabels: DescriptionLabel[] = [
   { title: "", link: "" },
