@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import DescriptionBar, {
   DescriptionLabel,
-} from "../../../app/shared-components/DescriptionBar";
+} from "../../shared-components/DescriptionBar";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { getNames } from "country-list";
