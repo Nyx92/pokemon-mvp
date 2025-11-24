@@ -22,6 +22,7 @@ import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
 import type { CardItem } from "@/types/card";
 
@@ -67,6 +68,39 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
       backgroundColor: "rgba(0,0,0,0.06)",
     },
   } as const;
+
+  const handleBuyNow = async () => {
+    if (!card || !card.price) return;
+
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cardId: card.id,
+          title: card.title,
+          price: card.price,
+          imageUrl: card.imageUrls[0], // 👈 first image
+        }),
+      });
+
+      if (!res.ok) {
+        console.error("Failed to create checkout session");
+        return;
+      }
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        console.error("No checkout URL returned from Stripe");
+      }
+    } catch (err) {
+      console.error("Error calling /api/checkout:", err);
+    }
+  };
 
   return (
     <Dialog
@@ -422,7 +456,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                 "&:hover": { backgroundColor: "#333" },
               }}
               disabled={!isForSale}
-              onClick={() => console.log("Buy now", card.id)}
+              onClick={handleBuyNow}
             >
               Buy now
             </Button>
@@ -454,6 +488,15 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               onClick={() => console.log("Promote listing", card.id)}
             >
               Promote listing
+            </Button>
+
+            <Button
+              variant="outlined"
+              startIcon={<EditOutlinedIcon />}
+              sx={footerButtonSx}
+              onClick={() => console.log("Promote listing", card.id)}
+            >
+              Edit listing
             </Button>
 
             <Button
