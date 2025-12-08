@@ -10,11 +10,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { cardId, title, price, imageUrl } = body as {
+    const { cardId, title, price, imageUrls } = body as {
       cardId: string;
       title: string;
       price: number;
-      imageUrl?: string;
+      imageUrls?: string[];
     };
 
     if (!price || price <= 0) {
@@ -25,10 +25,11 @@ export async function POST(req: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     // Stripe requires absolute URL
-    const finalImageUrl =
-      imageUrl && !imageUrl.startsWith("http")
-        ? `${baseUrl}${imageUrl}`
-        : imageUrl;
+    const finalImageUrls =
+      imageUrls
+        ?.filter(Boolean)
+        .map((url) => (url.startsWith("http") ? url : `${baseUrl}${url}`)) ??
+      [];
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
             unit_amount: Math.round(price * 100),
             product_data: {
               name: title,
-              images: finalImageUrl ? [finalImageUrl] : [],
+              images: finalImageUrls, // 👈 multiple images
               metadata: {
                 cardId,
               },
