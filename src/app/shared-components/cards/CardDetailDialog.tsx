@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+
 import {
   Box,
   Chip,
@@ -15,12 +17,9 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
-import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import RocketLaunchIcon from "@mui/icons-material/RocketLaunch";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
@@ -29,16 +28,17 @@ import type { CardItem } from "@/types/card";
 interface CardDetailDialogProps {
   open: boolean;
   card: CardItem | null;
-  mode: "market" | "owner"; // 👈 NEW
   onClose: () => void;
 }
 
 const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   open,
   card,
-  mode,
   onClose,
 }) => {
+  const { data: session } = useSession();
+  const isAdmin = session?.user && (session.user as any).role === "admin";
+  const isOwner = session?.user?.id === card?.owner?.id;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
 
@@ -82,7 +82,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           cardId: card.id,
           title: card.title,
           price: card.price,
-          imageUrl: card.imageUrls[0], // 👈 first image
+          imageUrls: card.imageUrls ?? [],
         }),
       });
 
@@ -175,7 +175,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               />
 
               {/* Market mode: like toggle */}
-              {mode === "market" && (
+              {isOwner && (
                 <IconButton
                   onClick={() => setLiked((prev) => !prev)}
                   sx={{
@@ -195,7 +195,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               )}
 
               {/* Owner mode: likes pill */}
-              {mode === "owner" && (
+              {!isOwner && (
                 <Box
                   sx={{
                     position: "absolute",
@@ -426,17 +426,8 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           gap: 1.5,
         }}
       >
-        {mode === "market" ? (
+        {!isOwner ? (
           <>
-            <Button
-              variant="outlined"
-              startIcon={<MailOutlineIcon />}
-              sx={footerButtonSx}
-              onClick={() => console.log("Contact seller", card.id)}
-            >
-              Contact seller
-            </Button>
-
             <Button
               variant="outlined"
               startIcon={<GavelIcon />}
@@ -465,29 +456,11 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           <>
             <Button
               variant="outlined"
-              startIcon={<ChatBubbleOutlineIcon />}
-              sx={footerButtonSx}
-              onClick={() => console.log("View messages for", card.id)}
-            >
-              View messages
-            </Button>
-
-            <Button
-              variant="outlined"
               startIcon={<LocalOfferIcon />}
               sx={footerButtonSx}
               onClick={() => console.log("View offers for", card.id)}
             >
               View offers
-            </Button>
-
-            <Button
-              variant="outlined"
-              startIcon={<RocketLaunchIcon />}
-              sx={footerButtonSx}
-              onClick={() => console.log("Promote listing", card.id)}
-            >
-              Promote listing
             </Button>
 
             <Button
@@ -499,22 +472,25 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               Edit listing
             </Button>
 
-            <Button
-              variant="outlined"
-              startIcon={<DeleteOutlineIcon />}
-              sx={{
-                textTransform: "none",
-                borderColor: "error.main",
-                color: "error.main",
-                "&:hover": {
+            {/* Only admins can delete a listing */}
+            {isAdmin && (
+              <Button
+                variant="outlined"
+                startIcon={<DeleteOutlineIcon />}
+                sx={{
+                  textTransform: "none",
                   borderColor: "error.main",
-                  backgroundColor: "rgba(211,47,47,0.04)",
-                },
-              }}
-              onClick={() => console.log("Delete listing", card.id)}
-            >
-              Delete listing
-            </Button>
+                  color: "error.main",
+                  "&:hover": {
+                    borderColor: "error.main",
+                    backgroundColor: "rgba(211,47,47,0.04)",
+                  },
+                }}
+                onClick={() => console.log("Delete listing", card.id)}
+              >
+                Delete listing
+              </Button>
+            )}
           </>
         )}
       </DialogActions>

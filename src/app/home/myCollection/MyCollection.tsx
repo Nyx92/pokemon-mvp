@@ -247,6 +247,7 @@ export default function MyCollection() {
                     flexDirection: "column",
                     boxShadow: 2,
                     borderRadius: 2,
+                    cursor: "pointer",
                     "&:hover": {
                       boxShadow: 5,
                       transform: "scale(1.02)",
@@ -351,7 +352,6 @@ export default function MyCollection() {
       <CardDetailDialog
         open={detailOpen}
         card={selectedCard}
-        mode="owner" // 👈 owner view
         onClose={() => setDetailOpen(false)}
       />
 

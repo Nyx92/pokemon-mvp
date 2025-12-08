@@ -282,7 +282,6 @@ export default function Marketplace() {
       <CardDetailDialog
         open={!!selectedCard}
         card={selectedCard}
-        mode="market" // 👈 important
         onClose={() => setSelectedCard(null)}
       />
     </Box>
