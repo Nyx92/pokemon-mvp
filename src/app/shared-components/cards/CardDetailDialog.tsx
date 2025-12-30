@@ -22,7 +22,6 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-
 import {
   ComposedChart,
   Line,
@@ -34,8 +33,6 @@ import {
   Bar,
   ReferenceLine,
 } from "recharts";
-
-import type { TooltipProps } from "recharts";
 import { mapConditionToAPI } from "../../utils/mapCondition";
 import type { CardItem } from "@/types/card";
 
@@ -57,6 +54,17 @@ type MarketData = {
   marketPrice: number | null;
 };
 
+type PriceTooltipPayload = {
+  dataKey?: string | number;
+  value?: number | string | null;
+};
+
+type PriceTooltipProps = {
+  active?: boolean;
+  payload?: PriceTooltipPayload[];
+  label?: string | number;
+};
+
 // helper to format DD/MM (no year)
 const formatShortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", {
@@ -65,7 +73,7 @@ const formatShortDate = (iso: string) =>
   });
 
 // Custom tooltip that shows price + volume + listed price
-const PriceTooltip: React.FC<TooltipProps<number, string>> = ({
+const PriceTooltip: React.FC<PriceTooltipProps> = ({
   active,
   payload,
   label,
