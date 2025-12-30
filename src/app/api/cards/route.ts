@@ -41,6 +41,9 @@ export async function POST(req: Request) {
     const setName = (formData.get("setName") as string | null) || "";
     const rarity = (formData.get("rarity") as string | null) || "";
     const forSale = formData.get("forSale") === "true";
+    const tcgPlayerId = formData.get("tcgPlayerId") as string | null;
+    const language = formData.get("language") as string | null;
+    const cardNumber = (formData.get("cardNumber") as string | null) || "";
 
     // Price logic (may be omitted when NOT for sale)
     const priceRaw = formData.get("price");
@@ -63,6 +66,8 @@ export async function POST(req: Request) {
       !title ||
       !condition ||
       !ownerId ||
+      !tcgPlayerId ||
+      !language ||
       images.length === 0 ||
       priceRequiredButMissing
     ) {
@@ -120,6 +125,9 @@ export async function POST(req: Request) {
         forSale,
         setName,
         rarity,
+        tcgPlayerId,
+        language,
+        cardNumber,
         owner: { connect: { id: ownerId } },
       },
     });
