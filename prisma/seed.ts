@@ -103,8 +103,14 @@ async function main() {
   );
 
   // Upload mock image
-  const mockImageUrl = await uploadMockImage("mock_inventory.png");
-  console.log("✅ Uploaded mock image:", mockImageUrl);
+  const mockImageUrlOne = await uploadMockImage("charizard_vmax.png");
+  const mockImageUrlTwo = await uploadMockImage("venusaur_v.png");
+  const mockImageUrlThree = await uploadMockImage("blastoise.png");
+  const mockImageUrlFour = await uploadMockImage("starmie_gx.png");
+  const mockImageUrlFive = await uploadMockImage("psyduck.png");
+  const mockImageUrlSix = await uploadMockImage("gyarados_vmax.png");
+
+  console.log("✅ Uploaded all mock images");
 
   // Ash’s Cards
   await prisma.card.createMany({
@@ -114,42 +120,48 @@ async function main() {
         price: 120,
         condition: "Mint",
         description: "A stunning Charizard VMAX with fiery holo effect.",
-        imageUrls: [mockImageUrl],
+        imageUrls: [mockImageUrlOne],
         forSale: true,
         status: "available",
         setName: "Shining Fates",
         rarity: "Ultra Rare",
-        type: "Fire",
         binderId: rareBinder.id,
         ownerId: ash.id,
+        tcgPlayerId: "232496",
+        language: "English",
+        cardNumber: "SV107",
       },
       {
         title: "Venusaur V",
         price: null,
         condition: "Good",
         description: "A Grass-type classic with nostalgic artwork.",
-        imageUrls: [mockImageUrl],
+        imageUrls: [mockImageUrlTwo],
         forSale: false,
         status: "available",
         setName: "Champion’s Path",
         rarity: "Rare",
-        type: "Grass",
         binderId: grassBinder.id,
         ownerId: ash.id,
+        tcgPlayerId: "222990",
+        language: "English",
+        cardNumber: "01/73",
       },
       {
         title: "Blastoise Holo Rare",
         price: 120,
         condition: "Mint",
         description: "Classic Blastoise with vintage holo from Base Set.",
-        imageUrls: [mockImageUrl],
+        imageUrls: [mockImageUrlThree],
         forSale: true,
         status: "available",
         setName: "Base Set",
         rarity: "Holo Rare",
-        type: "Water",
         binderId: rareBinder.id,
         ownerId: ash.id,
+        tcgPlayerId: "42360",
+        language: "English",
+        cardNumber: "002/102",
       },
     ],
   });
@@ -163,42 +175,48 @@ async function main() {
         condition: "Mint",
         description:
           "Misty’s loyal Water-type partner with a dazzling spin attack.",
-        imageUrls: [mockImageUrl],
+        imageUrls: [mockImageUrlFour],
         forSale: true,
         status: "available",
         setName: "Hidden Fates",
         rarity: "Ultra Rare",
-        type: "Water",
         binderId: waterBinder.id,
         ownerId: misty.id,
+        tcgPlayerId: "197658",
+        language: "English",
+        cardNumber: "14/68 ",
       },
       {
-        title: "Psyduck Reverse Holo",
+        title: "Psyduck",
         price: null,
         condition: "Lightly Played",
         description: "A confused Psyduck that Misty adores.",
-        imageUrls: [mockImageUrl],
+        imageUrls: [mockImageUrlFive],
         forSale: false,
         status: "available",
-        setName: "Evolving Skies",
-        rarity: "Rare",
-        type: "Water",
+        setName: "Platinum (PL)",
+        rarity: "Common",
         binderId: waterBinder.id,
         ownerId: misty.id,
+        tcgPlayerId: "88439",
+        language: "English",
+        cardNumber: "87/127",
       },
       {
         title: "Gyarados VMAX",
         price: 95,
         condition: "Near Mint",
         description: "A mighty Gyarados that dominates Misty’s team.",
-        imageUrls: [mockImageUrl],
+        imageUrls: [mockImageUrlSix],
         forSale: true,
         status: "available",
-        setName: "Crown Zenith",
+        setName: "Evolving Skies",
         rarity: "Ultra Rare",
-        type: "Water",
         binderId: waterBinder.id,
         ownerId: misty.id,
+        tcgPlayerId: "246724",
+        language: "English",
+        cardNumber: "87/127",
       },
     ],
   });

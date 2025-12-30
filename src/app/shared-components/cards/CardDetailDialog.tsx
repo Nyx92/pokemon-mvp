@@ -23,6 +23,20 @@ import LocalOfferIcon from "@mui/icons-material/LocalOffer";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 
+import {
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+  Bar,
+  ReferenceLine,
+} from "recharts";
+
+import type { TooltipProps } from "recharts";
+import { mapConditionToAPI } from "../../utils/mapCondition";
 import type { CardItem } from "@/types/card";
 
 interface CardDetailDialogProps {
@@ -30,6 +44,62 @@ interface CardDetailDialogProps {
   card: CardItem | null;
   onClose: () => void;
 }
+
+type PriceHistoryPoint = {
+  date: string; // ISO
+  market: number;
+  volume: number; // number of items sold
+};
+
+type MarketData = {
+  conditionLabel: string; // e.g. "PSA 10" or "Near Mint"
+  history: PriceHistoryPoint[];
+  marketPrice: number | null;
+};
+
+// helper to format DD/MM (no year)
+const formatShortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+
+// Custom tooltip that shows price + volume + listed price
+const PriceTooltip: React.FC<TooltipProps<number, string>> = ({
+  active,
+  payload,
+  label,
+}) => {
+  if (!active || !payload || payload.length === 0) return null;
+
+  const marketPoint = payload.find((p) => p.dataKey === "price");
+  const listedPoint = payload.find((p) => p.dataKey === "listedPrice");
+  const volumePoint = payload.find((p) => p.dataKey === "volume");
+
+  return (
+    <Box sx={{ p: 1.2 }}>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+
+      {marketPoint && typeof marketPoint.value === "number" && (
+        <Typography variant="body2">
+          Market (USD): {marketPoint.value.toFixed(2)}
+        </Typography>
+      )}
+
+      {listedPoint && typeof listedPoint.value === "number" && (
+        <Typography variant="body2">
+          Listed (SGD): {listedPoint.value.toFixed(2)}
+        </Typography>
+      )}
+
+      {volumePoint && typeof volumePoint.value === "number" && (
+        <Typography variant="body2">Volume: {volumePoint.value}</Typography>
+      )}
+    </Box>
+  );
+};
 
 const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   open,
@@ -41,19 +111,124 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const isOwner = session?.user?.id === card?.owner?.id;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [loadingMarket, setLoadingMarket] = useState(false);
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   // Reset when card changes / dialog reopens
   useEffect(() => {
     if (open) {
       setActiveImageIndex(0);
       setLiked(false);
+      setActiveIndex(null);
     }
   }, [open, card?.id]);
+
+  useEffect(() => {
+    if (!card?.tcgPlayerId || !open) return;
+
+    const mapping = mapConditionToAPI(card.condition);
+
+    const fetchMarket = async () => {
+      setLoadingMarket(true);
+      try {
+        const res = await fetch(
+          `/api/pricetracker/${card.tcgPlayerId}?graded=${
+            mapping.type === "graded"
+          }`
+        );
+        const json = await res.json();
+        const cardData = json?.data;
+
+        if (!cardData) {
+          setMarketData(null);
+          return;
+        }
+
+        let historyRaw: any[] = [];
+        let conditionLabel = "";
+        let marketPrice: number | null = null;
+
+        if (mapping.type === "graded") {
+          const grade = mapping.grade;
+          const gradeData = cardData?.ebay?.grades?.[grade];
+
+          historyRaw = (gradeData?.history ?? []) as any[];
+          marketPrice =
+            typeof gradeData?.market === "number" ? gradeData.market : null;
+          conditionLabel = card.condition || `PSA ${grade}`;
+        } else {
+          const key = mapping.key;
+          const historyByCond = cardData?.priceHistory?.conditions ?? {};
+          const priceByCond = cardData?.prices?.conditions ?? {};
+
+          let sourceHistory = historyByCond[key]?.history as any[] | undefined;
+          let sourcePrice = priceByCond[key]?.market as number | undefined;
+          let usedKey = key;
+
+          if (!sourceHistory || sourceHistory.length === 0) {
+            sourceHistory = historyByCond["Near Mint"]?.history as
+              | any[]
+              | undefined;
+            sourcePrice = priceByCond["Near Mint"]?.market as
+              | number
+              | undefined;
+            usedKey = "Near Mint";
+          }
+
+          historyRaw = sourceHistory ?? [];
+          marketPrice = typeof sourcePrice === "number" ? sourcePrice : null;
+
+          conditionLabel =
+            usedKey === key ? usedKey : `${key} (no data, showing Near Mint)`;
+        }
+
+        const history: PriceHistoryPoint[] = historyRaw.map((h: any) => ({
+          date: h.date,
+          market: h.market,
+          volume: h.volume ?? 0,
+        }));
+
+        setMarketData({
+          conditionLabel,
+          history,
+          marketPrice,
+        });
+      } catch (e) {
+        console.error("Market fetch error:", e);
+        setMarketData(null);
+      } finally {
+        setLoadingMarket(false);
+      }
+    };
+
+    fetchMarket();
+  }, [open, card?.tcgPlayerId, card?.condition]);
 
   if (!card) return null;
 
   const isForSale = card.forSale && card.status !== "sold";
   const likesCount = card.likesCount ?? 0;
+
+  const hasHistory =
+    !!marketData &&
+    Array.isArray(marketData.history) &&
+    marketData.history.length > 0;
+
+  const chartData =
+    hasHistory && marketData
+      ? marketData.history.map((h, idx, arr) => ({
+          dateLabel: formatShortDate(h.date),
+          price: h.market,
+          volume: h.volume,
+          listedPrice:
+            card.forSale &&
+            typeof card.price === "number" &&
+            idx === arr.length - 1
+              ? card.price
+              : null,
+        }))
+      : [];
 
   const safeText = (val?: string | null) =>
     val && val.trim().length > 0 ? val : "-";
@@ -329,7 +504,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                 mt: 1,
               }}
             >
-              {card.forSale && card.price != null ? (
+              {isForSale && card.price != null ? (
                 <Typography variant="h5" fontWeight={700} color="primary">
                   SGD ${card.price.toFixed(2)}
                 </Typography>
@@ -355,6 +530,155 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               </Button>
             </Box>
 
+            {/* Market data block */}
+            {loadingMarket && (
+              <Typography variant="body2" color="text.secondary" mt={1}>
+                Fetching market data...
+              </Typography>
+            )}
+
+            {!loadingMarket && hasHistory && (
+              <Box sx={{ width: "100%", mt: 2 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    mb: 1,
+                  }}
+                >
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Price & volume history —{" "}
+                    <strong>{marketData?.conditionLabel}</strong>
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Market (USD) & Volume
+                  </Typography>
+                </Box>
+
+                <Box
+                  sx={{
+                    width: "100%",
+                    height: 220,
+                    bgcolor: "#fafafa",
+                    borderRadius: 2,
+                    border: "1px solid #eee",
+                    px: 2,
+                    py: 1.5,
+                  }}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart
+                      data={chartData}
+                      margin={{ top: 10, right: 16, left: 0, bottom: 10 }}
+                      onMouseMove={(state) => {
+                        if (
+                          state.isTooltipActive &&
+                          typeof state.activeTooltipIndex === "number"
+                        ) {
+                          setActiveIndex(state.activeTooltipIndex);
+                        } else {
+                          setActiveIndex(null);
+                        }
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+
+                      <XAxis
+                        dataKey="dateLabel"
+                        tick={{ fontSize: 11, fill: "#757575" }}
+                        tickLine={false}
+                        axisLine={{ stroke: "#e0e0e0" }}
+                      />
+
+                      {/* left Y: price */}
+                      <YAxis
+                        yAxisId="left"
+                        tick={{ fontSize: 11, fill: "#757575" }}
+                        tickLine={false}
+                        axisLine={{ stroke: "#e0e0e0" }}
+                        width={60}
+                      />
+
+                      {/* right Y: volume */}
+                      <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        tick={{ fontSize: 11, fill: "#9e9e9e" }}
+                        tickLine={false}
+                        axisLine={{ stroke: "#e0e0e0" }}
+                      />
+
+                      <Tooltip content={<PriceTooltip />} />
+
+                      {/* vertical cursor line */}
+                      {activeIndex !== null &&
+                        chartData[activeIndex] &&
+                        chartData[activeIndex].dateLabel && (
+                          <ReferenceLine
+                            x={chartData[activeIndex].dateLabel}
+                            stroke="#1976d2"
+                            strokeDasharray="3 3"
+                          />
+                        )}
+
+                      {/* volume bars (right axis) */}
+                      <Bar
+                        yAxisId="right"
+                        dataKey="volume"
+                        name="volume"
+                        barSize={18}
+                        fill="#bbdefb"
+                        radius={[4, 4, 0, 0]}
+                      />
+
+                      {/* market line (left axis) */}
+                      <Line
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="price"
+                        name="price"
+                        stroke="#1976d2"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 6 }}
+                      />
+
+                      {/* listed price dot at last point */}
+                      {isForSale && typeof card.price === "number" && (
+                        <Line
+                          yAxisId="left"
+                          type="monotone"
+                          dataKey="listedPrice"
+                          name="listedPrice"
+                          stroke="transparent"
+                          strokeWidth={0}
+                          dot={{
+                            r: 6,
+                            stroke: "#b71c1c",
+                            strokeWidth: 2,
+                            fill: "#d32f2f",
+                          }}
+                          activeDot={{
+                            r: 8,
+                            stroke: "#b71c1c",
+                            strokeWidth: 2,
+                            fill: "#d32f2f",
+                          }}
+                        />
+                      )}
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </Box>
+              </Box>
+            )}
+
+            {!loadingMarket && !marketData && (
+              <Typography variant="body2" color="text.secondary" mt={1}>
+                No price data available for this card
+              </Typography>
+            )}
+
             <Divider sx={{ my: 1.5 }} />
 
             {/* Meta grid */}
@@ -377,14 +701,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
 
               <Typography color="text.secondary">Rarity:</Typography>
               <Typography fontWeight={500}>{safeText(card.rarity)}</Typography>
-
-              <Typography color="text.secondary">Type:</Typography>
-              <Typography fontWeight={500}>{safeText(card.type)}</Typography>
-
-              <Typography color="text.secondary">Card ID:</Typography>
-              <Typography fontWeight={500}>
-                {safeText(card.officialId)}
-              </Typography>
 
               <Typography color="text.secondary">Owner:</Typography>
               <Typography fontWeight={500}>
@@ -458,7 +774,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               variant="outlined"
               startIcon={<LocalOfferIcon />}
               sx={footerButtonSx}
-              onClick={() => console.log("View offers for", card.id)}
+              onClick={() => console.log("View offers", card.id)}
             >
               View offers
             </Button>
@@ -472,7 +788,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               Edit listing
             </Button>
 
-            {/* Only admins can delete a listing */}
             {isAdmin && (
               <Button
                 variant="outlined"

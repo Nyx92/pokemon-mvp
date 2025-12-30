@@ -117,10 +117,11 @@ model Card {
   status       String     @default("available") // available | sold | reserved
 
   // Optional enrichment fields (future-proof)
-  officialId   String?    // External API ID (Pokémon TCG API)
+  tcgPlayerId  String
+  language     String
+  cardNumber   String?
   setName      String?
   rarity       String?
-  type         String?
 
   // Relations
   binder       Binder?    @relation(fields: [binderId], references: [id], onDelete: SetNull)
