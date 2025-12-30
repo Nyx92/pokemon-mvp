@@ -40,7 +40,6 @@ export async function POST(req: Request) {
     const ownerId = formData.get("ownerId") as string | null;
     const setName = (formData.get("setName") as string | null) || "";
     const rarity = (formData.get("rarity") as string | null) || "";
-    const type = (formData.get("type") as string | null) || "";
     const forSale = formData.get("forSale") === "true";
 
     // Price logic (may be omitted when NOT for sale)
@@ -121,7 +120,6 @@ export async function POST(req: Request) {
         forSale,
         setName,
         rarity,
-        type,
         owner: { connect: { id: ownerId } },
       },
     });
