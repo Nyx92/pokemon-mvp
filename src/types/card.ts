@@ -7,15 +7,20 @@ export interface CardItem {
   status: string;
   forSale: boolean;
   imageUrls: string[];
+  tcgPlayerId: string;
 
-  // Optional metadata
-  setName?: string | null;
-  rarity?: string | null;
-  type?: string | null;
-  officialId?: string | null;
-  description?: string | null;
+  setName: string | null;
+  rarity: string | null;
+  description: string | null;
+  language: string; // required in Prisma
+  cardNumber: string | null;
 
-  // Owner info (from /api/cards include)
+  // Optional purely-frontend or future fields
+  likesCount?: number;
+
+  createdAt: string;
+  updatedAt: string;
+
   owner?: {
     id: string;
     username: string | null;
@@ -23,7 +28,4 @@ export interface CardItem {
   };
 
   binder?: { id: string; name: string };
-
-  // Future: likes, etc.
-  likesCount?: number;
 }
