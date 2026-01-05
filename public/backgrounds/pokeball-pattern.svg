@@ -1,0 +1,29 @@
+<svg width="260" height="260" viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg">
+  <!-- Transparent background so spacing can show -->
+  <rect width="260" height="260" fill="none" />
+
+  <!-- Pokéball (slightly smaller so there is natural spacing around it) -->
+  <g transform="translate(130 130)">
+    <!-- outer circle -->
+    <circle cx="0" cy="0" r="80" fill="#ffffff" stroke="#111111" stroke-width="6" />
+
+    <!-- top red half -->
+    <path d="M -80 0 A 80 80 0 0 1 80 0 Z" fill="#E53935" />
+
+    <!-- bottom light grey half -->
+    <path d="M -80 0 A 80 80 0 0 0 80 0 Z" fill="#f5f5f5" />
+
+    <!-- middle black band -->
+    <rect x="-80" y="-6" width="160" height="12" fill="#111111" />
+
+    <!-- inner white circle -->
+    <circle cx="0" cy="0" r="20" fill="#ffffff" stroke="#111111" stroke-width="6" />
+
+    <!-- tiny grey center -->
+    <circle cx="0" cy="0" r="9" fill="#e0e0e0" />
+
+    <!-- simple highlight on top-left -->
+    <path d="M -35 -55 A 45 45 0 0 1 -5 -70" stroke="rgba(255,255,255,0.9)" stroke-width="5" stroke-linecap="round" fill="none" />
+  </g>
+</svg>
+

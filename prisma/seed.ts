@@ -13,7 +13,7 @@ const supabase = createClient(
 );
 
 async function uploadMockImage(filename: string): Promise<string> {
-  const filePath = path.join(process.cwd(), "public", filename);
+  const filePath = path.join(process.cwd(), "public/seed-images", filename);
   const fileBuffer = fs.readFileSync(filePath);
 
   const { data, error } = await supabase.storage

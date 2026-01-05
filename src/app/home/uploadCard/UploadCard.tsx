@@ -16,7 +16,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 
-import { POKEMON_RARITIES } from "@/constants/pokemon";
+import { POKEMON_RARITIES, POKEMON_LANGUAGES } from "@/constants/pokemon";
 import {
   RAW_GRADES,
   PSA_GRADES,
@@ -31,12 +31,13 @@ export default function UploadCard() {
     price: "",
     conditionType: "",
     condition: "",
+    language: "",
+    tcgPlayerId: "",
     description: "",
     ownerId: "",
     forSale: true,
     setName: "",
     rarity: "",
-    type: "",
   });
   const [users, setUsers] = useState<
     { id: string; username: string | null; email: string }[]
@@ -153,12 +154,13 @@ export default function UploadCard() {
         price: "",
         conditionType: "",
         condition: "",
+        language: "",
+        tcgPlayerId: "",
         description: "",
         ownerId: "",
         forSale: false,
         setName: "",
         rarity: "",
-        type: "",
       });
       setImageFiles([]);
       setPreviewUrls([]);
@@ -354,17 +356,32 @@ export default function UploadCard() {
               </Box>
 
               <TextField
-                label="Description"
-                name="description"
-                value={form.description}
+                select
+                label="Language"
+                name="language"
+                value={form.language}
                 onChange={handleChange}
                 fullWidth
-                multiline
-                rows={3}
+                required
                 sx={{ mb: 2 }}
-              />
+              >
+                {POKEMON_LANGUAGES.map((g) => (
+                  <MenuItem key={g} value={g}>
+                    {g}
+                  </MenuItem>
+                ))}
+              </TextField>
 
-              <Divider sx={{ my: 2 }} />
+              <TextField
+                label="TCG Player ID"
+                name="tcgPlayerId"
+                value={form.tcgPlayerId}
+                onChange={handleChange}
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+                helperText="Required for Price History"
+              />
 
               {/* 🧩 Owner dropdown */}
               <TextField
@@ -375,7 +392,7 @@ export default function UploadCard() {
                 onChange={handleChange}
                 fullWidth
                 required
-                sx={{ mb: 2 }}
+                sx={{ mb: 3 }}
                 helperText="Pick the card owner's username"
                 SelectProps={{
                   MenuProps: {
@@ -410,6 +427,42 @@ export default function UploadCard() {
                   </MenuItem>
                 ))}
               </TextField>
+
+              <TextField
+                select
+                label="For Sale?"
+                name="forSale"
+                value={form.forSale ? "true" : "false"}
+                onChange={(e) => {
+                  const isForSale = e.target.value === "true";
+                  setForm((prev) => ({
+                    ...prev,
+                    forSale: isForSale,
+                    // if not for sale, clear price
+                    price: isForSale ? prev.price : "",
+                  }));
+                }}
+                fullWidth
+                sx={{ mb: 2 }}
+                helperText="Specify if this card is listed for sale or only in the user's collection"
+              >
+                <MenuItem value="true">Yes — List for Sale</MenuItem>
+                <MenuItem value="false">No — Collection Only</MenuItem>
+              </TextField>
+
+              {/* Optional fields below */}
+              <Divider sx={{ my: 2 }} />
+
+              <TextField
+                label="Description"
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                fullWidth
+                multiline
+                rows={3}
+                sx={{ mb: 2 }}
+              />
 
               <TextField
                 label="Set Name"
@@ -448,28 +501,6 @@ export default function UploadCard() {
                     {r}
                   </MenuItem>
                 ))}
-              </TextField>
-
-              <TextField
-                select
-                label="For Sale?"
-                name="forSale"
-                value={form.forSale ? "true" : "false"}
-                onChange={(e) => {
-                  const isForSale = e.target.value === "true";
-                  setForm((prev) => ({
-                    ...prev,
-                    forSale: isForSale,
-                    // if not for sale, clear price
-                    price: isForSale ? prev.price : "",
-                  }));
-                }}
-                fullWidth
-                sx={{ mb: 2 }}
-                helperText="Specify if this card is listed for sale or only in the user's collection"
-              >
-                <MenuItem value="true">Yes — List for Sale</MenuItem>
-                <MenuItem value="false">No — Collection Only</MenuItem>
               </TextField>
             </Box>
 
