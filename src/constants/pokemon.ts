@@ -35,5 +35,7 @@ export const POKEMON_RARITIES = [
   "Other / Error / Misc",
 ] as const;
 
+export const POKEMON_LANGUAGES = ["English", "Japanese", "Other"];
+
 // (Optional) handy type for TS
 export type PokemonRarity = (typeof POKEMON_RARITIES)[number];

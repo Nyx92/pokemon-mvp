@@ -20,9 +20,10 @@ export const PSA_GRADES = [
 export const RAW_GRADES = [
   "Mint",
   "Near Mint",
-  "Good",
-  "Fair",
-  "Poor",
+  "Lightly Played",
+  "Moderately Played",
+  "Heavily Played",
+  "Damaged",
 ] as const;
 
 export const BECKETT_GRADES = [
