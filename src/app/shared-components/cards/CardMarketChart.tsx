@@ -85,6 +85,7 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [loadingMarket, setLoadingMarket] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
   const isForSale = card.forSale && card.status !== "sold";
   const language = (card as any).language ?? "english";
   const condition = card.condition ?? "";
@@ -104,7 +105,6 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
         );
         const json = await res.json();
         const cardData = json?.data;
-        console.log(cardData);
 
         if (!cardData) {
           setMarketData(null);
@@ -151,7 +151,7 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
 
         const history: PriceHistoryPoint[] = historyRaw.map((h: any) => ({
           date: h.date,
-          market: h.market, // still store in USD here
+          market: h.market, // USD
           volume: h.volume ?? 0,
         }));
 
@@ -169,206 +169,256 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
     };
 
     fetchMarket();
-  }, [card.tcgPlayerId, card.condition]);
+  }, [card.tcgPlayerId, card.condition, language, condition]);
 
-  // Loading state
+  // Loading
   if (loadingMarket) {
     return (
-      <Typography variant="body2" color="text.secondary" mt={1}>
-        Fetching market data...
-      </Typography>
+      <Box
+        sx={{
+          border: "1px solid #e6e6e6",
+          borderRadius: 2,
+          backgroundColor: "#fff",
+          overflow: "hidden",
+          p: 2,
+        }}
+      >
+        <Typography variant="body2" color="text.secondary">
+          Fetching market data...
+        </Typography>
+      </Box>
     );
   }
 
-  // No data state
+  // No data
   if (
     !marketData ||
     !Array.isArray(marketData.history) ||
     marketData.history.length === 0
   ) {
     return (
-      <Typography variant="body2" color="text.secondary" mt={1}>
-        No price data available for this card
-      </Typography>
+      <Box
+        sx={{
+          border: "1px solid #e6e6e6",
+          borderRadius: 2,
+          backgroundColor: "#fff",
+          overflow: "hidden",
+        }}
+      >
+        <Box sx={{ px: 2, py: 1.2, borderBottom: "1px solid #eee" }}>
+          <Typography sx={{ fontSize: 16, fontWeight: 900, color: "#111" }}>
+            Global Market Data
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.2 }}>
+            Compare values across international card markets
+          </Typography>
+        </Box>
+
+        <Box sx={{ p: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            No price data available for this card
+          </Typography>
+        </Box>
+      </Box>
     );
   }
 
-  // Build chart data, converting USD -> SGD here
+  // Build chart data, converting USD -> SGD
   const chartData = marketData.history.map((h, idx, arr) => ({
     dateLabel: formatShortDate(h.date),
-    price: h.market * usdToSgdRate, // converted to SGD
+    price: h.market * usdToSgdRate,
     volume: h.volume,
     listedPrice:
       isForSale && typeof card.price === "number" && idx === arr.length - 1
-        ? card.price // already SGD
+        ? card.price
         : null,
   }));
 
   return (
-    <Box sx={{ width: "100%", mt: 2, position: "relative" }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 1,
-        }}
-      >
-        <Typography variant="subtitle2" color="text.secondary">
-          Price & volume history — <strong>{marketData.conditionLabel}</strong>
+    <Box
+      sx={{
+        border: "1px solid #e6e6e6",
+        borderRadius: 2,
+        backgroundColor: "#fff",
+        overflow: "hidden",
+      }}
+    >
+      {/* Header inside chart */}
+      <Box sx={{ px: 2, py: 1.2, borderBottom: "1px solid #eee" }}>
+        <Typography sx={{ fontSize: 16, fontWeight: 900, color: "#111" }}>
+          Global Market Data
         </Typography>
-
-        <Typography variant="body2" color="text.secondary">
-          Market (SGD) & Volume
+        <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.2 }}>
+          Compare values across international card markets
         </Typography>
       </Box>
 
-      <Box
-        sx={{
-          width: "100%",
-          height: 220,
-          bgcolor: "#fafafa",
-          borderRadius: 2,
-          border: "1px solid #eee",
-          px: 2,
-          py: 1.5,
-          position: "relative",
-        }}
-      >
-        {/* Legend bottom-right (_inside the graph_) */}
-        {isForSale && (
-          <Box
-            sx={{
-              position: "absolute",
-              bottom: 6,
-              right: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 0.6,
-              background: "rgba(255,255,255,0.8)",
-              px: 1,
-              py: 0.3,
-              borderRadius: 1,
-              backdropFilter: "blur(4px)",
-            }}
-          >
+      <Box sx={{ p: 2 }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 1,
+          }}
+        >
+          <Typography variant="subtitle2" color="text.secondary">
+            Price & volume history —{" "}
+            <strong>{marketData.conditionLabel}</strong>
+          </Typography>
+
+          <Typography variant="body2" color="text.secondary">
+            Market (SGD) & Volume
+          </Typography>
+        </Box>
+
+        <Box
+          sx={{
+            width: "100%",
+            height: 220,
+            bgcolor: "#fafafa",
+            borderRadius: 2,
+            border: "1px solid #eee",
+            px: 2,
+            py: 1.5,
+            position: "relative",
+          }}
+        >
+          {/* Legend bottom-right (inside) */}
+          {isForSale && (
             <Box
               sx={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                backgroundColor: "#d32f2f",
-                border: "2px solid #b71c1c",
+                position: "absolute",
+                bottom: 6,
+                right: 12,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.6,
+                background: "rgba(255,255,255,0.8)",
+                px: 1,
+                py: 0.3,
+                borderRadius: 1,
+                backdropFilter: "blur(4px)",
               }}
-            />
-            <Typography variant="caption" color="text.secondary">
-              Listed Price (SGD)
-            </Typography>
-          </Box>
-        )}
+            >
+              <Box
+                sx={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: "50%",
+                  backgroundColor: "#d32f2f",
+                  border: "2px solid #b71c1c",
+                }}
+              />
+              <Typography variant="caption" color="text.secondary">
+                Listed Price (SGD)
+              </Typography>
+            </Box>
+          )}
 
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart
-            data={chartData}
-            margin={{ top: 10, right: 16, left: 0, bottom: 30 }} // add bottom space for legend
-            onMouseMove={(state) => {
-              if (
-                state.isTooltipActive &&
-                typeof state.activeTooltipIndex === "number"
-              ) {
-                setActiveIndex(state.activeTooltipIndex);
-              } else {
-                setActiveIndex(null);
-              }
-            }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={chartData}
+              margin={{ top: 10, right: 16, left: 0, bottom: 30 }}
+              onMouseMove={(state: any) => {
+                if (
+                  state?.isTooltipActive &&
+                  typeof state?.activeTooltipIndex === "number"
+                ) {
+                  setActiveIndex(state.activeTooltipIndex);
+                } else {
+                  setActiveIndex(null);
+                }
+              }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
 
-            <XAxis
-              dataKey="dateLabel"
-              tick={{ fontSize: 11, fill: "#757575" }}
-              tickLine={false}
-              axisLine={{ stroke: "#e0e0e0" }}
-            />
+              <XAxis
+                dataKey="dateLabel"
+                tick={{ fontSize: 11, fill: "#757575" }}
+                tickLine={false}
+                axisLine={{ stroke: "#e0e0e0" }}
+              />
 
-            {/* left Y: price (SGD) */}
-            <YAxis
-              yAxisId="left"
-              tick={{ fontSize: 11, fill: "#757575" }}
-              tickLine={false}
-              axisLine={{ stroke: "#e0e0e0" }}
-              width={60}
-            />
+              {/* left Y: price (SGD) */}
+              <YAxis
+                yAxisId="left"
+                tick={{ fontSize: 11, fill: "#757575" }}
+                tickLine={false}
+                axisLine={{ stroke: "#e0e0e0" }}
+                width={60}
+              />
 
-            {/* right Y: volume */}
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fontSize: 11, fill: "#9e9e9e" }}
-              tickLine={false}
-              axisLine={{ stroke: "#e0e0e0" }}
-            />
+              {/* right Y: volume */}
+              <YAxis
+                yAxisId="right"
+                orientation="right"
+                tick={{ fontSize: 11, fill: "#9e9e9e" }}
+                tickLine={false}
+                axisLine={{ stroke: "#e0e0e0" }}
+              />
 
-            <Tooltip content={<PriceTooltip />} />
+              <Tooltip content={<PriceTooltip />} />
 
-            {/* vertical cursor line */}
-            {activeIndex !== null &&
-              chartData[activeIndex] &&
-              chartData[activeIndex].dateLabel && (
-                <ReferenceLine
-                  x={chartData[activeIndex].dateLabel}
-                  stroke="#1976d2"
-                  strokeDasharray="3 3"
-                />
-              )}
+              {/* vertical cursor line */}
+              {activeIndex !== null &&
+                chartData[activeIndex] &&
+                chartData[activeIndex].dateLabel && (
+                  <ReferenceLine
+                    x={chartData[activeIndex].dateLabel}
+                    stroke="#1976d2"
+                    strokeDasharray="3 3"
+                  />
+                )}
 
-            {/* volume bars (right axis) */}
-            <Bar
-              yAxisId="right"
-              dataKey="volume"
-              name="volume"
-              barSize={18}
-              fill="#bbdefb"
-              radius={[4, 4, 0, 0]}
-            />
+              {/* volume bars (right axis) */}
+              <Bar
+                yAxisId="right"
+                dataKey="volume"
+                name="volume"
+                barSize={18}
+                fill="#bbdefb"
+                radius={[4, 4, 0, 0]}
+              />
 
-            {/* market line (left axis) */}
-            <Line
-              yAxisId="left"
-              type="monotone"
-              dataKey="price"
-              name="price"
-              stroke="#1976d2"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 6 }}
-            />
-
-            {/* listed price dot at last point */}
-            {isForSale && typeof card.price === "number" && (
+              {/* market line (left axis) */}
               <Line
                 yAxisId="left"
                 type="monotone"
-                dataKey="listedPrice"
-                name="listedPrice"
-                stroke="transparent"
-                strokeWidth={0}
-                dot={{
-                  r: 6,
-                  stroke: "#b71c1c",
-                  strokeWidth: 2,
-                  fill: "#d32f2f",
-                }}
-                activeDot={{
-                  r: 8,
-                  stroke: "#b71c1c",
-                  strokeWidth: 2,
-                  fill: "#d32f2f",
-                }}
+                dataKey="price"
+                name="price"
+                stroke="#1976d2"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 6 }}
               />
-            )}
-          </ComposedChart>
-        </ResponsiveContainer>
+
+              {/* listed price dot at last point */}
+              {isForSale && typeof card.price === "number" && (
+                <Line
+                  yAxisId="left"
+                  type="monotone"
+                  dataKey="listedPrice"
+                  name="listedPrice"
+                  stroke="transparent"
+                  strokeWidth={0}
+                  dot={{
+                    r: 6,
+                    stroke: "#b71c1c",
+                    strokeWidth: 2,
+                    fill: "#d32f2f",
+                  }}
+                  activeDot={{
+                    r: 8,
+                    stroke: "#b71c1c",
+                    strokeWidth: 2,
+                    fill: "#d32f2f",
+                  }}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </Box>
       </Box>
     </Box>
   );

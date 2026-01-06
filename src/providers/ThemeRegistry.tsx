@@ -4,10 +4,19 @@ import * as React from "react";
 import { ThemeProvider, CssBaseline } from "@mui/material";
 import { createTheme } from "@mui/material/styles";
 
-// ✅ Define your global font theme
 const theme = createTheme({
   typography: {
-    fontFamily: "'Nunito Sans', 'Poppins', 'Roboto', sans-serif",
+    // 1. Swap 'Nunito Sans' for your new Inter variable
+    fontFamily: "var(--font-inter), 'Roboto', sans-serif",
+  },
+  components: {
+    MuiTypography: {
+      styleOverrides: {
+        root: {
+          fontFeatureSettings: '"cv05", "cv02", "ss01"',
+        },
+      },
+    },
   },
 });
 
