@@ -8,7 +8,6 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 - [Node.js](https://nodejs.org/) **v22+** (use [nvm](https://github.com/nvm-sh/nvm) recommended)
 - [pnpm](https://pnpm.io/) (project enforces pnpm only)
-- [Docker](https://www.docker.com/) (for Postgres database)
 
 ---
 
