@@ -1,34 +1,42 @@
 /* CarouselStyles.css */
 
-.swiper-slide {
+/* 1. SMOOTH MOVEMENT: The "Luxury Glide" */
+.swiper-wrapper {
+  /* This timing function makes it start fast and decelerate slowly */
+  transition-timing-function: cubic-bezier(0.2, 1, 0.3, 1) !important;
+}
+
+.custom-carousel {
+  padding: 40px 0; /* Vertical breathing room */
+  overflow: visible !important; /* CRITICAL: Allows slides to bleed off-screen without clipping */
+}
+
+.custom-slide {
+  /* 2. DYNAMIC SIZE: Width grows automatically with Height */
+  height: 350px; /* Default height for mobile/tablet */
+  width: auto;
+  aspect-ratio: 16 / 9; /* Maintains shape; width becomes ~800px */
+
   opacity: 0.5;
-  transition: opacity 0.5s;
+  transition:
+    opacity 1s ease,
+    transform 1s ease;
+  transform: scale(0.9); /* Side slides are slightly smaller */
 }
 
-.swiper-slide:hover {
-  opacity: 1;
-}
-
-.swiper-slide-prev,
-.swiper-slide-next {
-  transform: scale(0.5);
+/* Desktop height adjustment */
+@media (min-width: 1480px) {
+  .custom-slide {
+    height: 550px; /* Width automatically becomes ~977px here */
+  }
 }
 
 .swiper-slide-active {
   opacity: 1;
-  transform: scale(1);
+  transform: scale(1); /* Active slide is full size */
 }
 
-.custom-carousel {
-  transform: scale(1);
-}
-
-.swiper-button-next,
-.swiper-button-prev {
-  display: none;
-}
-
-.custom-carousel {
-  min-height: 20vh;
-  position: relative;
+/* Pagination styling */
+.swiper-pagination-bullet-active {
+  background: #000; /* Or your brand color */
 }
