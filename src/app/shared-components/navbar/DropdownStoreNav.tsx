@@ -49,15 +49,16 @@ const GreyButton: React.FC<{ children: React.ReactNode }> = (props) => {
 };
 
 // Define the types for the props
-interface DropdownStoreNavProps {
-  currentMenu: MenuKey; // Use the MenuKey type here
+type DropdownStoreNavProps = {
+  currentMenu?: MenuKey; // ✅ allow undefined
   sx?: SxProps<Theme>;
-}
+};
 
 export default function DropdownStoreNav({
   currentMenu,
   sx,
 }: DropdownStoreNavProps) {
+  if (!currentMenu) return null;
   const menuData = dropdownData[currentMenu];
 
   // If there's no matching content, we can choose to render nothing or some default content
