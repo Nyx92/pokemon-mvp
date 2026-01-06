@@ -13,7 +13,7 @@ type Props =
       animation: string;
       onMouseLeave: () => void;
       devIconOffset: number;
-      currentMenu: MenuKey | "";
+      currentMenu: MenuKey | null;
     }
   | {
       variant: "mobile";
@@ -52,14 +52,16 @@ export default function NavbarDropdown(props: Props) {
         onMouseLeave={props.onMouseLeave}
       >
         <Box sx={{ width: "100%" }}>
-          <DropdownStoreNav
-            sx={{
-              marginLeft: `${props.devIconOffset}px`,
-              marginTop: (theme: Theme) => theme.spacing(4),
-              color: "white",
-            }}
-            currentMenu={props.currentMenu}
-          />
+          {props.currentMenu && (
+            <DropdownStoreNav
+              sx={{
+                marginLeft: `${props.devIconOffset}px`,
+                marginTop: (theme: Theme) => theme.spacing(4),
+                color: "white",
+              }}
+              currentMenu={props.currentMenu}
+            />
+          )}
         </Box>
       </Box>
     );

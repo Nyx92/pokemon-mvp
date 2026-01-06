@@ -34,7 +34,7 @@ const disableNavEffects = true;
 const NavBar: React.FC<NavBarProps> = ({ initialUser }) => {
   const navbarRef = useRef<HTMLElement>(null as unknown as HTMLElement);
   // opens/closes the hamburger drop down menu
-  const [currentMenu, setCurrentMenu] = useState<MenuKey | "">("");
+  const [currentMenu, setCurrentMenu] = useState<MenuKey | null>(null);
   // a timer that keeps track of the duration of mouse hover on page button
   const [delayTimer, setDelayTimer] = useState<NodeJS.Timeout | null>(null);
   // flag to prevent nav menu to close on load
