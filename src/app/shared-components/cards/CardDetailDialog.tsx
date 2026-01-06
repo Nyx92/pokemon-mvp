@@ -11,6 +11,7 @@ import {
   Typography,
   Button,
   IconButton,
+  Divider,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
@@ -38,12 +39,12 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const { data: session } = useSession();
   const isAdmin = session?.user && (session.user as any).role === "admin";
   const isOwner = session?.user?.id === card?.owner?.id;
+
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
 
   const primaryBlue = "#0053ff";
 
-  // Reset when card changes / dialog reopens
   useEffect(() => {
     if (open) {
       setActiveImageIndex(0);
@@ -62,7 +63,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const ownerName =
     card.owner?.username || card.owner?.email || "Unknown seller";
 
-  // shared styles for outline buttons in the blue card
   const outlineButtonSx = {
     flex: 1,
     textTransform: "none",
@@ -80,9 +80,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
     try {
       const res = await fetch("/api/checkout", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           cardId: card.id,
           title: card.title,
@@ -91,27 +89,24 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
         }),
       });
 
-      if (!res.ok) {
-        console.error("Failed to create checkout session");
-        return;
-      }
-
+      if (!res.ok) return console.error("Failed to create checkout session");
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        console.error("No checkout URL returned from Stripe");
-      }
+      if (data.url) window.location.href = data.url;
+      else console.error("No checkout URL returned from Stripe");
     } catch (err) {
       console.error("Error calling /api/checkout:", err);
     }
   };
 
+  const collectorNo = safeText((card as any).collectorNo);
+  const language = safeText((card as any).language ?? "English");
+  const setName = safeText(card.setName);
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="lg"
+      maxWidth="xl"
       fullWidth
       slotProps={{
         backdrop: {
@@ -125,6 +120,8 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
             borderRadius: 3,
             overflow: "hidden",
             boxShadow: "0 12px 45px rgba(0,0,0,0.25)",
+            width: { xs: "96vw", md: "92vw", lg: "1180px" },
+            maxWidth: "1180px",
           },
         },
       }}
@@ -137,10 +134,8 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           top: 8,
           right: 8,
           zIndex: 3,
-          backgroundColor: "rgba(0,0,0,0.04)",
-          "&:hover": {
-            backgroundColor: "rgba(0,0,0,0.08)",
-          },
+          backgroundColor: "rgba(255,255,255,0.9)",
+          "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
         }}
       >
         <CloseIcon />
@@ -148,95 +143,52 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
 
       <DialogContent
         sx={{
-          pt: 4,
-          pb: 2,
-          px: 4,
-          position: "relative",
-          overflow: "hidden",
-          backgroundColor: "#f8faff",
+          p: { xs: 2, md: 3 },
+          backgroundColor: "#ffffff",
+          fontFamily:
+            'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"',
         }}
       >
-        {/* Repeating Pokéball pattern */}
         <Box
           sx={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            zIndex: 0,
-            opacity: 0.03,
-            backgroundImage:
-              'url("/backgrounds/pokeball-pattern.svg"), url("/backgrounds/pokeball-pattern.svg")',
-            backgroundRepeat: "repeat, repeat",
-            backgroundSize: "140px 140px, 140px 140px",
-            // second layer shifted by half a cell -> diagonal / checkerboard vibe
-            backgroundPosition: "0 0, 70px 70px",
-          }}
-        />
-
-        <Box
-          sx={{
-            position: "relative",
-            zIndex: 1,
             display: "flex",
             flexDirection: { xs: "column", md: "row" },
-            gap: 4,
+            gap: 3,
+            alignItems: "stretch",
           }}
         >
-          {/* LEFT: title + image + description */}
+          {/* ================= LEFT HALF ================= */}
           <Box
             sx={{
-              flex: 1.1,
+              flex: 1,
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
+              justifyContent: { xs: "flex-start", md: "center" }, // ✅ vertical center
+              alignItems: "center", // ✅ horizontal center
               gap: 2,
+              py: { xs: 0, md: 1 },
             }}
           >
-            {/* Title + set name */}
-            <Box>
-              <Typography variant="h5" fontWeight={700}>
-                {card.title}
-              </Typography>
-
-              {card.setName && (
-                <Typography
-                  variant="subtitle2"
-                  color="text.secondary"
-                  sx={{ mt: 0.5 }}
-                >
-                  {card.setName}
-                </Typography>
-              )}
-
-              <Typography
-                variant="body2"
-                sx={{ whiteSpace: "pre-line" }}
-                color="text.primary"
-              ></Typography>
-            </Box>
-
-            {/* Main image */}
+            {/* Image */}
             <Box
               sx={{
                 position: "relative",
-                borderRadius: 3,
-                overflow: "hidden",
-                backgroundColor: "#f8f8f8",
+                width: "100%",
+                maxWidth: 520,
+                minHeight: { xs: 340, md: 560 },
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                px: 2,
-                py: 3,
-                mb: 2,
-                boxShadow: 3,
               }}
             >
               <img
-                src={card.imageUrls[activeImageIndex] || "/placeholder.png"}
+                src={card.imageUrls?.[activeImageIndex] || "/placeholder.png"}
                 alt={`${card.title} large`}
                 style={{
                   width: "100%",
-                  maxHeight: 420,
+                  height: "100%",
+                  maxHeight: 620,
                   objectFit: "contain",
                   display: "block",
                 }}
@@ -250,7 +202,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                     position: "absolute",
                     top: 10,
                     left: 10,
-                    backgroundColor: "rgba(255,255,255,0.9)",
+                    backgroundColor: "rgba(255,255,255,0.95)",
                     "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
                   }}
                 >
@@ -286,7 +238,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                 </Box>
               )}
 
-              {/* Status chips on top-right of image */}
+              {/* Status chips top-right */}
               <Box
                 sx={{
                   position: "absolute",
@@ -333,14 +285,13 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
             </Box>
 
             {/* Thumbnails */}
-            {card.imageUrls.length > 1 && (
+            {card.imageUrls?.length > 1 && (
               <Box
                 sx={{
                   display: "flex",
                   gap: 1,
                   justifyContent: "center",
                   flexWrap: "wrap",
-                  mb: 1.5,
                 }}
               >
                 {card.imageUrls.map((url, i) => (
@@ -348,8 +299,8 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                     key={i}
                     onClick={() => setActiveImageIndex(i)}
                     sx={{
-                      width: 64,
-                      height: 64,
+                      width: 58,
+                      height: 58,
                       borderRadius: 1.5,
                       overflow: "hidden",
                       cursor: "pointer",
@@ -357,6 +308,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                         i === activeImageIndex
                           ? `2px solid ${primaryBlue}`
                           : "1px solid #ddd",
+                      backgroundColor: "#fff",
                     }}
                   >
                     <img
@@ -373,182 +325,241 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                 ))}
               </Box>
             )}
+
+            {/* Button below image */}
+            <Button
+              variant="contained"
+              sx={{
+                width: "100%",
+                maxWidth: 520,
+                textTransform: "none",
+                backgroundColor: primaryBlue,
+                "&:hover": { backgroundColor: "#0041cc" },
+                borderRadius: 1.5,
+                fontWeight: 700,
+                letterSpacing: "0.6px",
+                py: 1.2,
+              }}
+              onClick={() => console.log("View slabs", card.id)}
+            >
+              CLICK TO VIEW SLABS
+            </Button>
           </Box>
 
-          {/* RIGHT: listing card + market chart */}
+          {/* ================= RIGHT HALF ================= */}
           <Box
             sx={{
               flex: 1,
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
-              gap: 2.5,
+              gap: 2,
             }}
           >
-            {/* Listing details card (TCGplayer-style) */}
-            <Box
-              sx={{
-                borderRadius: 2,
-                border: "1px solid #e0e0e0",
-                overflow: "hidden",
-                boxShadow: 1,
-                backgroundColor: "white",
-              }}
-            >
-              {/* Blue header */}
-              <Box
+            {/* Segment 1: Title + metadata */}
+            <Box sx={{ px: 0.5 }}>
+              <Typography
                 sx={{
-                  bgcolor: "#e8f2ff",
-                  color: "black",
-                  px: 2,
-                  py: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
+                  fontSize: 34,
+                  fontWeight: 800,
+                  lineHeight: 1.1,
+                  letterSpacing: "-0.4px",
+                  color: "#111",
                 }}
               >
-                <Typography variant="subtitle2" fontWeight={600}>
-                  Listing details
-                </Typography>
+                {card.title}
+                {card.setName ? ` - ${card.setName}` : ""}
+              </Typography>
+
+              {/* Metadata (values left aligned) */}
+              <Box sx={{ mt: 2 }}>
+                {[
+                  ["Collector's No.", collectorNo],
+                  ["Language", language],
+                  ["Set Name", setName],
+                ].map(([label, value]) => (
+                  <Box
+                    key={label}
+                    sx={{
+                      display: "flex",
+                      gap: 2.5,
+                      py: 0.85,
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        width: 140,
+                        fontSize: 14,
+                        color: "#6b7280",
+                      }}
+                    >
+                      {label}
+                    </Typography>
+
+                    <Typography
+                      sx={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "#111",
+                        textAlign: "left",
+                      }}
+                    >
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
               </Box>
+            </Box>
 
-              {/* Content */}
+            <Divider />
+
+            {/* Segment 2: Buy box (match screenshot) */}
+            <Box
+              sx={{
+                border: "1px solid #e6e6e6",
+                borderRadius: 2,
+                backgroundColor: "#fff",
+                overflow: "hidden",
+              }}
+            >
               <Box sx={{ p: 2 }}>
-                {/* Condition */}
-                <Typography variant="subtitle1" fontWeight={500}>
-                  {safeText(card.condition)}
-                </Typography>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: 2,
+                  }}
+                >
+                  <Box>
+                    <Typography sx={{ fontSize: 14, color: "#6b7280" }}>
+                      Buy Now for
+                    </Typography>
 
-                {/* Price / availability */}
-                <Box sx={{ mt: 0.5 }}>
-                  {isForSale && card.price != null ? (
                     <Typography
-                      variant="h5"
-                      fontWeight={700}
-                      sx={{ color: "black" }}
+                      sx={{
+                        fontSize: 44,
+                        fontWeight: 900,
+                        lineHeight: 1.05,
+                        color: "#111",
+                        mt: 0.4,
+                      }}
                     >
-                      SGD ${card.price.toFixed(2)}
+                      {isForSale && card.price != null
+                        ? `S$${card.price.toFixed(2)}`
+                        : "S$568.70"}
                     </Typography>
-                  ) : (
+                  </Box>
+
+                  {/* Condition dropdown placeholder */}
+                  <Box
+                    sx={{
+                      minWidth: 180,
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 1.5,
+                      px: 1.25,
+                      py: 1,
+                      backgroundColor: "#fff",
+                    }}
+                  >
                     <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      fontWeight={500}
+                      sx={{ fontSize: 12, color: "#6b7280", mb: 0.4 }}
                     >
-                      Not currently for sale
+                      Condition
                     </Typography>
-                  )}
+                    <Typography
+                      sx={{ fontSize: 14, fontWeight: 700, color: "#111" }}
+                    >
+                      All ▾
+                    </Typography>
+                  </Box>
                 </Box>
 
-                {/* Shipping helper text */}
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mt: 0.5 }}
+                {/* Buttons row */}
+                <Box sx={{ display: "flex", gap: 1.6, mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<GavelIcon />}
+                    sx={{
+                      flex: 1,
+                      textTransform: "none",
+                      borderColor: "#e5e7eb",
+                      color: "#111",
+                      backgroundColor: "#fff",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
+                      "&:hover": {
+                        borderColor: "#d1d5db",
+                        backgroundColor: "#fff",
+                      },
+                      py: 1.2,
+                      fontWeight: 800,
+                    }}
+                    onClick={() => console.log("Place offer", card.id)}
+                    disabled={!isForSale}
+                  >
+                    PLACE OFFER
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    startIcon={<ShoppingCartIcon />}
+                    sx={{
+                      flex: 1,
+                      textTransform: "none",
+                      backgroundColor: primaryBlue,
+                      "&:hover": { backgroundColor: "#0041cc" },
+                      boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
+                      py: 1.2,
+                      fontWeight: 900,
+                      letterSpacing: "0.3px",
+                    }}
+                    onClick={handleBuyNow}
+                    disabled={!isForSale}
+                  >
+                    BUY NOW
+                  </Button>
+                </Box>
+
+                {/* Bottom row */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 1.6,
+                    mt: 2,
+                    alignItems: "stretch",
+                  }}
                 >
-                  Listing Description: {safeText(card.description)}
-                </Typography>
+                  <Typography sx={{ flex: 1, fontSize: 14, color: "#111" }}>
+                    Or buy it @499 JP version of it
+                  </Typography>
 
-                {/* Seller / owner */}
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {isForSale ? "Sold by " : "Owned by "}
-                  <Box component="span" fontWeight={600}>
-                    {ownerName}
-                  </Box>
-                </Typography>
-
-                {/* Action buttons */}
-                {!isOwner ? (
                   <Box
                     sx={{
-                      display: "flex",
-                      flexDirection: { xs: "column", sm: "row" },
-                      gap: 1.2,
-                      mt: 2,
+                      width: 210,
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 1.5,
+                      p: 1.2,
+                      textAlign: "center",
+                      backgroundColor: "#fff",
                     }}
                   >
-                    <Button
-                      variant="outlined"
-                      startIcon={<GavelIcon />}
-                      sx={outlineButtonSx}
-                      onClick={() => console.log("Leave offer", card.id)}
+                    <Typography
+                      sx={{ fontSize: 13, color: primaryBlue, fontWeight: 800 }}
                     >
-                      Leave offer
-                    </Button>
-
-                    <Button
-                      variant="contained"
-                      startIcon={<ShoppingCartIcon />}
-                      sx={{
-                        flex: 1,
-                        textTransform: "none",
-                        backgroundColor: primaryBlue,
-                        "&:hover": { backgroundColor: "#0041cc" },
-                      }}
-                      disabled={!isForSale}
-                      onClick={handleBuyNow}
+                      View 5 Other Listings
+                    </Typography>
+                    <Typography
+                      sx={{ fontSize: 13, color: "#6b7280", mt: 0.3 }}
                     >
-                      Buy now
-                    </Button>
+                      As low as S$568.70
+                    </Typography>
                   </Box>
-                ) : (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      flexDirection: { xs: "column", sm: "row" },
-                      gap: 1.2,
-                      mt: 2,
-                    }}
-                  >
-                    <Button
-                      variant="outlined"
-                      startIcon={<LocalOfferIcon />}
-                      sx={outlineButtonSx}
-                      onClick={() => console.log("View offers", card.id)}
-                    >
-                      View offers
-                    </Button>
-
-                    <Button
-                      variant="outlined"
-                      startIcon={<EditOutlinedIcon />}
-                      sx={outlineButtonSx}
-                      onClick={() => console.log("Edit listing", card.id)}
-                    >
-                      Edit listing
-                    </Button>
-
-                    {isAdmin && (
-                      <Button
-                        variant="outlined"
-                        startIcon={<DeleteOutlineIcon />}
-                        sx={{
-                          flex: 1,
-                          textTransform: "none",
-                          borderColor: "error.main",
-                          color: "error.main",
-                          "&:hover": {
-                            borderColor: "error.main",
-                            backgroundColor: "rgba(211,47,47,0.04)",
-                          },
-                        }}
-                        onClick={() => console.log("Delete listing", card.id)}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </Box>
-                )}
+                </Box>
               </Box>
             </Box>
 
-            {/* Market price section */}
-            <Box>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                Market Price History
-              </Typography>
-              <CardMarketChart card={card} />
-            </Box>
+            {/* Segment 3: CardMarketChart now includes its own header */}
+            <CardMarketChart card={card} />
           </Box>
         </Box>
       </DialogContent>

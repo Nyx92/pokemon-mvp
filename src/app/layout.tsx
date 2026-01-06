@@ -9,7 +9,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import ThemeRegistry from "@/providers/ThemeRegistry";
 
-const inter = Inter({ subsets: ["latin"] }); // Load Inter font with Latin subset
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter", // 👈 Add this line
+});
 
 // Default metadata for your app (SEO + browser tab info)
 export const metadata: Metadata = {
@@ -27,7 +31,9 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions);
 
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
+      {" "}
+      {/* 👈 Add inter.variable here */}{" "}
       <body className={inter.className}>
         {/* Wrap with SessionProvider so NextAuth session is available throughout */}
         <SessionProviderWrapper session={session}>
