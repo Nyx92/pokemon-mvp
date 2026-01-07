@@ -244,30 +244,53 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
       }}
     >
       {/* Header inside chart */}
-      <Box sx={{ px: 2, py: 1.2, borderBottom: "1px solid #eee" }}>
-        <Typography sx={{ fontSize: 16, fontWeight: 900, color: "#111" }}>
-          Global Market Data
+      <Box sx={{ px: 2, py: 1.2 }}>
+        <Typography
+          sx={{
+            fontSize: { xs: 9, sm: 10, md: 12, lg: 14 },
+            fontWeight: 700,
+            color: "#111",
+          }}
+        >
+          Historical Prices
         </Typography>
-        <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.2 }}>
-          Compare values across international card markets
+        <Typography
+          sx={{
+            fontSize: { xs: 8, sm: 9, md: 10, lg: 12 },
+            color: "#6b7280",
+            mt: 0.2,
+          }}
+        >
+          Compare values across time
         </Typography>
       </Box>
 
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ pl: 2, pr: 2, pb: 1 }}>
         <Box
           sx={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            mb: 1,
           }}
         >
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography
+            variant="subtitle2"
+            color="text.secondary"
+            sx={{
+              fontSize: { xs: 6, sm: 7, md: 8, lg: 10 },
+            }}
+          >
             Price & volume history —{" "}
             <strong>{marketData.conditionLabel}</strong>
           </Typography>
 
-          <Typography variant="body2" color="text.secondary">
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              fontSize: { xs: 6, sm: 7, md: 8, lg: 10 },
+            }}
+          >
             Market (SGD) & Volume
           </Typography>
         </Box>
@@ -279,7 +302,7 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
             bgcolor: "#fafafa",
             borderRadius: 2,
             border: "1px solid #eee",
-            px: 2,
+            px: 0.2,
             py: 1.5,
             position: "relative",
           }}
@@ -289,18 +312,18 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
             <Box
               sx={{
                 position: "absolute",
-                bottom: 6,
+                bottom: 15,
                 right: 12,
                 display: "flex",
                 alignItems: "center",
                 gap: 0.6,
-                background: "rgba(255,255,255,0.8)",
                 px: 1,
                 py: 0.3,
                 borderRadius: 1,
                 backdropFilter: "blur(4px)",
               }}
             >
+              {/* size of legend  */}
               <Box
                 sx={{
                   width: 10,
