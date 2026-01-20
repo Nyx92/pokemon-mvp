@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import EditIcon from "@mui/icons-material/Edit";
 
 type ConditionOption = { label: string; value: string };
 
@@ -23,8 +24,14 @@ interface BuyBoxProps {
   condition: string;
   onConditionChange: (value: string) => void;
 
+  // viewer actions
   onPlaceOffer: () => void;
   onBuyNow: () => void;
+
+  // owner mode
+  mode?: "viewer" | "owner";
+  offersCount?: number;
+  onEdit?: () => void;
 
   otherListingsTitle?: string;
   otherListingsSubtitle?: string;
@@ -39,6 +46,11 @@ export default function BuyBox({
   onConditionChange,
   onPlaceOffer,
   onBuyNow,
+
+  mode = "viewer",
+  offersCount = 0,
+  onEdit,
+
   otherListingsTitle = "View 5 Other Listings",
   otherListingsSubtitle = "As low as S$568.70",
   conditionOptions = [
@@ -48,6 +60,30 @@ export default function BuyBox({
     { label: "Lightly Played", value: "lightly_played" },
   ],
 }: BuyBoxProps) {
+  const isOwnerMode = mode === "owner";
+
+  const priceLabel = isOwnerMode ? "Listed for" : "Buy Now for";
+  const leftBtnLabel = isOwnerMode
+    ? `See Offers (${offersCount})`
+    : "Place Offer";
+  const rightBtnLabel = isOwnerMode ? "Edit" : "Buy Now";
+
+  const leftBtnIcon = isOwnerMode ? <GavelIcon /> : <GavelIcon />;
+  const rightBtnIcon = isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />;
+
+  const onLeftClick = () => {
+    // viewer: place offer
+    // owner: see offers
+    onPlaceOffer();
+  };
+
+  const onRightClick = () => {
+    // viewer: buy now
+    // owner: edit
+    if (isOwnerMode) onEdit?.();
+    else onBuyNow();
+  };
+
   return (
     <Box
       sx={{
@@ -58,13 +94,12 @@ export default function BuyBox({
       }}
     >
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-        {/* ✅ SINGLE GRID so column boundaries are shared across rows */}
         <Box
           sx={{
             display: "grid",
             width: "100%",
-            gap: 1.6, // ✅ one consistent gap everywhere
-            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, // ✅ equal columns
+            gap: 1.6,
+            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
             gridTemplateAreas: {
               xs: `
                 "price"
@@ -85,10 +120,9 @@ export default function BuyBox({
           {/* PRICE */}
           <Box sx={{ gridArea: "price", minWidth: 0 }}>
             <Typography sx={{ fontSize: 10, color: "#6b7280" }}>
-              Buy Now for
+              {priceLabel}
             </Typography>
 
-            {/* ✅ DO NOT change price font */}
             <Typography
               sx={{
                 fontSize: { xs: 15, sm: 16, md: 22, lg: 24 },
@@ -102,30 +136,17 @@ export default function BuyBox({
             </Typography>
           </Box>
 
-          {/* CONDITION */}
+          {/* CONDITION (still useful in both modes) */}
           <Box sx={{ gridArea: "condition", minWidth: 0 }}>
-            <FormControl
-              size="small"
-              sx={{
-                width: "100%",
-                minWidth: 0,
-                maxWidth: "100%",
-              }}
-            >
+            <FormControl size="small" sx={{ width: "100%", minWidth: 0 }}>
               <InputLabel sx={{ fontSize: 13 }}>Condition</InputLabel>
               <Select
                 value={condition}
                 label="Condition"
                 onChange={(e) => onConditionChange(String(e.target.value))}
-                style={{
-                  height: 38, // ✅ thinner box
-                  paddingTop: 4,
-                  paddingBottom: 4,
-                }}
+                style={{ height: 38, paddingTop: 4, paddingBottom: 4 }}
                 sx={{
                   width: "100%",
-                  minWidth: 0,
-                  maxWidth: "100%",
                   borderRadius: 1.5,
                   backgroundColor: "#fff",
                   ".MuiSelect-select": { fontWeight: 400, color: "#111" },
@@ -140,14 +161,14 @@ export default function BuyBox({
             </FormControl>
           </Box>
 
-          {/* PLACE OFFER */}
+          {/* LEFT BUTTON  - See Offers, or Offer button*/}
           <Box sx={{ gridArea: "offer", minWidth: 0 }}>
             <Button
               fullWidth
               variant="outlined"
-              startIcon={<GavelIcon />}
-              onClick={onPlaceOffer}
-              disabled={!isForSale}
+              startIcon={leftBtnIcon}
+              onClick={onLeftClick}
+              disabled={!isForSale && !isOwnerMode} // owner can still view offers even if NFS (optional)
               sx={{
                 minWidth: 0,
                 textTransform: "none",
@@ -155,31 +176,27 @@ export default function BuyBox({
                 color: "#111",
                 backgroundColor: "#fff",
                 boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                "&:hover": {
-                  borderColor: "#d1d5db",
-                  backgroundColor: "#fff",
-                },
-
+                "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fff" },
                 fontWeight: 400,
                 borderRadius: 1.5,
               }}
             >
-              Place Offer
+              {leftBtnLabel}
             </Button>
           </Box>
 
-          {/* BUY NOW */}
+          {/* RIGHT BUTTON Edit, or Buy button*/}
           <Box sx={{ gridArea: "buy", minWidth: 0 }}>
             <Button
               fullWidth
               variant="contained"
-              startIcon={<ShoppingCartIcon />}
-              onClick={onBuyNow}
-              disabled={!isForSale}
+              startIcon={rightBtnIcon}
+              onClick={onRightClick}
+              disabled={!isForSale && !isOwnerMode} // owner can still edit even if NFS? (set to false if you want)
               sx={{
                 minWidth: 0,
                 textTransform: "none",
-                backgroundColor: primaryBlue,
+                backgroundColor: "#1e88e5",
                 "&:hover": { backgroundColor: "#0041cc" },
                 boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
                 fontWeight: 400,
@@ -187,33 +204,35 @@ export default function BuyBox({
                 borderRadius: 1.5,
               }}
             >
-              Buy Now
+              {rightBtnLabel}
             </Button>
           </Box>
 
-          {/* VIEW OTHER LISTINGS (thinner) */}
-          <Box sx={{ gridArea: "listings", minWidth: 0 }}>
-            <Box
-              sx={{
-                width: "100%",
-                border: "1px solid #e5e7eb",
-                borderRadius: 1.5,
-                px: 1.6,
-                py: 0.2, // ✅ thinner
-                textAlign: "center",
-                backgroundColor: "#fff",
-              }}
-            >
-              <Typography
-                sx={{ fontSize: 12, color: primaryBlue, fontWeight: 400 }}
+          {/* OTHER LISTINGS: only for viewers (recommended) */}
+          {!isOwnerMode && (
+            <Box sx={{ gridArea: "listings", minWidth: 0 }}>
+              <Box
+                sx={{
+                  width: "100%",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 1.5,
+                  px: 1.6,
+                  py: 0.2,
+                  textAlign: "center",
+                  backgroundColor: "#fff",
+                }}
               >
-                {otherListingsTitle}
-              </Typography>
-              <Typography sx={{ fontSize: 10, color: "#6b7280", mt: 0.15 }}>
-                {otherListingsSubtitle}
-              </Typography>
+                <Typography
+                  sx={{ fontSize: 12, color: primaryBlue, fontWeight: 400 }}
+                >
+                  {otherListingsTitle}
+                </Typography>
+                <Typography sx={{ fontSize: 10, color: "#6b7280", mt: 0.15 }}>
+                  {otherListingsSubtitle}
+                </Typography>
+              </Box>
             </Box>
-          </Box>
+          )}
         </Box>
       </Box>
     </Box>

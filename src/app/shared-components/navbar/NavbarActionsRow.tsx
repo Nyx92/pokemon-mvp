@@ -9,6 +9,7 @@ type Props = {
   onNavigate: (page: MenuKey) => void;
   onMouseEnter: (page: MenuKey) => void;
   onMouseLeave: () => void;
+  profileName: string;
 
   // auth
   isLoggedIn: boolean;
@@ -26,6 +27,7 @@ export default function NavbarActionsRow({
   onSignUp,
   onSignIn,
   onProfile,
+  profileName,
 }: Props) {
   return (
     <Box sx={{ display: "flex", alignItems: "center", flex: 1 }}>
@@ -102,7 +104,7 @@ export default function NavbarActionsRow({
             </Box>
 
             <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-              Profile
+              {profileName}
             </Typography>
           </Button>
         )}
