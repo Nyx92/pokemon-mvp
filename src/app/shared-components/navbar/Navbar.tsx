@@ -64,7 +64,7 @@ const NavBar: React.FC<NavBarProps> = ({ initialUser }) => {
   const isLoggedIn = Boolean(user?.username || initialUser?.username);
 
   // Combine server user and client user safely
-  const displayUser = user?.username ?? initialUser?.username;
+  const displayUser = user?.username ?? initialUser?.username ?? "Profile";
 
   // allow hover dropdown only after a short delay (if enabled)
   useEffect(() => {
