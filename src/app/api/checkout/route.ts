@@ -10,21 +10,20 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { cardId, title, price, imageUrls } = body as {
+    const { cardId, title, price, imageUrls, buyerId } = body as {
       cardId: string;
       title: string;
       price: number;
       imageUrls?: string[];
+      buyerId?: string;
     };
 
     if (!price || price <= 0) {
       return NextResponse.json({ error: "Invalid price" }, { status: 400 });
     }
 
-    // Automatically pick base URL based on env
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    // Stripe requires absolute URL
     const finalImageUrls =
       imageUrls
         ?.filter(Boolean)
@@ -41,19 +40,20 @@ export async function POST(req: NextRequest) {
             unit_amount: Math.round(price * 100),
             product_data: {
               name: title,
-              images: finalImageUrls, // 👈 multiple images
-              metadata: {
-                cardId,
-              },
+              images: finalImageUrls,
+              metadata: { cardId },
             },
           },
           quantity: 1,
         },
       ],
-      success_url: process.env.STRIPE_SUCCESS_URL!,
-      cancel_url: process.env.STRIPE_CANCEL_URL!,
+      // ✅ success page can read the session_id
+      success_url: `${baseUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      // ✅ cancel should return them to the card page (or a cancel page)
+      cancel_url: `${baseUrl}/checkout/cancel?cardId=${encodeURIComponent(cardId)}`,
       metadata: {
         cardId,
+        ...(buyerId ? { buyerId } : {}),
       },
     });
 

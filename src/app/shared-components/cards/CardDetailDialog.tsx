@@ -19,10 +19,6 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import BuyBox from "./BuyBox";
 
-import LocalOfferIcon from "@mui/icons-material/LocalOffer";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-
 import type { CardItem } from "@/types/card";
 import CardMarketChart from "./CardMarketChart";
 
@@ -38,12 +34,16 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   onClose,
 }) => {
   const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
   const isAdmin = session?.user && (session.user as any).role === "admin";
   const isOwner = session?.user?.id === card?.owner?.id;
+  const canManageListing = isOwner || isAdmin; // ✅ owner (or admin) sees owner controls
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [selCondition, setSelCondition] = useState("all");
+  // TODO: replace with real count from API
+  const offersCount = 10;
 
   const primaryBlue = "#0053ff";
 
@@ -65,17 +65,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const ownerName =
     card.owner?.username || card.owner?.email || "Unknown seller";
 
-  const outlineButtonSx = {
-    flex: 1,
-    textTransform: "none",
-    borderColor: primaryBlue,
-    color: primaryBlue,
-    "&:hover": {
-      borderColor: primaryBlue,
-      backgroundColor: "rgba(0,83,255,0.06)",
-    },
-  } as const;
-
   const handleBuyNow = async () => {
     if (!card || !card.price) return;
 
@@ -88,6 +77,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           title: card.title,
           price: card.price,
           imageUrls: card.imageUrls ?? [],
+          buyerId: session?.user?.id, // so we can update db on purchase
         }),
       });
 
@@ -103,6 +93,16 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const cardNumber = safeText((card as any).cardNumber);
   const language = safeText((card as any).language ?? "English");
   const condition = safeText(card.condition);
+
+  const statusMeta = (() => {
+    if (card.status === "sold") {
+      return { label: "SOLD", bg: "#A15C5C" };
+    }
+    if (isForSale) {
+      return { label: "FOR SALE", bg: "#3FA796" };
+    }
+    return { label: "NFS", bg: "#9E9E9E" };
+  })();
 
   return (
     <Dialog
@@ -154,66 +154,43 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
         <CloseIcon />
       </IconButton>
 
-      {/* Top-left status banner */}
       <Box
         sx={{
           position: "absolute",
-          top: 12,
-          left: 12,
+          top: 0,
+          left: 0,
+          width: { xs: 110, sm: 130 },
+          height: { xs: 110, sm: 130 },
+          overflow: "hidden", // important: clips the rotated strip
           zIndex: 4,
           pointerEvents: "none",
         }}
       >
-        {card.status === "sold" && (
-          <Box
-            sx={{
-              px: 1.4,
-              py: 0.6,
-              borderRadius: 999,
-              fontWeight: 800,
-              fontSize: 12,
-              color: "#fff",
-              backgroundColor: "#A15C5C",
-              boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
-            }}
-          >
-            SOLD
-          </Box>
-        )}
+        <Box
+          sx={{
+            position: "absolute",
+            top: { xs: 18, sm: 22 },
+            left: { xs: -44, sm: -52 },
+            width: { xs: 170, sm: 200 },
+            py: { xs: 0.55, sm: 0.7 },
+            textAlign: "center",
+            transform: "rotate(-45deg)",
+            bgcolor: "transparent",
+            color: "#fff",
+            fontWeight: 900,
+            fontSize: { xs: 11, sm: 12 },
+            letterSpacing: "0.9px",
+            textTransform: "uppercase",
 
-        {card.status !== "sold" && isForSale && (
-          <Box
-            sx={{
-              px: 1.4,
-              py: 0.6,
-              borderRadius: 999,
-              fontWeight: 800,
-              fontSize: 12,
-              color: "#fff",
-              backgroundColor: "#3FA796",
-              boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
-            }}
-          >
-            FOR SALE
-          </Box>
-        )}
-
-        {card.status !== "sold" && !isForSale && (
-          <Box
-            sx={{
-              px: 1.4,
-              py: 0.6,
-              borderRadius: 999,
-              fontWeight: 800,
-              fontSize: 12,
-              color: "#fff",
-              backgroundColor: "#9E9E9E",
-              boxShadow: "0 6px 18px rgba(0,0,0,0.18)",
-            }}
-          >
-            NFS
-          </Box>
-        )}
+            // ✅ subtle “premium” look
+            background: `linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.12)), ${statusMeta.bg}`,
+            borderTop: "1px solid rgba(255,255,255,0.35)",
+            borderBottom: "1px solid rgba(0,0,0,0.18)",
+            boxShadow: "0 10px 22px rgba(0,0,0,0.16)",
+          }}
+        >
+          {statusMeta.label}
+        </Box>
       </Box>
 
       <DialogContent
@@ -235,22 +212,49 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           {/* ================= LEFT HALF ================= */}
           <Box
             sx={{
-              flex: { xs: "0 0 auto", md: "0 0 36%" }, // ✅ left takes ~36% on desktop
+              flex: { xs: "0 0 auto", md: "0 0 40%" },
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
-              justifyContent: { xs: "flex-start", md: "center" }, // ✅ vertical center
-              alignItems: "center", // ✅ horizontal center
+              justifyContent: { xs: "flex-start", md: "center" },
+              alignItems: "center",
               py: { xs: 0, md: 1 },
               gap: 1.2,
+
+              position: "relative", // ✅ anchor absolute children (likes pill)
             }}
           >
+            {/* Viewer: likes pill pinned to top-right of LEFT panel */}
+            {!isOwner && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  top: 8,
+                  right: 8,
+                  zIndex: 5,
+                  backgroundColor: "rgba(255,255,255,0.96)",
+                  px: 1.2,
+                  py: 0.45,
+                  borderRadius: 999,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.6,
+                  boxShadow: "0 6px 18px rgba(0,0,0,0.10)",
+                }}
+              >
+                <FavoriteIcon fontSize="small" color="error" />
+                <Typography sx={{ fontSize: 12, fontWeight: 800 }}>
+                  {likesCount.toLocaleString()}
+                </Typography>
+              </Box>
+            )}
+
             {/* Image */}
             <Box
               sx={{
                 position: "relative",
                 width: "100%",
-                maxWidth: { xs: 280, md: 250 },
+                maxWidth: { xs: 280, md: 250, lg: 330 },
                 minHeight: { xs: 340, md: 520 },
                 display: "flex",
                 alignItems: "center",
@@ -260,13 +264,13 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               <Image
                 src={card.imageUrls?.[activeImageIndex] || "/placeholder.png"}
                 alt={`${card.title} large`}
-                fill // matches old width/height 100%
-                sizes="(max-width: 600px) 280px, 350px" // tells Next what responsive size to request
-                style={{ objectFit: "contain" }} // same as your old objectFit
-                priority={open} // boost LCP only when dialog open
+                fill
+                sizes="(max-width: 600px) 280px, 350px"
+                style={{ objectFit: "contain" }}
+                priority={open}
               />
 
-              {/* Owner: like toggle */}
+              {/* Owner: like toggle (keep this on the image if you want) */}
               {isOwner && (
                 <IconButton
                   onClick={() => setLiked((prev) => !prev)}
@@ -284,30 +288,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                     <FavoriteBorderIcon />
                   )}
                 </IconButton>
-              )}
-
-              {/* Viewer: likes pill (under banner) */}
-              {!isOwner && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 56, // ✅ sits below the modal banner zone
-                    left: 10,
-                    backgroundColor: "rgba(255,255,255,0.96)",
-                    px: 1.3,
-                    py: 0.45,
-                    borderRadius: 999,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 0.6,
-                    boxShadow: "0 6px 18px rgba(0,0,0,0.10)",
-                  }}
-                >
-                  <FavoriteIcon fontSize="small" color="error" />
-                  <Typography sx={{ fontSize: 12, fontWeight: 700 }}>
-                    {likesCount.toLocaleString()}
-                  </Typography>
-                </Box>
               )}
             </Box>
 
@@ -343,15 +323,11 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                       }}
                     >
                       <Image
-                        src={
-                          card.imageUrls?.[activeImageIndex] ||
-                          "/placeholder.png"
-                        }
-                        alt={`${card.title} large`}
+                        src={card.imageUrls?.[i] || "/placeholder.png"} // ✅ also fixes your thumb bug
+                        alt={`${card.title} thumb ${i + 1}`}
                         fill
-                        sizes="(max-width: 600px) 280px, 350px"
-                        style={{ objectFit: "contain" }}
-                        priority={open}
+                        sizes="54px"
+                        style={{ objectFit: "cover" }}
                       />
                     </Box>
                   ))}
@@ -360,11 +336,11 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
             </Box>
 
             {/* Button below image */}
-            <Button
+            {/* <Button
               variant="contained"
               fullWidth
               sx={{
-                mt: 1.2, // ✅ close to thumbnails
+                mt: 1.2,
                 textTransform: "none",
                 backgroundColor: primaryBlue,
                 "&:hover": { backgroundColor: "#0041cc" },
@@ -376,7 +352,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               onClick={() => console.log("View slabs", card.id)}
             >
               CLICK TO VIEW SLABS
-            </Button>
+            </Button> */}
           </Box>
 
           {/* ================= RIGHT HALF ================= */}
@@ -393,7 +369,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
             <Box sx={{ px: 0.5 }}>
               <Typography
                 sx={{
-                  fontSize: { xs: 15, sm: 16, md: 18, lg: 20 },
+                  fontSize: { xs: 15, sm: 16, md: 18, lg: 20, xl: 25 },
                   fontWeight: 800,
                   lineHeight: 1.1,
                   letterSpacing: "-0.4px",
@@ -421,7 +397,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                     <Typography
                       sx={{
                         width: 140,
-                        fontSize: { xs: 8, sm: 9, md: 10, lg: 12 },
+                        fontSize: { xs: 8, sm: 9, md: 10, lg: 12, xl: 15 },
                         color: "#6b7280",
                       }}
                     >
@@ -430,7 +406,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
 
                     <Typography
                       sx={{
-                        fontSize: { xs: 8, sm: 9, md: 10, lg: 12 },
+                        fontSize: { xs: 8, sm: 9, md: 10, lg: 12, xl: 15 },
                         fontWeight: 700,
                         color: "#111",
                         textAlign: "left",
@@ -446,17 +422,23 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
             <Divider />
 
             {/* Segment 2: Buy box (match screenshot) */}
+
             <BuyBox
+              mode={canManageListing ? "owner" : "viewer"}
+              offersCount={offersCount}
+              onEdit={() => console.log("Edit listing", card.id)} // open edit dialog
               isForSale={isForSale}
               priceText={
-                isForSale && card.price != null
-                  ? `S$${card.price.toFixed(2)}`
-                  : "S$ -"
+                card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"
               }
               primaryBlue={primaryBlue}
               condition={selCondition}
               onConditionChange={setSelCondition}
-              onPlaceOffer={() => console.log("Place offer", card.id)}
+              onPlaceOffer={() =>
+                canManageListing
+                  ? console.log("See offers", card.id)
+                  : console.log("Place offer", card.id)
+              }
               onBuyNow={handleBuyNow}
               otherListingsTitle="View 5 Other Listings"
               otherListingsSubtitle="As low as S$568.70"

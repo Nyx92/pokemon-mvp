@@ -160,6 +160,7 @@ const NavBar: React.FC<NavBarProps> = ({ initialUser }) => {
           onSignUp={goToSignUp}
           onSignIn={goToSignIn}
           onProfile={goToProfile}
+          profileName={displayUser}
         />
 
         <NavbarHamburgerButton onClick={handleMenuClick} />
