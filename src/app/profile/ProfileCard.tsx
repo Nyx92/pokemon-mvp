@@ -19,6 +19,7 @@ import LogoutButton from "@/app/utils/account/LogoutButton";
 import { useUserStore } from "@/app/store/userStore";
 import type { Session } from "next-auth";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface ProfileCardProps {
   initialUser?: Partial<Session["user"]> | null;
@@ -197,8 +198,8 @@ export default function ProfileCard({ initialUser }: ProfileCardProps) {
               </ListItemButton>
             </ListItem>
             <ListItem disablePadding>
-              <ListItemButton>
-                <ListItemText primary="Favorites" />
+              <ListItemButton component={Link} href="/profile/purchases">
+                <ListItemText primary="Purchase History" />
               </ListItemButton>
             </ListItem>
           </List>
