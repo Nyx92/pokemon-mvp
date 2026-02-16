@@ -39,10 +39,12 @@ model User {
   cards         Card[]
   binders       Binder[]
   offers        Offer[]          @relation("UserOffers")
-  messages      Message[]        @relation("UserMessages")
-  conversations Conversation[]   @relation("UserConversations")
+  sellerOrders  Order[] @relation("SellerOrders")
+  buyerOrders   Order[] @relation("BuyerOrders")
+  reservedCards Card[] @relation("CardReservations")
+  sellerTransactions CardTransaction[] @relation("SellerTransactions")
+  buyerTransactions  CardTransaction[] @relation("BuyerTransactions")
 }
-
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
 // Links back to User via userId
@@ -109,12 +111,18 @@ model Binder {
 model Card {
   id           String     @id @default(uuid())
   title        String
-  price        Float?
+  price        Int?
   condition    String
   description  String?
   imageUrls    String[]   // URLs to Supabase Storage images
   forSale      Boolean    @default(false)
   status       String     @default("available") // available | sold | reserved
+
+  // reservation fields (prevent double-sell)
+  reservedBy          User?   @relation("CardReservations", fields: [reservedById], references: [id], onDelete: SetNull)
+  reservedById        String?
+  reservedUntil       DateTime?
+  reservedCheckoutSessionId String? @unique
 
   // Optional enrichment fields (future-proof)
   tcgPlayerId  String
@@ -129,16 +137,41 @@ model Card {
   owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId      String
   offers       Offer[]
-  conversations Conversation[] @relation("CardConversations")
+  transactions CardTransaction[]
+  orders       Order[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
 
+model Order {
+  id                String   @id @default(uuid())
+  card              Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId             String
+
+  seller             User     @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId           String
+  buyer              User     @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId            String
+
+  amount             Int      // store cents
+  currency           String   @default("sgd")
+  status             String   @default("PENDING") // PENDING | PAID | EXPIRED | CANCELED | REFUNDED
+
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String? @unique
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  transactions       CardTransaction[]
+}
+
+
 // 💸 Offer — represents an offer made by a buyer on a card
 model Offer {
   id          String   @id @default(uuid())
-  price       Float
+  price       Int?
   message     String?
   status      String   @default("pending") // pending | accepted | rejected
 
@@ -152,27 +185,25 @@ model Offer {
   updatedAt   DateTime @updatedAt
 }
 
-// 💬 Conversation — represents a chat thread (usually tied to a card)
-model Conversation {
-  id            String       @id @default(uuid())
-  topic         String?
-  card          Card?        @relation("CardConversations", fields: [cardId], references: [id], onDelete: SetNull)
-  cardId        String?
-  participants  User[]       @relation("UserConversations")
-  messages      Message[]
+model CardTransaction {
+  id            String @id @default(uuid())
+
+  order         Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String
+
+  card          Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId        String
+
+  seller        User   @relation("SellerTransactions", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId      String
+
+  buyer         User   @relation("BuyerTransactions", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId       String
+
+  amount        Int
+  currency      String
+  stripeEventId String @unique
+
   createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 }
 
-// 💭 Message — represents a single message sent in a conversation
-model Message {
-  id              String         @id @default(uuid())
-  content         String
-  createdAt       DateTime @default(now())
-
-  // Relations
-  conversation    Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  conversationId  String
-  sender          User           @relation("UserMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  senderId        String
-}

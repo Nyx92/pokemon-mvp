@@ -32,17 +32,29 @@ async function uploadMockImage(filename: string): Promise<string> {
   return publicUrl.publicUrl;
 }
 
+function dollarsToCents(price: number): number {
+  // safe conversion for display amounts like 120, 95, 19.99 etc.
+  return Math.round(price * 100);
+}
+
 async function main() {
   console.log("🚀 Starting database seed...");
 
-  // Clean up
-  await prisma.message.deleteMany();
-  await prisma.conversation.deleteMany();
+  // ✅ Clean up (child tables first)
+  // CardTransaction references Order/Card/User
+  await prisma.cardTransaction.deleteMany();
+  // Offer references Card/User
   await prisma.offer.deleteMany();
+  // Order references Card/User
+  await prisma.order.deleteMany();
+  // Card references Binder/User
   await prisma.card.deleteMany();
+  // Binder references User
   await prisma.binder.deleteMany();
+  // User references Account/Session (if you have these tables populated in dev)
+  await prisma.session.deleteMany();
+  await prisma.account.deleteMany();
   await prisma.user.deleteMany();
-
   // Hash passwords
   const ashPassword = await bcrypt.hash("123", 10);
   const mistyPassword = await bcrypt.hash("123", 10);
@@ -113,24 +125,28 @@ async function main() {
   console.log("✅ Uploaded all mock images");
 
   // Ash’s Cards
+  // Create cards (use create() so we can capture ids easily)
+  const charizard = await prisma.card.create({
+    data: {
+      title: "Charizard VMAX",
+      price: dollarsToCents(120),
+      condition: "Mint",
+      description: "A stunning Charizard VMAX with fiery holo effect.",
+      imageUrls: [mockImageUrlOne],
+      forSale: true,
+      status: "available",
+      setName: "Shining Fates",
+      rarity: "Ultra Rare",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "232496",
+      language: "English",
+      cardNumber: "SV107",
+    },
+  });
+
   await prisma.card.createMany({
     data: [
-      {
-        title: "Charizard VMAX",
-        price: 120,
-        condition: "Mint",
-        description: "A stunning Charizard VMAX with fiery holo effect.",
-        imageUrls: [mockImageUrlOne],
-        forSale: true,
-        status: "available",
-        setName: "Shining Fates",
-        rarity: "Ultra Rare",
-        binderId: rareBinder.id,
-        ownerId: ash.id,
-        tcgPlayerId: "232496",
-        language: "English",
-        cardNumber: "SV107",
-      },
       {
         title: "Venusaur V",
         price: null,
@@ -149,7 +165,7 @@ async function main() {
       },
       {
         title: "Blastoise Holo Rare",
-        price: 120,
+        price: dollarsToCents(120),
         condition: "Mint",
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
@@ -171,7 +187,7 @@ async function main() {
     data: [
       {
         title: "Starmie GX",
-        price: 60,
+        price: dollarsToCents(60),
         condition: "Mint",
         description:
           "Misty’s loyal Water-type partner with a dazzling spin attack.",
@@ -204,7 +220,7 @@ async function main() {
       },
       {
         title: "Gyarados VMAX",
-        price: 95,
+        price: dollarsToCents(95),
         condition: "Near Mint",
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
@@ -223,55 +239,66 @@ async function main() {
 
   console.log("✅ Cards created for Ash and Misty");
 
-  // Offer + conversation (same as before)
-  const charizard = await prisma.card.findFirst({
-    where: { title: "Charizard VMAX" },
-  });
-
+  // Offer (updated to priceCents)
   const offer = await prisma.offer.create({
     data: {
-      price: 100,
-      message: "Would you take 100 for this Charizard? It’s my favorite!",
+      price: dollarsToCents(100),
+      message: null,
       status: "pending",
-      cardId: charizard!.id,
+      cardId: charizard.id,
       buyerId: misty.id,
     },
   });
 
-  console.log("✅ Offer created from Misty on:", charizard?.title);
+  console.log(
+    "✅ Offer created from Misty on:",
+    charizard.title,
+    "Offer:",
+    offer.id
+  );
 
-  const conversation = await prisma.conversation.create({
+  // (Optional) Seed a fake completed purchase flow: Order + Transaction
+  // Useful to test your "purchases" UI
+  const order = await prisma.order.create({
     data: {
-      topic: "Negotiation about Charizard VMAX",
-      cardId: charizard!.id,
-      participants: {
-        connect: [{ id: ash.id }, { id: misty.id }],
-      },
+      cardId: charizard.id,
+      sellerId: ash.id,
+      buyerId: misty.id,
+      amount: charizard.price ?? dollarsToCents(120),
+      currency: "sgd",
+      status: "PAID",
+      stripeCheckoutSessionId: "cs_test_seed_123",
+      stripePaymentIntentId: "pi_test_seed_123",
     },
   });
 
-  await prisma.message.createMany({
-    data: [
-      {
-        content:
-          "Hey Ash! I saw your Charizard is for sale. Is it still available?",
-        senderId: misty.id,
-        conversationId: conversation.id,
-      },
-      {
-        content: "Hey Misty! Yep, still available. It’s in mint condition.",
-        senderId: ash.id,
-        conversationId: conversation.id,
-      },
-      {
-        content: "Awesome! Would you take 100 for it?",
-        senderId: misty.id,
-        conversationId: conversation.id,
-      },
-    ],
+  await prisma.cardTransaction.create({
+    data: {
+      orderId: order.id,
+      cardId: charizard.id,
+      sellerId: ash.id,
+      buyerId: misty.id,
+      amount: order.amount,
+      currency: order.currency,
+      stripeEventId: "evt_test_seed_123", // must be unique
+    },
   });
 
-  console.log("✅ Messages added to conversation");
+  await prisma.card.update({
+    where: { id: charizard.id },
+    data: {
+      ownerId: misty.id,
+      status: "sold",
+      forSale: false,
+      reservedById: null,
+      reservedUntil: null,
+      reservedCheckoutSessionId: null,
+      binderId: null, // optional
+    },
+  });
+
+  console.log("✅ Seeded sample Order + CardTransaction");
+
   console.log("🌱 Seeding complete!");
 }
 

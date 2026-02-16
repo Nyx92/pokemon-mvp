@@ -2,111 +2,155 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 
-export const runtime = "nodejs"; // important for Stripe signature verification
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
 });
 
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  if (!sig) {
+  if (!sig)
     return NextResponse.json(
-      { error: "Missing stripe-signature" },
+      { error: "Missing Stripe signature" },
       { status: 400 }
     );
-  }
-  if (!webhookSecret) {
-    return NextResponse.json(
-      { error: "Missing STRIPE_WEBHOOK_SECRET" },
-      { status: 500 }
-    );
-  }
 
-  const rawBody = await req.text();
+  const body = await req.text();
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(
+      body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET as string
+    );
   } catch (err) {
-    console.error("❌ Stripe webhook signature verification failed:", err);
+    console.error("[webhook] signature verify failed:", err);
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   try {
-    if (event.type === "checkout.session.completed") {
-      const session = event.data.object as Stripe.Checkout.Session;
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
 
-      const stripeSessionId = session.id;
-      const cardId = session.metadata?.cardId;
-      const buyerId = session.metadata?.buyerId; // ✅ from your checkout metadata
-      const buyerEmail = session.customer_details?.email ?? null;
+        const orderId = session.metadata?.orderId;
+        const cardId = session.metadata?.cardId;
+        const buyerId = session.metadata?.buyerId;
+        const sellerId = session.metadata?.sellerId;
 
-      if (!cardId) {
-        console.warn(
-          "⚠️ checkout.session.completed missing cardId in metadata"
-        );
-        return NextResponse.json({ ok: true });
-      }
+        if (!orderId || !cardId || !buyerId || !sellerId) {
+          throw new Error("Missing metadata on session");
+        }
 
-      // ✅ Idempotency: ensure we only process once
-      // You need SOME record to check against.
-      // Best: create a Purchase table later.
-      // For now: store stripeSessionId on the card if you have a field.
-      //
-      // If you DON'T have a field, you can still do a safe update using status/forSale checks,
-      // but you won't be protected against edge cases as well.
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : null;
 
-      // Option A (recommended): if your Card model has stripeSessionId (string?) – use it
-      // Option B: fall back to "already sold" check
+        // Idempotency: store event.id in CardTransaction.stripeEventId (unique)
+        await prisma.$transaction(async (tx) => {
+          // If already processed, do nothing
+          const existingTx = await tx.cardTransaction.findUnique({
+            where: { stripeEventId: event.id },
+          });
+          if (existingTx) return;
 
-      const card = await prisma.card.findUnique({
-        where: { id: cardId },
-        select: { id: true, status: true, forSale: true, ownerId: true },
-      });
+          // Load order
+          const order = await tx.order.findUnique({ where: { id: orderId } });
+          if (!order) throw new Error("Order not found");
 
-      if (!card) {
-        console.warn("⚠️ Card not found for cardId:", cardId);
-        return NextResponse.json({ ok: true });
-      }
+          if (order.status === "PAID") {
+            // still write idempotency guard so retries don’t keep failing
+            await tx.cardTransaction.create({
+              data: {
+                orderId: order.id,
+                cardId,
+                sellerId,
+                buyerId,
+                amount: order.amount,
+                currency: order.currency,
+                stripeEventId: event.id,
+              },
+            });
+            return;
+          }
 
-      // If already sold, treat as processed (idempotent-ish)
-      if (card.status === "sold" || card.forSale === false) {
-        return NextResponse.json({ ok: true });
-      }
+          // Update order + create transaction + transfer ownership
+          await tx.order.update({
+            where: { id: orderId },
+            data: {
+              status: "PAID",
+              stripePaymentIntentId: paymentIntentId ?? undefined,
+            },
+          });
 
-      // ✅ Transaction: mark as sold + transfer owner if we know buyerId
-      await prisma.$transaction(async (tx) => {
-        await tx.card.update({
-          where: { id: cardId },
-          data: {
-            status: "sold",
-            forSale: false,
-            // Optional: record who bought it if buyerId exists
-            ...(buyerId ? { owner: { connect: { id: buyerId } } } : {}),
-            // If you add a field later:
-            // stripeSessionId,
-          },
+          await tx.cardTransaction.create({
+            data: {
+              orderId,
+              cardId,
+              sellerId,
+              buyerId,
+              amount: order.amount,
+              currency: order.currency,
+              stripeEventId: event.id,
+            },
+          });
+
+          // Transfer card
+          // Guard: ensure the reservedCheckoutSessionId matches THIS session
+          await tx.card.update({
+            where: { id: cardId },
+            data: {
+              ownerId: buyerId,
+              forSale: false,
+              status: "sold",
+              reservedById: null,
+              reservedUntil: null,
+              reservedCheckoutSessionId: null,
+              binderId: null, // optional: remove from seller binder
+            },
+          });
         });
 
-        // Later: create purchase record here (when you add schema)
-        // await tx.purchase.create({ data: {...} })
-      });
+        break;
+      }
 
-      console.log("✅ Processed checkout.session.completed", {
-        stripeSessionId,
-        cardId,
-        buyerId,
-        buyerEmail,
-      });
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const orderId = session.metadata?.orderId;
+        const cardId = session.metadata?.cardId;
+
+        if (orderId && cardId) {
+          await prisma.$transaction([
+            prisma.order.update({
+              where: { id: orderId },
+              data: { status: "EXPIRED" },
+            }),
+            prisma.card.updateMany({
+              where: {
+                id: cardId,
+                status: "reserved",
+                reservedCheckoutSessionId: session.id,
+              },
+              data: {
+                status: "available",
+                reservedById: null,
+                reservedUntil: null,
+                reservedCheckoutSessionId: null,
+              },
+            }),
+          ]);
+        }
+        break;
+      }
+
+      default:
+        break;
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ received: true });
   } catch (err) {
-    console.error("❌ Stripe webhook handler failed:", err);
-    // Stripe will retry on non-2xx
+    console.error("[webhook] handler failed:", err);
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 }

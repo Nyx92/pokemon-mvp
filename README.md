@@ -14,6 +14,8 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 ## 🚫 Enforcing `pnpm`
 
 This project **only allows pnpm** to avoid inconsistent lockfiles.
+pnpm is a JavaScript package manager (like npm or yarn) for managing dependencies in Node.js projects.
+Its main advantage is that it saves disk space and installs faster by sharing packages across projects instead of duplicating them.
 
 - Guard is added via [`only-allow`](https://github.com/pnpm/only-allow).
 - If you try `npm install` or `yarn install`, it will fail with a message.
@@ -60,7 +62,7 @@ Do not edit tables directly in the Supabase GUI — always update prisma/schema.
 
 ### To create and apply a migration locally:
 
-npx prisma migrate dev --name <migration_name>
+npx prisma migrate dev --name <migration_name>  
 npx prisma migrate deploy
 
 ### Seed data is defined in prisma/seed.ts.
