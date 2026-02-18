@@ -2,18 +2,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma"; // adjust to your path
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
 });
 
 export async function POST(req: NextRequest) {
+  const authSession = await getServerSession(authOptions);
+  const buyerId = authSession?.user?.id;
+
   try {
     const body = await req.json();
     const { cardId } = body as { cardId: string };
 
-    // TODO: get buyerId from NextAuth server session instead of client
-    const buyerId = body.buyerId as string | undefined;
     if (!buyerId)
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
@@ -30,31 +33,33 @@ export async function POST(req: NextRequest) {
         { status: 409 }
       );
     }
-    if (!card.price || card.price <= 0) {
+    if (card.price == null || card.price <= 0) {
       return NextResponse.json(
         { error: "Card has invalid price" },
         { status: 400 }
       );
     }
 
-    const amount = Math.round(card.price * 100);
-
-    // 2) Create stripe session first OR create order first.
-    // I prefer: create Order + reserve card, then create session, then update order with session id.
-    const reserveMinutes = 15;
+    const amount = card.price;
+    const reserveMinutes = 1;
     const reservedUntil = new Date(Date.now() + reserveMinutes * 60_000);
 
     const order = await prisma.$transaction(async (tx) => {
+      console.log("[checkout] buyerId from session:", buyerId);
+
+      const buyer = await prisma.user.findUnique({
+        where: { id: buyerId! },
+      });
+      console.log("[checkout] buyer exists in DB:", !!buyer);
       // Reserve the card (optimistic concurrency: only reserve if still available)
       const updated = await tx.card.updateMany({
         where: {
           id: cardId,
           status: "available",
           forSale: true,
-          reservedUntil: null,
+          OR: [{ reservedUntil: null }, { reservedUntil: { lt: new Date() } }],
         },
         data: {
-          status: "reserved",
           reservedById: buyerId,
           reservedUntil,
         },
@@ -81,7 +86,7 @@ export async function POST(req: NextRequest) {
       .map((url) => (url.startsWith("http") ? url : `${baseUrl}${url}`));
 
     // 3) Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    const checkoutSession = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       line_items: [
@@ -106,22 +111,29 @@ export async function POST(req: NextRequest) {
         buyerId,
         sellerId: card.ownerId,
       },
-      expires_at: Math.floor(reservedUntil.getTime() / 1000),
+      // TODO: Re-enable `expires_at` after testing.
+      // Stripe requires `expires_at` to be at least 30 minutes from session creation.
+      // When we re-enable it, also add a "Resume checkout" flow:
+      // - Persist stripeCheckoutSessionId on Order (already doing)
+      // - Provide an endpoint/UI that finds the user's latest PENDING order and redirects them back to the same Checkout Session
+      //   (or creates a new session if the old one expired).
+      // expires_at: Math.floor(reservedUntil.getTime() / 1000),
+      // expires_at: Math.floor(reservedUntil.getTime() / 1000),
     });
 
     // 4) Save session id + tie reservation to this session id
     await prisma.$transaction([
       prisma.order.update({
         where: { id: order.id },
-        data: { stripeCheckoutSessionId: session.id },
+        data: { stripeCheckoutSessionId: checkoutSession.id },
       }),
       prisma.card.update({
         where: { id: cardId },
-        data: { reservedCheckoutSessionId: session.id },
+        data: { reservedCheckoutSessionId: checkoutSession.id },
       }),
     ]);
 
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {
     console.error("[checkout] error:", err);
     return NextResponse.json(

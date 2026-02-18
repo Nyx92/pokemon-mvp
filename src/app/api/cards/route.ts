@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
+import { dollarsToCents, centsToDollars } from "@/lib/money";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -18,7 +19,12 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ cards });
+    const cardsForUi = cards.map((c) => ({
+      ...c,
+      // if c.price is cents-int or null
+      price: c.price != null ? centsToDollars(c.price) : null,
+    }));
+    return NextResponse.json({ cards: cardsForUi });
   } catch (error: any) {
     console.error("❌ Error fetching cards:", error);
     return NextResponse.json(
@@ -50,7 +56,8 @@ export async function POST(req: Request) {
     let price: number | null = null;
 
     if (typeof priceRaw === "string" && priceRaw.trim() !== "") {
-      price = parseFloat(priceRaw);
+      const dollars = parseFloat(priceRaw);
+      if (!Number.isNaN(dollars)) price = dollarsToCents(dollars);
     }
 
     const priceRequiredButMissing =

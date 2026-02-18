@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 import path from "path";
+import { dollarsToCents } from "@/lib/money";
 
 const prisma = new PrismaClient();
 
@@ -30,11 +31,6 @@ async function uploadMockImage(filename: string): Promise<string> {
     .getPublicUrl(data.path);
 
   return publicUrl.publicUrl;
-}
-
-function dollarsToCents(price: number): number {
-  // safe conversion for display amounts like 120, 95, 19.99 etc.
-  return Math.round(price * 100);
 }
 
 async function main() {

@@ -75,3 +75,4 @@ rm -rf prisma/migrations
 npx prisma db push --force-reset
 npx prisma migrate dev --name init
 npx prisma db seed
+pnpm prisma generate
