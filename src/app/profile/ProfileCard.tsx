@@ -16,27 +16,23 @@ import {
 } from "@mui/material";
 import { Verified, ErrorOutline } from "@mui/icons-material";
 import LogoutButton from "@/app/utils/account/LogoutButton";
-import { useUserStore } from "@/app/store/userStore";
 import type { Session } from "next-auth";
+import { useAuth } from "@/app/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-interface ProfileCardProps {
-  initialUser?: Partial<Session["user"]> | null;
-}
+export default function ProfileCard() {
+  const { user, status } = useAuth();
+  const displayUser = user;
 
-export default function ProfileCard({ initialUser }: ProfileCardProps) {
-  const { user } = useUserStore();
   const router = useRouter();
-  // ✅ Merge SSR + client user safely
-  const displayUser = user ?? initialUser ?? null;
 
   const handleEditClick = () => {
     router.push("/profile/edit/general");
   };
 
   // ✅ If no user yet (first paint), show loader instead of placeholders
-  if (!displayUser) {
+  if (status === "loading") {
     return (
       <Box
         sx={{
@@ -51,6 +47,15 @@ export default function ProfileCard({ initialUser }: ProfileCardProps) {
     );
   }
 
+  if (!displayUser) {
+    return (
+      <Box sx={{ py: 6 }}>
+        <Typography textAlign="center" color="text.secondary">
+          Please sign in to view your profile.
+        </Typography>
+      </Box>
+    );
+  }
   // ✅ Helper for nullish values (used only after data ready)
   const safe = (val?: string | null) => val || "—";
 

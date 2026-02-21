@@ -4,7 +4,6 @@ import "./globals.css";
 import NavBar from "./shared-components/navbar/Navbar";
 import Footer from "./shared-components/footer/Footer";
 import SessionProviderWrapper from "@/providers/SessionProviderWrapper";
-import SessionSync from "@/providers/SessionSync";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import ThemeRegistry from "@/providers/ThemeRegistry";
@@ -37,8 +36,6 @@ export default async function RootLayout({
       <body className={inter.className}>
         {/* Wrap with SessionProvider so NextAuth session is available throughout */}
         <SessionProviderWrapper session={session}>
-          {/* ✅ Keeps Zustand store in sync with NextAuth session */}
-          <SessionSync />
           <ThemeRegistry>
             <div
               style={{
@@ -49,7 +46,7 @@ export default async function RootLayout({
             >
               {/* Global navigation bar */}
               {/* Pass initial user info down to NavBar */}
-              <NavBar initialUser={session?.user} />
+              <NavBar />
               {/* Main content area with 60px padding to account for NavBar height */}
               <main style={{ flex: 1, paddingTop: "60px" }}>{children}</main>
               {/* Global footer */}

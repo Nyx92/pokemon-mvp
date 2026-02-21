@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import {
   Box,
   Button,
@@ -14,10 +14,10 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
-import { useUserStore } from "@/app/store/userStore";
 import { getNames } from "country-list";
-import type { Session } from "next-auth";
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/app/hooks/useAuth";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 // ✅ Utility: convert ISO → YYYY-MM-DD
 const toInputDate = (isoDate: string) => {
@@ -31,18 +31,10 @@ const toInputDate = (isoDate: string) => {
   return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
 };
 
-interface EditProfilePageProps {
-  initialUser?: Partial<Session["user"]> | null;
-}
-
-export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
+export default function EditProfilePage() {
   const router = useRouter();
-  const { user, setUser } = useUserStore();
   const countryOptions = useMemo(() => getNames().sort(), []);
-  const { update } = useSession();
-
-  // ✅ Prefer store user if available (client-side edit persistence), else SSR prop
-  const displayUser = user ?? initialUser ?? null;
+  const { user: displayUser, status, update } = useAuth();
 
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState<{
@@ -62,11 +54,6 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
     dob: displayUser?.dob ? toInputDate(displayUser.dob) : "",
     address: displayUser?.address || "",
   }));
-
-  // (optional) sync store on mount if SSR user exists
-  useEffect(() => {
-    if (initialUser && !user) setUser(initialUser);
-  }, [initialUser, user, setUser]);
 
   const handleChange = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -88,7 +75,6 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
       // ✅ Refresh session immediately so SSR + client see latest data
       await update();
 
-      setUser(result.user);
       setSnackbar({
         open: true,
         message: "✅ Profile updated successfully!",
@@ -108,8 +94,8 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
     }
   };
 
-  // ✅ Guard: if no user even on SSR, show loader (rare)
-  if (!displayUser) {
+  // loading
+  if (status === "loading") {
     return (
       <Box
         sx={{
@@ -120,6 +106,17 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
         }}
       >
         <CircularProgress size={40} />
+      </Box>
+    );
+  }
+
+  // Guard
+  if (!displayUser) {
+    return (
+      <Box sx={{ py: 6 }}>
+        <Typography textAlign="center" color="text.secondary">
+          Please sign in to edit your profile.
+        </Typography>
       </Box>
     );
   }
@@ -278,6 +275,7 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
           <Button
             variant="contained"
             fullWidth
+            disabled={saving}
             sx={{
               mt: 5,
               backgroundColor: "black",
@@ -286,13 +284,30 @@ export default function EditProfilePage({ initialUser }: EditProfilePageProps) {
               fontWeight: "bold",
               py: 1.4,
               "&:hover": { backgroundColor: "#333" },
+              "&.Mui-disabled": { backgroundColor: "#111", opacity: 0.5 },
             }}
             onClick={handleSave}
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </Button>
         </Box>
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={2500}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

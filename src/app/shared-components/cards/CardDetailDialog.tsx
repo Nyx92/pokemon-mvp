@@ -1,16 +1,13 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import Image from "next/image";
-
+import { useAuth } from "@/app/hooks/useAuth";
 import {
   Box,
-  Chip,
   Dialog,
   DialogContent,
   Typography,
-  Button,
   IconButton,
   Divider,
 } from "@mui/material";
@@ -33,12 +30,9 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   card,
   onClose,
 }) => {
-  const { data: session } = useSession();
-  const isLoggedIn = !!session?.user;
-  const isAdmin = session?.user && (session.user as any).role === "admin";
-  const isOwner = session?.user?.id === card?.owner?.id;
-  const canManageListing = isOwner || isAdmin; // ✅ owner (or admin) sees owner controls
-
+  const { userId, isAdmin } = useAuth();
+  const isOwner = userId === card?.owner?.id;
+  const canManageListing = isOwner || isAdmin;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
   const [selCondition, setSelCondition] = useState("all");
@@ -62,11 +56,12 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const safeText = (val?: string | null) =>
     val && val.trim().length > 0 ? val : "-";
 
-  const ownerName =
-    card.owner?.username || card.owner?.email || "Unknown seller";
-
   const handleBuyNow = async () => {
     if (!card || !card.price) return;
+    if (!userId) {
+      console.error("Must be logged in to buy");
+      return;
+    }
 
     try {
       const res = await fetch("/api/checkout", {
@@ -77,7 +72,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
           title: card.title,
           price: card.price,
           imageUrls: card.imageUrls ?? [],
-          buyerId: session?.user?.id, // so we can update db on purchase
+          buyerId: userId,
         }),
       });
 
@@ -90,8 +85,8 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
     }
   };
 
-  const cardNumber = safeText((card as any).cardNumber);
-  const language = safeText((card as any).language ?? "English");
+  const cardNumber = safeText(card.cardNumber);
+  const language = safeText(card.language ?? "English");
   const condition = safeText(card.condition);
 
   const statusMeta = (() => {
