@@ -9,8 +9,8 @@ import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import UploadIcon from "@mui/icons-material/Upload";
-import { useSession } from "next-auth/react";
 import UploadCard from "./home/uploadCard/UploadCard";
+import { useAuth } from "@/app/hooks/useAuth";
 
 function Community() {
   return (
@@ -25,9 +25,7 @@ function Community() {
 export default function Home() {
   // ✅ use string identifiers instead of numeric indexes
   const [tab, setTab] = useState("marketplace");
-  const { data: session } = useSession();
-  const isLoggedIn = !!session?.user;
-  const isAdmin = session?.user && (session.user as any).role === "admin";
+  const { isLoggedIn, isAdmin } = useAuth();
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: string) => {
     setTab(newValue);

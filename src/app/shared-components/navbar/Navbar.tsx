@@ -1,13 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Session } from "next-auth";
-import { Theme } from "@mui/material";
-
+import { useAuth } from "@/app/hooks/useAuth";
 import { APP_BAR_HEIGHT } from "./constants";
 import { MenuKey } from "./DropdownStoreData";
 import { useNavbarStore } from "../../store/navbarStore";
-import { useUserStore } from "../../store/userStore";
 
 import NavbarShell from "./NavbarShell";
 import NavbarLogo from "./NavbarLogo";
@@ -22,16 +19,12 @@ import { useCloseOnBrowserMouseOut } from "./hooks/useCloseOnBrowserMouseOut";
 
 import "./Navbar.css";
 
-interface NavBarProps {
-  initialUser?: Partial<Session["user"]> | null;
-}
-
 // Toggle this flag to enable or disable navbar effects
 const disableNavEffects = true;
 
 // React.FunctionComponent type is a special type provided by React for functional components.
 // It automatically includes type definitions for props, including handling children as a prop.
-const NavBar: React.FC<NavBarProps> = ({ initialUser }) => {
+const NavBar: React.FC = () => {
   const navbarRef = useRef<HTMLElement>(null as unknown as HTMLElement);
   // opens/closes the hamburger drop down menu
   const [currentMenu, setCurrentMenu] = useState<MenuKey | null>(null);
@@ -59,12 +52,8 @@ const NavBar: React.FC<NavBarProps> = ({ initialUser }) => {
     setSelectedDropdownSection,
   } = useNavbarStore();
 
-  // Zustand: user store — get user info
-  const { user } = useUserStore();
-  const isLoggedIn = Boolean(user?.username || initialUser?.username);
-
-  // Combine server user and client user safely
-  const displayUser = user?.username ?? initialUser?.username ?? "Profile";
+  const { user, isLoggedIn } = useAuth();
+  const displayUser = user?.username ?? "Profile";
 
   // allow hover dropdown only after a short delay (if enabled)
   useEffect(() => {

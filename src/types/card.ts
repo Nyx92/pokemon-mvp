@@ -4,7 +4,7 @@ export interface CardItem {
   title: string;
   price: number | null;
   condition: string;
-  status: string;
+  status: "available" | "sold" | "reserved" | string;
   forSale: boolean;
   imageUrls: string[];
   tcgPlayerId: string;
@@ -12,7 +12,7 @@ export interface CardItem {
   setName: string | null;
   rarity: string | null;
   description: string | null;
-  language: string; // required in Prisma
+  language: string;
   cardNumber: string | null;
 
   // Optional purely-frontend or future fields
