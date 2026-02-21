@@ -12,5 +12,5 @@ export default async function EditProfile() {
   }
 
   // ✅ Pass SSR user data to client component
-  return <EditProfilePage initialUser={session.user} />;
+  return <EditProfilePage />;
 }
