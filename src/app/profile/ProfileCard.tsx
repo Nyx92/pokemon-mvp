@@ -16,7 +16,6 @@ import {
 } from "@mui/material";
 import { Verified, ErrorOutline } from "@mui/icons-material";
 import LogoutButton from "@/app/utils/account/LogoutButton";
-import type { Session } from "next-auth";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";

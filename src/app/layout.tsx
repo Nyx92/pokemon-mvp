@@ -45,7 +45,6 @@ export default async function RootLayout({
               }}
             >
               {/* Global navigation bar */}
-              {/* Pass initial user info down to NavBar */}
               <NavBar />
               {/* Main content area with 60px padding to account for NavBar height */}
               <main style={{ flex: 1, paddingTop: "60px" }}>{children}</main>
