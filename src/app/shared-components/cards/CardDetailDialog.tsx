@@ -11,12 +11,13 @@ import {
   IconButton,
   Divider,
 } from "@mui/material";
+import { useRouter } from "next/navigation";
+import type { CardItem } from "@/types/card";
 import CloseIcon from "@mui/icons-material/Close";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import BuyBox from "./BuyBox";
 
-import type { CardItem } from "@/types/card";
 import CardMarketChart from "./CardMarketChart";
 
 interface CardDetailDialogProps {
@@ -38,8 +39,8 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const [selCondition, setSelCondition] = useState("all");
   // TODO: replace with real count from API
   const offersCount = 10;
-
   const primaryBlue = "#0053ff";
+  const router = useRouter();
 
   useEffect(() => {
     if (open) {
@@ -52,6 +53,31 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
 
   const isForSale = card.forSale && card.status !== "sold";
   const likesCount = card.likesCount ?? 0;
+
+  /**
+   * 🔐 Ensures the user is authenticated before performing an action.
+   *
+   * If the user is not logged in, redirect them to the login page
+   * and preserve the current page as `callbackUrl` so they can be
+   * returned here after signing in.
+   *
+   * This centralizes auth-gating logic for Buy / Offer actions.
+   *
+   * TODO: Consider using NextAuth's `signIn()` helper with callbackUrl
+   *       instead of router.push for tighter integration.
+   */
+  const requireLogin = (action: () => void) => {
+    if (!userId) {
+      router.push(
+        `/auth/login?callbackUrl=${encodeURIComponent(
+          window.location.pathname
+        )}`
+      );
+      return;
+    }
+
+    action();
+  };
 
   const safeText = (val?: string | null) =>
     val && val.trim().length > 0 ? val : "-";
@@ -430,11 +456,12 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
               condition={selCondition}
               onConditionChange={setSelCondition}
               onPlaceOffer={() =>
-                canManageListing
-                  ? console.log("See offers", card.id)
-                  : console.log("Place offer", card.id)
+                requireLogin(() => {
+                  if (canManageListing) console.log("See offers", card.id);
+                  else console.log("Place offer", card.id);
+                })
               }
-              onBuyNow={handleBuyNow}
+              onBuyNow={() => requireLogin(handleBuyNow)}
               otherListingsTitle="View 5 Other Listings"
               otherListingsSubtitle="As low as S$568.70"
             />

@@ -46,7 +46,6 @@ export default function LoginPage() {
       });
 
       setLoading(false);
-
       if (res?.error) {
         setIsFailedLogin(true);
         return;
