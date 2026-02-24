@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
     if (!card)
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
-    if (!card.forSale || card.status !== "available") {
+    if (!card.forSale) {
       return NextResponse.json(
-        { error: "Card is not available" },
+        { error: "Card is not for sale" },
         { status: 409 }
       );
     }
@@ -55,9 +55,12 @@ export async function POST(req: NextRequest) {
       const updated = await tx.card.updateMany({
         where: {
           id: cardId,
-          status: "available",
           forSale: true,
-          OR: [{ reservedUntil: null }, { reservedUntil: { lt: new Date() } }],
+          OR: [
+            { reservedUntil: null },
+            { reservedUntil: { lt: new Date() } },
+            { reservedCheckoutSessionId: null },
+          ],
         },
         data: {
           reservedById: buyerId,
