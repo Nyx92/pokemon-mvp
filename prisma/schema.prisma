@@ -116,7 +116,6 @@ model Card {
   description  String?
   imageUrls    String[]   // URLs to Supabase Storage images
   forSale      Boolean    @default(false)
-  status       String     @default("available") // available | sold | reserved
 
   // reservation fields (prevent double-sell)
   reservedBy          User?   @relation("CardReservations", fields: [reservedById], references: [id], onDelete: SetNull)
