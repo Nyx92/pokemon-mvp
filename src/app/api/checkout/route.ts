@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    // 1) Load card + validate
+    /** * 1) Security & Validation: Fetch authoritative card data from DB.
+     * Prevents buying unlisted items or price manipulation via client-side request.
+     */
     const card = await prisma.card.findUnique({ where: { id: cardId } });
     if (!card)
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
@@ -41,25 +43,28 @@ export async function POST(req: NextRequest) {
     }
 
     const amount = card.price;
+    // TODO: Increase to 15-30 mins for production.
+    // Note: If syncing with Stripe's 'expires_at', Stripe requires a 30min minimum.
     const reserveMinutes = 1;
     const reservedUntil = new Date(Date.now() + reserveMinutes * 60_000);
 
     const order = await prisma.$transaction(async (tx) => {
       console.log("[checkout] buyerId from session:", buyerId);
-
+      // 1. Double-check the buyer exists in the system
       const buyer = await prisma.user.findUnique({
         where: { id: buyerId! },
       });
       console.log("[checkout] buyer exists in DB:", !!buyer);
-      // Reserve the card (optimistic concurrency: only reserve if still available)
+      // 2. The "Atomic Reservation"
+      // We don't just find the card; we try to UPDATE it only if it's currently available.
       const updated = await tx.card.updateMany({
         where: {
           id: cardId,
           forSale: true,
           OR: [
-            { reservedUntil: null },
-            { reservedUntil: { lt: new Date() } },
-            { reservedCheckoutSessionId: null },
+            { reservedUntil: null }, // Never reserved
+            { reservedUntil: { lt: new Date() } }, // Previous reservation expired
+            { reservedCheckoutSessionId: null }, // No active Stripe session
           ],
         },
         data: {
@@ -67,11 +72,11 @@ export async function POST(req: NextRequest) {
           reservedUntil,
         },
       });
-
+      // 3. If updateMany affected 0 rows, it means the card is being reserved
       if (updated.count !== 1)
         throw new Error("Card just got reserved/sold by someone else");
 
-      // Create order
+      // 4. Create the formal Order record linked to this attempt
       return tx.order.create({
         data: {
           cardId,
@@ -84,6 +89,10 @@ export async function POST(req: NextRequest) {
       });
     });
 
+    /**
+     * 3a) Formatting: Convert relative image paths to absolute URLs.
+     * Stripe requires full 'http' paths to render images on the checkout page.
+     */
     const finalImageUrls = (card.imageUrls ?? [])
       .filter(Boolean)
       .map((url) => (url.startsWith("http") ? url : `${baseUrl}${url}`));

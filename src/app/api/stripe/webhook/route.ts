@@ -19,11 +19,13 @@ export async function POST(req: NextRequest) {
    * and verify it using STRIPE_WEBHOOK_SECRET.
    */
   const sig = req.headers.get("stripe-signature");
-  if (!sig)
+  if (!sig) {
+    console.warn("[webhook] ❌ No signature found in headers");
     return NextResponse.json(
       { error: "Missing Stripe signature" },
       { status: 400 }
     );
+  }
 
   const body = await req.text();
 
@@ -34,8 +36,11 @@ export async function POST(req: NextRequest) {
       sig,
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
+    console.log(`[webhook] ✅ Event verified: ${event.id} [${event.type}]`);
   } catch (err) {
-    console.error("[webhook] signature verify failed:", err);
+    console.error(
+      "[webhook] ❌ Signature verification failed. Check STRIPE_WEBHOOK_SECRET."
+    );
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -48,23 +53,31 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-
+        console.log(`[webhook] 💳 Processing session: ${session.id}`);
         /**
          * ✅ Safety: Only finalize when Stripe confirms payment is paid
          * (prevents marking PAID when payment is incomplete or async).
          */
-        if (session.payment_status !== "paid") break;
+        if (session.payment_status !== "paid") {
+          console.warn(
+            `[webhook] ⏳ Session not paid (status: ${session.payment_status}). Skipping.`
+          );
+          break;
+        }
 
         /**
          * We rely on metadata added when creating the Checkout Session
          * (orderId/cardId/buyerId/sellerId).
          */
-        const orderId = session.metadata?.orderId;
-        const cardId = session.metadata?.cardId;
-        const buyerId = session.metadata?.buyerId;
-        const sellerId = session.metadata?.sellerId;
+        const { orderId, cardId, buyerId, sellerId } = session.metadata || {};
+        console.log(
+          `[webhook] 📋 Metadata - Card: ${cardId}, Buyer: ${buyerId}, Order: ${orderId}`
+        );
 
         if (!orderId || !cardId || !buyerId || !sellerId) {
+          console.error(
+            "[webhook] ❌ Critical Error: Missing metadata in Stripe session."
+          );
           throw new Error("Missing metadata on session");
         }
 
@@ -90,7 +103,10 @@ export async function POST(req: NextRequest) {
           const existingTx = await tx.cardTransaction.findUnique({
             where: { stripeEventId: event.id },
           });
-          if (existingTx) return;
+          if (existingTx) {
+            console.log("[webhook] ⏩ Event already processed. Skipping.");
+            return;
+          }
 
           /**
            * 3b) Load order from DB
@@ -99,7 +115,10 @@ export async function POST(req: NextRequest) {
            */
           const order = await tx.order.findUnique({ where: { id: orderId } });
 
-          if (!order) throw new Error("Order not found");
+          if (!order) {
+            console.error(`[webhook] ❌ Order ${orderId} not found in DB.`);
+            throw new Error("Order not found");
+          }
 
           // ✅ Metadata matches DB order
           if (order.cardId !== cardId) throw new Error("Order card mismatch");
@@ -141,6 +160,7 @@ export async function POST(req: NextRequest) {
             return;
           }
 
+          console.log(`[webhook] 🔄 Updating Order ${orderId} to PAID...`);
           /**
            * 3d) Mark order as PAID and store Stripe PaymentIntent id
            */
@@ -153,7 +173,7 @@ export async function POST(req: NextRequest) {
           });
 
           /**
-           * 3e) Create CardTransaction record (your “receipt / ledger” entry)
+           * 3e) Create CardTransaction record (your “receipt / ledger” entry) = Check what cardTransaction refer to
            */
           await tx.cardTransaction.create({
             data: {
@@ -166,6 +186,10 @@ export async function POST(req: NextRequest) {
               stripeEventId: event.id,
             },
           });
+
+          console.log(
+            `[webhook] 🃏 Attempting card transfer for Card: ${cardId}...`
+          );
 
           /**
            * 3f) Transfer ownership + finalize listing
@@ -197,8 +221,13 @@ export async function POST(req: NextRequest) {
            * (wrong session, already sold, race condition, etc).
            */
           if (moved.count !== 1) {
+            console.error(`[webhook] ❌ Transfer FAILED. Count: ${moved.count}. 
+              Likely mismatch in reservedCheckoutSessionId (${session.id}) or reservedById (${buyerId})`);
             throw new Error("Card was not reserved by this checkout session");
           }
+          console.log(
+            "[webhook] 🎉 Transfer successful! Card ownership updated."
+          );
         });
 
         break;
