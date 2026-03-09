@@ -25,8 +25,54 @@ export default function Marketplace() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-
   const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
+
+  const getLanguageChip = (language?: string | null) => {
+    const normalized = language?.trim().toLowerCase();
+
+    if (normalized === "english") {
+      return {
+        label: "EN",
+        sx: {
+          backgroundColor: "#0D2D75",
+          color: "#fff",
+        },
+      };
+    }
+
+    if (normalized === "japanese") {
+      return {
+        label: "JP",
+        sx: {
+          backgroundColor: "#D32F2F",
+          color: "#fff",
+        },
+      };
+    }
+
+    return null;
+  };
+
+  const getConditionLabel = (condition?: string | null) => {
+    const normalized = condition?.trim().toLowerCase();
+
+    switch (normalized) {
+      case "mint":
+        return "M";
+      case "near mint":
+        return "NM";
+      case "light played":
+        return "LP";
+      case "moderate played":
+        return "MP";
+      case "heavily played":
+        return "HP";
+      case "damaged":
+        return "DMG";
+      default:
+        return condition || null;
+    }
+  };
 
   // ✅ Fetch cards
   useEffect(() => {
@@ -159,112 +205,190 @@ export default function Marketplace() {
           alignItems="stretch"
         >
           {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <Grid
-                key={product.id}
-                size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
-                display="flex"
-                justifyContent="center"
-              >
-                <Card
-                  onClick={() => setSelectedCard(product)}
-                  sx={{
-                    position: "relative",
-                    width: "100%",
-                    maxWidth: 300,
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    boxShadow: 2,
-                    borderRadius: 2,
-                    cursor: "pointer",
-                    "&:hover": {
-                      boxShadow: 5,
-                      transform: "scale(1.02)",
-                    },
-                    transition: "0.2s",
-                  }}
+            filteredProducts.map((product) => {
+              const languageChip = getLanguageChip(product.language);
+              const conditionLabel = getConditionLabel(product.condition);
+
+              return (
+                <Grid
+                  key={product.id}
+                  size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
+                  display="flex"
+                  justifyContent="center"
                 >
-                  {/* Status Badge */}
-                  {product.status === "sold" && (
-                    <Chip
-                      label="Sold"
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        backgroundColor: "#A15C5C",
-                        color: "#FFF",
-                        fontWeight: 600,
-                        "& .MuiChip-label": { fontSize: "0.8rem" },
-                      }}
-                    />
-                  )}
-
-                  {product.forSale && product.status !== "sold" && (
-                    <Chip
-                      label="For Sale"
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        backgroundColor: "#3FA796",
-                        color: "#FFF",
-                        fontWeight: 600,
-                        "& .MuiChip-label": { fontSize: "0.8rem" },
-                      }}
-                    />
-                  )}
-
-                  <CardMedia
-                    component="img"
-                    image={product.imageUrls?.[0] || "/placeholder.png"}
-                    alt={product.title}
+                  <Card
+                    onClick={() => setSelectedCard(product)}
                     sx={{
-                      aspectRatio: "3 / 4",
-                      objectFit: "contain",
-                      backgroundColor: "#f8f8f8",
+                      position: "relative",
+                      width: "100%",
+                      // card size
+                      minWidth: 340,
+                      minHeight: 220,
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "stretch",
+                      boxShadow: 2,
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      overflow: "hidden",
+                      transition: "0.2s ease",
+                      "&:hover": {
+                        boxShadow: 5,
+                        transform: "translateY(-2px)",
+                      },
                     }}
-                  />
-                  <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
-                    <Typography
-                      variant="subtitle2"
-                      fontWeight="bold"
-                      noWrap
-                      title={product.title}
+                  >
+                    {/* Left image */}
+                    <Box
+                      sx={{
+                        width: 150,
+                        minWidth: 170,
+                        maxWidth: 150,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "#f8f8f8",
+                        p: 1,
+                      }}
                     >
-                      {product.title}
-                    </Typography>
+                      <CardMedia
+                        component="img"
+                        image={product.imageUrls?.[0] || "/placeholder.png"}
+                        alt={product.title}
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          maxHeight: 200,
+                          objectFit: "contain",
+                          borderRadius: 2,
+                        }}
+                      />
+                    </Box>
 
-                    <Typography variant="body2" color="text.secondary">
-                      Condition: {product.condition}
-                    </Typography>
+                    {/* Right content */}
+                    <CardContent
+                      sx={{
+                        flex: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        p: 1.75,
+                        "&:last-child": { pb: 1.75 },
+                      }}
+                    >
+                      <Box>
+                        {/* top row */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            mb: 0.75,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.75,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {languageChip && (
+                              <Chip
+                                label={languageChip.label}
+                                size="small"
+                                sx={{
+                                  height: 24,
+                                  fontWeight: 700,
+                                  fontSize: "0.72rem",
+                                  ...languageChip.sx,
+                                }}
+                              />
+                            )}
 
-                    {product.forSale && product.price != null ? (
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        color="primary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        ${product.price.toFixed(2)}
-                      </Typography>
-                    ) : (
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        color="text.secondary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        Not for sale
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
+                            {product.cardNumber && (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontWeight: 600,
+                                  fontSize: "0.8rem",
+                                }}
+                              >
+                                {product.cardNumber}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+
+                        {/* Title */}
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight={700}
+                          sx={{
+                            lineHeight: 1.2,
+                            mb: 0.5,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                          title={product.title}
+                        >
+                          {product.title}
+                        </Typography>
+
+                        {/* Set + condition */}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.secondary",
+                            lineHeight: 1.35,
+                            mb: 1,
+                          }}
+                        >
+                          {product.setName || "Unknown Set"}
+                        </Typography>
+
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.secondary",
+                            lineHeight: 1.35,
+                          }}
+                        >
+                          {product.condition || "Unknown Condition"}
+                        </Typography>
+                      </Box>
+
+                      {/* Bottom price */}
+                      <Box sx={{ mt: 1.5 }}>
+                        {product.forSale && product.price != null ? (
+                          <Typography
+                            variant="h6"
+                            fontWeight={700}
+                            color="text.primary"
+                            sx={{ lineHeight: 1 }}
+                          >
+                            ${product.price.toFixed(2)}
+                          </Typography>
+                        ) : (
+                          <Typography
+                            variant="subtitle2"
+                            fontWeight={700}
+                            color="text.secondary"
+                          >
+                            Not for sale
+                          </Typography>
+                        )}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })
           ) : (
             <Typography
               variant="body1"
