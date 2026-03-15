@@ -7,7 +7,6 @@ import {
   CardContent,
   CardMedia,
   Typography,
-  Grid,
   TextField,
   InputAdornment,
   ToggleButtonGroup,
@@ -18,6 +17,7 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 import CardDetailDialog from "../../shared-components/cards/CardDetailDialog";
+import ConditionBadge from "../../shared-components/cards/ConditionBadge";
 import type { CardItem } from "@/types/card";
 
 export default function Marketplace() {
@@ -121,7 +121,7 @@ export default function Marketplace() {
   }
 
   return (
-    <Box sx={{ px: 4, py: 6 }}>
+    <Box>
       {/* ✅ Toolbar */}
       <Box
         sx={{
@@ -131,7 +131,7 @@ export default function Marketplace() {
           alignItems: "center",
           mb: 4,
           gap: 2,
-          width: "80%",
+          width: "95%",
           mx: "auto",
         }}
       >
@@ -197,12 +197,14 @@ export default function Marketplace() {
       </Box>
 
       {/* ✅ Card Grid */}
-      <Box sx={{ width: "80%", mx: "auto" }}>
-        <Grid
-          container
-          spacing={3}
-          justifyContent="center"
-          alignItems="stretch"
+      <Box>
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 2,
+            justifyContent: "center",
+          }}
         >
           {filteredProducts.length > 0 ? (
             filteredProducts.map((product) => {
@@ -210,19 +212,14 @@ export default function Marketplace() {
               const conditionLabel = getConditionLabel(product.condition);
 
               return (
-                <Grid
-                  key={product.id}
-                  size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
-                  display="flex"
-                  justifyContent="center"
-                >
+                <Box key={product.id} sx={{ width: 310, flexShrink: 0 }}>
                   <Card
                     onClick={() => setSelectedCard(product)}
                     sx={{
                       position: "relative",
                       width: "100%",
                       // card size
-                      minWidth: 340,
+                      maxWidth: 310,
                       minHeight: 220,
                       display: "flex",
                       flexDirection: "row",
@@ -272,7 +269,8 @@ export default function Marketplace() {
                         display: "flex",
                         flexDirection: "column",
                         justifyContent: "space-between",
-                        p: 1.75,
+                        pt: 1.75,
+                        pl: 0.75,
                         "&:last-child": { pb: 1.75 },
                       }}
                     >
@@ -284,7 +282,7 @@ export default function Marketplace() {
                             alignItems: "flex-start",
                             justifyContent: "space-between",
                             gap: 1,
-                            mb: 0.75,
+                            mb: 0.5,
                           }}
                         >
                           <Box
@@ -325,10 +323,16 @@ export default function Marketplace() {
 
                         {/* Title */}
                         <Typography
-                          variant="subtitle1"
                           fontWeight={700}
                           sx={{
+                            fontSize: {
+                              xs: "0.8rem",
+                              sm: "0.85rem",
+                              md: "0.9rem",
+                            },
                             lineHeight: 1.2,
+                            // so title can at least take up 2 lines
+                            minHeight: "2.16rem",
                             mb: 0.5,
                             display: "-webkit-box",
                             WebkitLineClamp: 2,
@@ -347,46 +351,43 @@ export default function Marketplace() {
                             color: "text.secondary",
                             lineHeight: 1.35,
                             mb: 1,
+                            fontSize: {
+                              xs: "0.6rem",
+                              sm: "0.65rem",
+                              md: "0.7rem",
+                            },
                           }}
                         >
                           {product.setName || "Unknown Set"}
                         </Typography>
 
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: "text.secondary",
-                            lineHeight: 1.35,
-                          }}
-                        >
-                          {product.condition || "Unknown Condition"}
-                        </Typography>
-                      </Box>
+                        <ConditionBadge condition={product.condition} />
 
-                      {/* Bottom price */}
-                      <Box sx={{ mt: 1.5 }}>
-                        {product.forSale && product.price != null ? (
-                          <Typography
-                            variant="h6"
-                            fontWeight={700}
-                            color="text.primary"
-                            sx={{ lineHeight: 1 }}
-                          >
-                            ${product.price.toFixed(2)}
-                          </Typography>
-                        ) : (
-                          <Typography
-                            variant="subtitle2"
-                            fontWeight={700}
-                            color="text.secondary"
-                          >
-                            Not for sale
-                          </Typography>
-                        )}
+                        {/* Price */}
+                        <Box sx={{ mt: 1 }}>
+                          {product.forSale && product.price != null ? (
+                            <Typography
+                              variant="h6"
+                              fontWeight={700}
+                              color="text.primary"
+                              sx={{ lineHeight: 1 }}
+                            >
+                              S${product.price.toFixed(2)}
+                            </Typography>
+                          ) : (
+                            <Typography
+                              variant="subtitle2"
+                              fontWeight={700}
+                              color="text.secondary"
+                            >
+                              Not for sale
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
                     </CardContent>
                   </Card>
-                </Grid>
+                </Box>
               );
             })
           ) : (
@@ -399,7 +400,7 @@ export default function Marketplace() {
               No cards match your filters.
             </Typography>
           )}
-        </Grid>
+        </Box>
       </Box>
 
       {/* 🔍 Reusable Card Detail Modal */}
