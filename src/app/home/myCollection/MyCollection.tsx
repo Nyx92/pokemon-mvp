@@ -1,35 +1,35 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
 import {
   Box,
   Card,
   CardContent,
   CardMedia,
   Typography,
-  Grid,
   TextField,
   InputAdornment,
+  ToggleButtonGroup,
+  ToggleButton,
+  Chip,
+  CircularProgress,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  ToggleButtonGroup,
-  ToggleButton,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  CircularProgress,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
-import type { CardItem } from "@/types/card"; // 👈 instead of local interface
 import CardDetailDialog from "../../shared-components/cards/CardDetailDialog";
+import ConditionBadge from "../../shared-components/cards/ConditionBadge";
+import type { CardItem } from "@/types/card";
+import { centsToDollars } from "@/lib/money";
 
 export default function MyCollection() {
   const [cards, setCards] = useState<CardItem[]>([]);
@@ -40,22 +40,72 @@ export default function MyCollection() {
   const [binder, setBinder] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [newBinderName, setNewBinderName] = useState("");
-  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
 
-  // ✅ Fetch cards from Prisma via API
+  const getLanguageChip = (language?: string | null) => {
+    const normalized = language?.trim().toLowerCase();
+
+    if (normalized === "english") {
+      return {
+        label: "EN",
+        sx: {
+          backgroundColor: "#0D2D75",
+          color: "#fff",
+        },
+      };
+    }
+
+    if (normalized === "japanese") {
+      return {
+        label: "JP",
+        sx: {
+          backgroundColor: "#D32F2F",
+          color: "#fff",
+        },
+      };
+    }
+
+    return null;
+  };
+
+  const getConditionLabel = (condition?: string | null) => {
+    const normalized = condition?.trim().toLowerCase();
+
+    switch (normalized) {
+      case "mint":
+        return "M";
+      case "near mint":
+        return "NM";
+      case "light played":
+        return "LP";
+      case "moderate played":
+        return "MP";
+      case "heavily played":
+        return "HP";
+      case "damaged":
+        return "DMG";
+      default:
+        return condition || null;
+    }
+  };
+
+  // Fetch user's cards
   useEffect(() => {
     const fetchCards = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/cards");
+        const res = await fetch("/api/user/cards");
         const data = await res.json();
         if (res.ok) {
-          setCards(data.cards);
+          const normalized = data.cards.map((c: any) => ({
+            ...c,
+            price: c.price != null ? centsToDollars(c.price) : null,
+          }));
+          setCards(normalized);
 
-          // dynamically extract binders
+          // Dynamically extract binders from the user's cards
           const binderMap = new Map<string, string>();
           data.cards.forEach((c: any) => {
             if (c.binder) binderMap.set(c.binder.id, c.binder.name);
@@ -77,11 +127,11 @@ export default function MyCollection() {
     fetchCards();
   }, []);
 
-  // Fuzzy search setup
+  // Fuzzy search
   const searchResults = useFuzzySearch({
     data: cards,
     query: search,
-    keys: ["title", "binder.name", "status", "condition"],
+    keys: ["title", "status", "condition", "setName", "rarity", "type"],
   });
 
   // Filters
@@ -94,7 +144,6 @@ export default function MyCollection() {
     return matchesBinder && matchesFilter;
   });
 
-  // Handle binder creation
   const handleCreateBinder = () => {
     if (!newBinderName.trim()) return;
     const newId = newBinderName.toLowerCase().replace(/\s+/g, "-");
@@ -102,8 +151,7 @@ export default function MyCollection() {
       alert("Binder name already exists!");
       return;
     }
-    const newBinder = { id: newId, name: newBinderName };
-    setBinders([...binders, newBinder]);
+    setBinders([...binders, { id: newId, name: newBinderName }]);
     setBinder(newId);
     setNewBinderName("");
     setOpenDialog(false);
@@ -118,8 +166,8 @@ export default function MyCollection() {
   }
 
   return (
-    <Box sx={{ px: 4, py: 6 }}>
-      {/* ✅ Toolbar */}
+    <Box>
+      {/* Toolbar */}
       <Box
         sx={{
           display: "flex",
@@ -128,11 +176,11 @@ export default function MyCollection() {
           alignItems: "center",
           mb: 4,
           gap: 2,
-          width: "80%",
+          width: "95%",
           mx: "auto",
         }}
       >
-        {/* Left side: Binder + Search */}
+        {/* Left: Binder + Search */}
         <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>Binder</InputLabel>
@@ -159,7 +207,7 @@ export default function MyCollection() {
           </FormControl>
 
           <TextField
-            placeholder="Search your cards..."
+            placeholder="Search cards..."
             variant="outlined"
             size="small"
             value={search}
@@ -175,7 +223,7 @@ export default function MyCollection() {
           />
         </Box>
 
-        {/* Right side: Filter Toggle */}
+        {/* Right: filters */}
         <ToggleButtonGroup
           value={filter}
           exclusive
@@ -207,7 +255,7 @@ export default function MyCollection() {
               },
             },
             "& .MuiToggleButtonGroup-grouped:not(:last-of-type)": {
-              marginRight: "8px", // spacing between buttons
+              marginRight: "8px",
             },
           }}
         >
@@ -217,124 +265,198 @@ export default function MyCollection() {
         </ToggleButtonGroup>
       </Box>
 
-      {/* ✅ Card Grid */}
-      <Box sx={{ width: "80%", mx: "auto" }}>
-        <Grid
-          container
-          spacing={3}
-          justifyContent="center"
-          alignItems="stretch"
+      {/* Card Grid */}
+      <Box>
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 2,
+            justifyContent: "center",
+          }}
         >
           {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <Grid
-                key={product.id}
-                size={{ xs: 12, sm: 6, md: 4, lg: 3, xl: 2 }}
-                display="flex"
-                justifyContent="center"
-              >
-                <Card
-                  onClick={() => {
-                    setSelectedCard(product as CardItem);
-                    setDetailOpen(true);
-                  }}
-                  sx={{
-                    position: "relative",
-                    width: "100%",
-                    maxWidth: 300,
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                    boxShadow: 2,
-                    borderRadius: 2,
-                    cursor: "pointer",
-                    "&:hover": {
-                      boxShadow: 5,
-                      transform: "scale(1.02)",
-                    },
-                    transition: "0.2s",
-                  }}
-                >
-                  {/* Status Badge */}
-                  {product.status === "sold" && (
-                    <Chip
-                      label="Sold"
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        backgroundColor: "#A15C5C", // warm muted crimson
-                        color: "#FFF",
-                        fontWeight: 600,
-                        "& .MuiChip-label": { fontSize: "0.8rem" },
-                      }}
-                    />
-                  )}
+            filteredProducts.map((product) => {
+              const languageChip = getLanguageChip(product.language);
+              const conditionLabel = getConditionLabel(product.condition);
 
-                  {product.forSale && product.status !== "sold" && (
-                    <Chip
-                      label="For Sale"
-                      size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 8,
-                        right: 8,
-                        backgroundColor: "#3FA796", // fresh muted teal
-                        color: "#FFF",
-                        fontWeight: 600,
-                        "& .MuiChip-label": { fontSize: "0.8rem" },
-                      }}
-                    />
-                  )}
-
-                  <CardMedia
-                    component="img"
-                    image={product.imageUrls?.[0] || "/placeholder.png"}
-                    alt={product.title}
+              return (
+                <Box key={product.id} sx={{ width: 310, flexShrink: 0 }}>
+                  <Card
+                    onClick={() => setSelectedCard(product)}
                     sx={{
-                      aspectRatio: "3 / 4",
-                      objectFit: "contain",
-                      backgroundColor: "#f8f8f8",
+                      position: "relative",
+                      width: "100%",
+                      maxWidth: 310,
+                      minHeight: 220,
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "stretch",
+                      boxShadow: 2,
+                      borderRadius: 3,
+                      cursor: "pointer",
+                      overflow: "hidden",
+                      transition: "0.2s ease",
+                      "&:hover": {
+                        boxShadow: 5,
+                        transform: "translateY(-2px)",
+                      },
                     }}
-                  />
-                  <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
-                    <Typography
-                      variant="subtitle2"
-                      fontWeight="bold"
-                      noWrap
-                      title={product.title}
+                  >
+                    {/* Left image */}
+                    <Box
+                      sx={{
+                        width: 150,
+                        minWidth: 170,
+                        maxWidth: 150,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "#f8f8f8",
+                        p: 1,
+                      }}
                     >
-                      {product.title}
-                    </Typography>
+                      <CardMedia
+                        component="img"
+                        image={product.imageUrls?.[0] || "/placeholder.png"}
+                        alt={product.title}
+                        sx={{
+                          width: "100%",
+                          height: "100%",
+                          maxHeight: 200,
+                          objectFit: "contain",
+                          borderRadius: 2,
+                        }}
+                      />
+                    </Box>
 
-                    <Typography variant="body2" color="text.secondary">
-                      Condition: {product.condition}
-                    </Typography>
+                    {/* Right content */}
+                    <CardContent
+                      sx={{
+                        flex: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        pt: 1.75,
+                        pl: 0.75,
+                        "&:last-child": { pb: 1.75 },
+                      }}
+                    >
+                      <Box>
+                        {/* top row */}
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "flex-start",
+                            justifyContent: "space-between",
+                            gap: 1,
+                            mb: 0.5,
+                          }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 0.75,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {languageChip && (
+                              <Chip
+                                label={languageChip.label}
+                                size="small"
+                                sx={{
+                                  height: 24,
+                                  fontWeight: 700,
+                                  fontSize: "0.72rem",
+                                  ...languageChip.sx,
+                                }}
+                              />
+                            )}
 
-                    {product.forSale ? (
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        color="primary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        ${product.price!.toFixed(2)}
-                      </Typography>
-                    ) : (
-                      <Typography
-                        variant="subtitle1"
-                        fontWeight="bold"
-                        color="primary"
-                        sx={{ mt: 0.5 }}
-                      >
-                        NFS
-                      </Typography>
-                    )}
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
+                            {product.cardNumber && (
+                              <Typography
+                                variant="caption"
+                                sx={{
+                                  color: "text.secondary",
+                                  fontWeight: 600,
+                                  fontSize: "0.8rem",
+                                }}
+                              >
+                                {product.cardNumber}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+
+                        {/* Title */}
+                        <Typography
+                          fontWeight={700}
+                          sx={{
+                            fontSize: {
+                              xs: "0.8rem",
+                              sm: "0.85rem",
+                              md: "0.9rem",
+                            },
+                            lineHeight: 1.2,
+                            minHeight: "2.16rem",
+                            mb: 0.5,
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                          }}
+                          title={product.title}
+                        >
+                          {product.title}
+                        </Typography>
+
+                        {/* Set name */}
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: "text.secondary",
+                            lineHeight: 1.35,
+                            mb: 1,
+                            fontSize: {
+                              xs: "0.6rem",
+                              sm: "0.65rem",
+                              md: "0.7rem",
+                            },
+                          }}
+                        >
+                          {product.setName || "Unknown Set"}
+                        </Typography>
+
+                        <ConditionBadge condition={product.condition} />
+
+                        {/* Price */}
+                        <Box sx={{ mt: 1 }}>
+                          {product.forSale && product.price != null ? (
+                            <Typography
+                              variant="h6"
+                              fontWeight={700}
+                              color="text.primary"
+                              sx={{ lineHeight: 1 }}
+                            >
+                              S${product.price.toFixed(2)}
+                            </Typography>
+                          ) : (
+                            <Typography
+                              variant="subtitle2"
+                              fontWeight={700}
+                              color="text.secondary"
+                            >
+                              Not for sale
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+              );
+            })
           ) : (
             <Typography
               variant="body1"
@@ -345,17 +467,17 @@ export default function MyCollection() {
               No cards match your filters.
             </Typography>
           )}
-        </Grid>
+        </Box>
       </Box>
 
-      {/* 🔍 Reusable Card Detail Modal */}
+      {/* Card Detail Modal */}
       <CardDetailDialog
-        open={detailOpen}
+        open={!!selectedCard}
         card={selectedCard}
-        onClose={() => setDetailOpen(false)}
+        onClose={() => setSelectedCard(null)}
       />
 
-      {/* ✅ Create Binder Dialog */}
+      {/* Create Binder Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
         <DialogTitle>Create a New Binder</DialogTitle>
         <DialogContent>
