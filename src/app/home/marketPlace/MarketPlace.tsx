@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Box,
   Card,
@@ -16,16 +17,17 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
-import CardDetailDialog from "../../shared-components/cards/CardDetailDialog";
+import { useAuth } from "@/app/hooks/useAuth";
 import ConditionBadge from "../../shared-components/cards/ConditionBadge";
 import type { CardItem } from "@/types/card";
 
 export default function Marketplace() {
+  const { userId } = useAuth();
+  const router = useRouter();
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
 
   const getLanguageChip = (language?: string | null) => {
     const normalized = language?.trim().toLowerCase();
@@ -105,6 +107,7 @@ export default function Marketplace() {
 
   // Filters
   const filteredProducts = searchResults.filter((product) => {
+    if (userId && product.owner?.id === userId) return false;
     const matchesFilter =
       filter === "all" ||
       (filter === "forsale" && product.forSale) ||
@@ -214,7 +217,9 @@ export default function Marketplace() {
               return (
                 <Box key={product.id} sx={{ width: 310, flexShrink: 0 }}>
                   <Card
-                    onClick={() => setSelectedCard(product)}
+                    onClick={() =>
+                      router.push(`/cards/${product.id}`)
+                    }
                     sx={{
                       position: "relative",
                       width: "100%",
@@ -402,13 +407,6 @@ export default function Marketplace() {
           )}
         </Box>
       </Box>
-
-      {/* 🔍 Reusable Card Detail Modal */}
-      <CardDetailDialog
-        open={!!selectedCard}
-        card={selectedCard}
-        onClose={() => setSelectedCard(null)}
-      />
     </Box>
   );
 }
