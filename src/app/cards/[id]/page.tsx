@@ -29,7 +29,6 @@ export default function CardDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [selCondition, setSelCondition] = useState("all");
 
   useEffect(() => {
     if (!id) return;
@@ -70,7 +69,6 @@ export default function CardDetailPage() {
   const isOwner = userId === card.owner?.id;
   const canManageListing = isOwner || isAdmin;
   const isForSale = card.forSale && card.status !== "sold";
-  const likesCount = card.likesCount ?? 0;
 
   const safeText = (val?: string | null) =>
     val && val.trim().length > 0 ? val : "-";
@@ -78,12 +76,6 @@ export default function CardDetailPage() {
   const cardNumber = safeText(card.cardNumber);
   const language = safeText(card.language ?? "English");
   const condition = safeText(card.condition);
-
-  const statusMeta = (() => {
-    if (card.status === "sold") return { label: "SOLD", bg: "#A15C5C" };
-    if (isForSale) return { label: "FOR SALE", bg: "#3FA796" };
-    return { label: "NFS", bg: "#9E9E9E" };
-  })();
 
   const requireLogin = (action: () => void) => {
     if (!userId) {
@@ -127,9 +119,21 @@ export default function CardDetailPage() {
       }}
     >
       {/* Back button */}
-      <IconButton onClick={() => router.back()} sx={{ mb: 2 }}>
-        <ArrowBackIcon />
-      </IconButton>
+      <Box
+        onClick={() => router.back()}
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.5,
+          mb: 2,
+          cursor: "pointer",
+          color: "#6b7280",
+          "&:hover": { color: "#111" },
+        }}
+      >
+        <ArrowBackIcon fontSize="small" />
+        <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Back</Typography>
+      </Box>
 
       <Box
         sx={{
@@ -150,66 +154,6 @@ export default function CardDetailPage() {
             position: "relative",
           }}
         >
-          {/* Status ribbon */}
-          <Box
-            sx={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: { xs: 110, sm: 130 },
-              height: { xs: 110, sm: 130 },
-              overflow: "hidden",
-              zIndex: 4,
-              pointerEvents: "none",
-            }}
-          >
-            <Box
-              sx={{
-                position: "absolute",
-                top: { xs: 18, sm: 22 },
-                left: { xs: -44, sm: -52 },
-                width: { xs: 170, sm: 200 },
-                py: { xs: 0.55, sm: 0.7 },
-                textAlign: "center",
-                transform: "rotate(-45deg)",
-                color: "#fff",
-                fontWeight: 900,
-                fontSize: { xs: 11, sm: 12 },
-                letterSpacing: "0.9px",
-                textTransform: "uppercase",
-                background: `linear-gradient(180deg, rgba(255,255,255,0.18), rgba(0,0,0,0.12)), ${statusMeta.bg}`,
-                borderTop: "1px solid rgba(255,255,255,0.35)",
-                borderBottom: "1px solid rgba(0,0,0,0.18)",
-                boxShadow: "0 10px 22px rgba(0,0,0,0.16)",
-              }}
-            >
-              {statusMeta.label}
-            </Box>
-          </Box>
-
-          {/* Likes pill (viewers) */}
-          {!isOwner && (
-            <Box
-              sx={{
-                alignSelf: "flex-end",
-                backgroundColor: "rgba(255,255,255,0.96)",
-                px: 1.2,
-                py: 0.45,
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 0.6,
-                boxShadow: "0 6px 18px rgba(0,0,0,0.10)",
-                mb: -1,
-              }}
-            >
-              <FavoriteIcon fontSize="small" color="error" />
-              <Typography sx={{ fontSize: 12, fontWeight: 800 }}>
-                {likesCount.toLocaleString()}
-              </Typography>
-            </Box>
-          )}
-
           {/* Main image */}
           <Box
             sx={{
@@ -288,19 +232,41 @@ export default function CardDetailPage() {
 
         {/* ===== RIGHT: details ===== */}
         <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-          {/* Title */}
-          <Typography
-            sx={{
-              fontSize: { xs: 20, sm: 24, md: 28 },
-              fontWeight: 800,
-              lineHeight: 1.15,
-              letterSpacing: "-0.4px",
-              color: "#111",
-            }}
-          >
-            {card.title}
-            {card.condition ? ` - ${card.condition}` : ""}
-          </Typography>
+          {/* Title row */}
+          <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+            <Typography
+              sx={{
+                fontSize: { xs: 20, sm: 24, md: 28 },
+                fontWeight: 800,
+                lineHeight: 1.15,
+                letterSpacing: "-0.4px",
+                color: "#111",
+              }}
+            >
+              {card.title}
+            </Typography>
+            {!isOwner && (
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.5,
+                  backgroundColor: "#fff",
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 999,
+                  px: 1.2,
+                  py: 0.5,
+                  flexShrink: 0,
+                  mt: 0.5,
+                }}
+              >
+                <FavoriteIcon fontSize="small" color="error" />
+                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#111" }}>
+                  {(card.likesCount ?? 0).toLocaleString()}
+                </Typography>
+              </Box>
+            )}
+          </Box>
 
           {/* Metadata */}
           <Box>
@@ -331,14 +297,16 @@ export default function CardDetailPage() {
 
           {/* Buy Box */}
           <BuyBox
+            tcgPlayerId={card.tcgPlayerId}
+            currentCardId={card.id}
+            currentCondition={card.condition}
+            currentPrice={card.price}
             mode={canManageListing ? "owner" : "viewer"}
             offersCount={10}
             onEdit={() => console.log("Edit listing", card.id)}
             isForSale={isForSale}
             priceText={card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"}
             primaryBlue={primaryBlue}
-            condition={selCondition}
-            onConditionChange={setSelCondition}
             onPlaceOffer={() =>
               requireLogin(() => {
                 if (canManageListing) console.log("See offers", card.id);
@@ -346,8 +314,6 @@ export default function CardDetailPage() {
               })
             }
             onBuyNow={() => requireLogin(handleBuyNow)}
-            otherListingsTitle="View 5 Other Listings"
-            otherListingsSubtitle="As low as S$568.70"
           />
 
           {/* Market Chart */}

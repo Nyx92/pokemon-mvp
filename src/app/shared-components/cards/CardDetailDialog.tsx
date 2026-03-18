@@ -36,7 +36,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
   const canManageListing = isOwner || isAdmin;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
-  const [selCondition, setSelCondition] = useState("all");
   // TODO: replace with real count from API
   const offersCount = 10;
   const primaryBlue = "#0053ff";
@@ -325,7 +324,7 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                     mt: 1,
                   }}
                 >
-                  {card.imageUrls.map((url, i) => (
+                  {card.imageUrls.map((_url, i) => (
                     <Box
                       key={i}
                       onClick={() => setActiveImageIndex(i)}
@@ -445,16 +444,18 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
             {/* Segment 2: Buy box (match screenshot) */}
 
             <BuyBox
+              tcgPlayerId={card.tcgPlayerId}
+              currentCardId={card.id}
+              currentCondition={card.condition}
+              currentPrice={card.price}
               mode={canManageListing ? "owner" : "viewer"}
               offersCount={offersCount}
-              onEdit={() => console.log("Edit listing", card.id)} // open edit dialog
+              onEdit={() => console.log("Edit listing", card.id)}
               isForSale={isForSale}
               priceText={
                 card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"
               }
               primaryBlue={primaryBlue}
-              condition={selCondition}
-              onConditionChange={setSelCondition}
               onPlaceOffer={() =>
                 requireLogin(() => {
                   if (canManageListing) console.log("See offers", card.id);
@@ -462,8 +463,6 @@ const CardDetailDialog: React.FC<CardDetailDialogProps> = ({
                 })
               }
               onBuyNow={() => requireLogin(handleBuyNow)}
-              otherListingsTitle="View 5 Other Listings"
-              otherListingsSubtitle="As low as S$568.70"
             />
 
             {/* Segment 3: CardMarketChart now includes its own header */}

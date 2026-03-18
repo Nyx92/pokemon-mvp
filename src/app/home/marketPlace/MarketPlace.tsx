@@ -10,8 +10,6 @@ import {
   Typography,
   TextField,
   InputAdornment,
-  ToggleButtonGroup,
-  ToggleButton,
   Chip,
   CircularProgress,
 } from "@mui/material";
@@ -26,7 +24,6 @@ export default function Marketplace() {
   const router = useRouter();
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
   const getLanguageChip = (language?: string | null) => {
@@ -81,7 +78,7 @@ export default function Marketplace() {
     const fetchCards = async () => {
       setLoading(true);
       try {
-        const res = await fetch("/api/cards");
+        const res = await fetch("/api/cards?forSale=true");
         const data = await res.json();
         if (res.ok) {
           setCards(data.cards);
@@ -105,15 +102,9 @@ export default function Marketplace() {
     keys: ["title", "status", "condition", "setName", "rarity", "type"],
   });
 
-  // Filters
-  const filteredProducts = searchResults.filter((product) => {
-    if (userId && product.owner?.id === userId) return false;
-    const matchesFilter =
-      filter === "all" ||
-      (filter === "forsale" && product.forSale) ||
-      (filter === "sold" && product.status === "sold");
-    return matchesFilter;
-  });
+  const filteredProducts = searchResults.filter(
+    (product) => !(userId && product.owner?.id === userId)
+  );
 
   if (loading) {
     return (
@@ -129,74 +120,27 @@ export default function Marketplace() {
       <Box
         sx={{
           display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "space-between",
-          alignItems: "center",
+          justifyContent: "center",
           mb: 4,
-          gap: 2,
           width: "95%",
           mx: "auto",
         }}
       >
-        {/* Left: search */}
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-          <TextField
-            placeholder="Search cards..."
-            variant="outlined"
-            size="small"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ width: { xs: "100%", sm: 260, md: 300 } }}
-          />
-        </Box>
-
-        {/* Right: filters */}
-        <ToggleButtonGroup
-          value={filter}
-          exclusive
-          onChange={(e, val) => val && setFilter(val)}
+        <TextField
+          placeholder="Search cards..."
+          variant="outlined"
           size="small"
-          sx={{
-            "& .MuiToggleButtonGroup-grouped": {
-              fontFamily: "'Nunito Sans', 'Poppins', 'Roboto', sans-serif",
-              textTransform: "none",
-              border: "none",
-              borderRadius: "20px",
-              fontWeight: 600,
-              fontSize: "0.9rem",
-              letterSpacing: "0.3px",
-              color: "#555",
-              px: 2.5,
-              py: 0.5,
-              transition: "all 0.2s ease",
-              "&:hover": {
-                backgroundColor: "rgba(56, 55, 53, 0.1)",
-                color: "#000",
-              },
-              "&.Mui-selected": {
-                backgroundColor: "black",
-                color: "#fff",
-                "&:hover": {
-                  backgroundColor: "rgba(56, 55, 53, 0.1)",
-                },
-              },
-            },
-            "& .MuiToggleButtonGroup-grouped:not(:last-of-type)": {
-              marginRight: "8px",
-            },
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
           }}
-        >
-          <ToggleButton value="all">All</ToggleButton>
-          <ToggleButton value="forsale">For Sale</ToggleButton>
-          <ToggleButton value="sold">Sold</ToggleButton>
-        </ToggleButtonGroup>
+          sx={{ width: { xs: "100%", sm: 480, md: 600 } }}
+        />
       </Box>
 
       {/* ✅ Card Grid */}
@@ -249,7 +193,7 @@ export default function Marketplace() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        backgroundColor: "#f8f8f8",
+                        backgroundColor: "#fff",
                         p: 1,
                       }}
                     >

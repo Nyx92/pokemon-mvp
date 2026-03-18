@@ -8,10 +8,19 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// GET /api/cards
-export async function GET() {
+// GET /api/cards?forSale=true
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const forSaleParam = searchParams.get("forSale");
+    const tcgPlayerIdParam = searchParams.get("tcgPlayerId");
+
+    const where: Record<string, unknown> = {};
+    if (forSaleParam === "true") where.forSale = true;
+    if (tcgPlayerIdParam) where.tcgPlayerId = tcgPlayerIdParam;
+
     const cards = await prisma.card.findMany({
+      where,
       include: {
         binder: true,
         owner: { select: { id: true, username: true, email: true } },
