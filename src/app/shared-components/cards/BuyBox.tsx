@@ -1,131 +1,284 @@
 "use client";
 
-import React from "react";
-import {
-  Box,
-  Typography,
-  Button,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-} from "@mui/material";
+import React, { useEffect, useState } from "react";
+import { Box, Typography, Button, Divider } from "@mui/material";
+import { useRouter } from "next/navigation";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import EditIcon from "@mui/icons-material/Edit";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import {
+  RAW_GRADES,
+  PSA_GRADES,
+  BECKETT_GRADES,
+  CGC_GRADES,
+  SGC_GRADES,
+} from "@/constants/grades";
+import type { CardItem } from "@/types/card";
 
-type ConditionOption = { label: string; value: string };
+type GradeCompany = "Raw" | "PSA" | "Beckett" | "CGC" | "SGC";
+const GRADE_COMPANIES: GradeCompany[] = ["Raw", "PSA", "Beckett", "CGC", "SGC"];
+
+function getCompany(condition: string): GradeCompany {
+  if ((PSA_GRADES as readonly string[]).includes(condition)) return "PSA";
+  if ((BECKETT_GRADES as readonly string[]).includes(condition)) return "Beckett";
+  if ((CGC_GRADES as readonly string[]).includes(condition)) return "CGC";
+  if ((SGC_GRADES as readonly string[]).includes(condition)) return "SGC";
+  return "Raw";
+}
+
+function getGradesForCompany(company: GradeCompany): string[] {
+  switch (company) {
+    case "PSA":     return [...PSA_GRADES];
+    case "Beckett": return [...BECKETT_GRADES];
+    case "CGC":     return [...CGC_GRADES];
+    case "SGC":     return [...SGC_GRADES];
+    default:        return [...RAW_GRADES];
+  }
+}
+
+type ListingSummary = { id: string; condition: string; price: number | null };
 
 interface BuyBoxProps {
+  tcgPlayerId: string;
+  currentCardId: string;
+  currentCondition: string;
+  currentPrice: number | null;
+
   isForSale: boolean;
   priceText: string;
   primaryBlue: string;
 
-  condition: string;
-  onConditionChange: (value: string) => void;
-
-  // viewer actions
   onPlaceOffer: () => void;
   onBuyNow: () => void;
 
-  // owner mode
   mode?: "viewer" | "owner";
   offersCount?: number;
   onEdit?: () => void;
-
-  otherListingsTitle?: string;
-  otherListingsSubtitle?: string;
-  conditionOptions?: ConditionOption[];
 }
 
 export default function BuyBox({
+  tcgPlayerId,
+  currentCardId,
+  currentCondition,
+  currentPrice,
   isForSale,
   priceText,
   primaryBlue,
-  condition,
-  onConditionChange,
   onPlaceOffer,
   onBuyNow,
-
   mode = "viewer",
   offersCount = 0,
   onEdit,
-
-  otherListingsTitle = "View 5 Other Listings",
-  otherListingsSubtitle = "As low as S$568.70",
-  conditionOptions = [
-    { label: "All", value: "all" },
-    { label: "Mint", value: "mint" },
-    { label: "Near Mint", value: "near_mint" },
-    { label: "Lightly Played", value: "lightly_played" },
-  ],
 }: BuyBoxProps) {
+  const router = useRouter();
   const isOwnerMode = mode === "owner";
 
+  const [listings, setListings] = useState<ListingSummary[]>([]);
+  const currentCompany = getCompany(currentCondition);
+  const [selectedCompany, setSelectedCompany] = useState<GradeCompany>(currentCompany);
+
+  useEffect(() => {
+    if (!tcgPlayerId) return;
+    fetch(`/api/cards?tcgPlayerId=${encodeURIComponent(tcgPlayerId)}&forSale=true`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.cards) {
+          setListings(
+            data.cards.map((c: CardItem) => ({
+              id: c.id,
+              condition: c.condition,
+              price: c.price,
+            }))
+          );
+        }
+      })
+      .catch(console.error);
+  }, [tcgPlayerId]);
+
+  // Cheapest listing per condition
+  const cheapestByCondition = new Map<string, ListingSummary>();
+  for (const l of listings) {
+    const existing = cheapestByCondition.get(l.condition);
+    if (
+      !existing ||
+      (l.price !== null && (existing.price === null || l.price < existing.price))
+    ) {
+      cheapestByCondition.set(l.condition, l);
+    }
+  }
+
+  // Same-condition listings excluding the current card
+  const sameConditionOthers = listings.filter(
+    (l) => l.condition === currentCondition && l.id !== currentCardId
+  );
+  const otherCount = sameConditionOthers.length;
+  const lowestOther = sameConditionOthers.reduce<number | null>((min, l) => {
+    if (l.price === null) return min;
+    return min === null ? l.price : Math.min(min, l.price);
+  }, null);
+
+  // Is the current card the cheapest for its condition?
+  const lowestForCondition = listings
+    .filter((l) => l.condition === currentCondition)
+    .reduce<number | null>((min, l) => {
+      if (l.price === null) return min;
+      return min === null ? l.price : Math.min(min, l.price);
+    }, null);
+  const isLowest =
+    currentPrice !== null &&
+    lowestForCondition !== null &&
+    currentPrice <= lowestForCondition;
+
+  // Companies that have at least one listing
+  const companiesWithListings = new Set(listings.map((l) => getCompany(l.condition)));
+
+  // Condition pill renderer (shared for raw and graded)
+  const renderPill = (grade: string, listing: ListingSummary | undefined, isCurrent: boolean) => {
+    const isCurrentCard = listing?.id === currentCardId;
+    const hasListing = !!listing;
+    const clickable = hasListing && !isCurrentCard;
+
+    // Strip company prefix for graded display (show just "10", "9.5 Gem Mint", etc.)
+    const prefixes = ["PSA ", "Beckett ", "CGC ", "SGC "];
+    const displayLabel = prefixes.reduce((label, p) => label.startsWith(p) ? label.slice(p.length) : label, grade);
+
+    return (
+      <Box
+        key={grade}
+        onClick={() => { if (clickable) router.push(`/cards/${listing!.id}`); }}
+        sx={{
+          px: 1.2,
+          py: 0.7,
+          borderRadius: 1.5,
+          border: isCurrent ? `2px solid ${primaryBlue}` : "1px solid #e5e7eb",
+          backgroundColor: isCurrent ? "#eff4ff" : hasListing ? "#fff" : "#f9fafb",
+          cursor: clickable ? "pointer" : "default",
+          transition: "all 0.12s",
+          minWidth: selectedCompany === "Raw" ? 76 : 56,
+          textAlign: "center",
+          "&:hover": clickable ? { borderColor: primaryBlue, backgroundColor: "#f5f8ff" } : {},
+        }}
+      >
+        <Typography
+          sx={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: isCurrent ? primaryBlue : hasListing ? "#374151" : "#d1d5db",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {displayLabel}
+        </Typography>
+        <Typography
+          sx={{
+            fontSize: 12,
+            fontWeight: 700,
+            mt: 0.15,
+            color: isCurrent ? primaryBlue : hasListing ? "#111" : "#d1d5db",
+          }}
+        >
+          {listing?.price != null ? `S$${listing.price.toFixed(2)}` : "—"}
+        </Typography>
+      </Box>
+    );
+  };
+
   const priceLabel = isOwnerMode ? "Listed for" : "Buy Now for";
-  const leftBtnLabel = isOwnerMode
-    ? `See Offers (${offersCount})`
-    : "Place Offer";
+  const leftBtnLabel = isOwnerMode ? `See Offers (${offersCount})` : "Place Offer";
   const rightBtnLabel = isOwnerMode ? "Edit" : "Buy Now";
-
-  const leftBtnIcon = isOwnerMode ? <GavelIcon /> : <GavelIcon />;
-  const rightBtnIcon = isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />;
-
-  const onLeftClick = () => {
-    // viewer: place offer
-    // owner: see offers
-    onPlaceOffer();
-  };
-
-  const onRightClick = () => {
-    // viewer: buy now
-    // owner: edit
-    if (isOwnerMode) onEdit?.();
-    else onBuyNow();
-  };
 
   return (
     <Box
       sx={{
-        border: "2px solid #111",
+        border: "1px solid #e5e7eb",
         borderRadius: 2,
         backgroundColor: "#fff",
         overflow: "hidden",
+        boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
       }}
     >
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+
+        {/* ── CONDITION / GRADE SECTION ── */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography
+            sx={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#6b7280",
+              mb: 1,
+              textTransform: "uppercase",
+              letterSpacing: "0.5px",
+            }}
+          >
+            Condition
+          </Typography>
+
+          {/* Company tabs — always visible */}
+          <Box sx={{ display: "flex", gap: 0.8, mb: 1.2, flexWrap: "wrap" }}>
+            {GRADE_COMPANIES.map((company) => {
+              const hasData =
+                companiesWithListings.has(company) || company === currentCompany;
+              const isSelected = company === selectedCompany;
+              return (
+                <Box
+                  key={company}
+                  onClick={() => setSelectedCompany(company)}
+                  sx={{
+                    px: 1.2,
+                    py: 0.4,
+                    borderRadius: 1,
+                    border: isSelected
+                      ? `1.5px solid ${primaryBlue}`
+                      : "1px solid #e5e7eb",
+                    backgroundColor: isSelected ? "#eff4ff" : "#fff",
+                    cursor: "pointer",
+                    "&:hover": !isSelected ? { borderColor: "#9ca3af" } : {},
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 12,
+                      fontWeight: isSelected ? 700 : 500,
+                      color: isSelected ? primaryBlue : hasData ? "#374151" : "#9ca3af",
+                    }}
+                  >
+                    {company}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+
+          {/* Grade/condition pills for selected company */}
+          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
+            {getGradesForCompany(selectedCompany).map((grade) =>
+              renderPill(
+                grade,
+                cheapestByCondition.get(grade),
+                grade === currentCondition
+              )
+            )}
+          </Box>
+        </Box>
+
+        <Divider sx={{ mb: 1.5 }} />
+
+        {/* ── PRICE ROW ── */}
         <Box
           sx={{
-            display: "grid",
-            width: "100%",
-            gap: 1.6,
-            gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-            gridTemplateAreas: {
-              xs: `
-                "price"
-                "condition"
-                "offer"
-                "buy"
-                "listings"
-              `,
-              sm: `
-                "price condition"
-                "offer buy"
-                "listings listings"
-              `,
-            },
-            alignItems: "start",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            mb: 1.2,
           }}
         >
-          {/* PRICE */}
-          <Box sx={{ gridArea: "price", minWidth: 0 }}>
-            <Typography sx={{ fontSize: 10, color: "#6b7280" }}>
-              {priceLabel}
-            </Typography>
-
+          <Box>
+            <Typography sx={{ fontSize: 11, color: "#6b7280" }}>{priceLabel}</Typography>
             <Typography
               sx={{
-                fontSize: { xs: 15, sm: 16, md: 22, lg: 24 },
+                fontSize: { xs: 22, sm: 26 },
                 fontWeight: 700,
                 lineHeight: 1.05,
                 color: "#111",
@@ -136,104 +289,104 @@ export default function BuyBox({
             </Typography>
           </Box>
 
-          {/* CONDITION (still useful in both modes) */}
-          <Box sx={{ gridArea: "condition", minWidth: 0 }}>
-            <FormControl size="small" sx={{ width: "100%", minWidth: 0 }}>
-              <InputLabel sx={{ fontSize: 13 }}>Condition</InputLabel>
-              <Select
-                value={condition}
-                label="Condition"
-                onChange={(e) => onConditionChange(String(e.target.value))}
-                style={{ height: 38, paddingTop: 4, paddingBottom: 4 }}
-                sx={{
-                  width: "100%",
-                  borderRadius: 1.5,
-                  backgroundColor: "#fff",
-                  ".MuiSelect-select": { fontWeight: 400, color: "#111" },
-                }}
-              >
-                {conditionOptions.map((opt) => (
-                  <MenuItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* LEFT BUTTON  - See Offers, or Offer button*/}
-          <Box sx={{ gridArea: "offer", minWidth: 0 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              startIcon={leftBtnIcon}
-              onClick={onLeftClick}
-              disabled={!isForSale && !isOwnerMode} // owner can still view offers even if NFS (optional)
+          {isLowest && !isOwnerMode && (
+            <Box
               sx={{
-                minWidth: 0,
-                textTransform: "none",
-                borderColor: "#e5e7eb",
-                color: "#111",
-                backgroundColor: "#fff",
-                boxShadow: "0 2px 6px rgba(0,0,0,0.08)",
-                "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fff" },
-                fontWeight: 400,
-                borderRadius: 1.5,
+                display: "flex",
+                alignItems: "center",
+                gap: 0.4,
+                backgroundColor: "#f0fdf4",
+                border: "1px solid #bbf7d0",
+                borderRadius: 1,
+                px: 1,
+                py: 0.4,
+                mb: 0.5,
               }}
             >
-              {leftBtnLabel}
-            </Button>
-          </Box>
-
-          {/* RIGHT BUTTON Edit, or Buy button*/}
-          <Box sx={{ gridArea: "buy", minWidth: 0 }}>
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={rightBtnIcon}
-              onClick={onRightClick}
-              disabled={!isForSale && !isOwnerMode} // owner can still edit even if NFS? (set to false if you want)
-              sx={{
-                minWidth: 0,
-                textTransform: "none",
-                backgroundColor: "#1e88e5",
-                "&:hover": { backgroundColor: "#0041cc" },
-                boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
-                fontWeight: 400,
-                letterSpacing: "0.3px",
-                borderRadius: 1.5,
-              }}
-            >
-              {rightBtnLabel}
-            </Button>
-          </Box>
-
-          {/* OTHER LISTINGS: only for viewers (recommended) */}
-          {!isOwnerMode && (
-            <Box sx={{ gridArea: "listings", minWidth: 0 }}>
-              <Box
-                sx={{
-                  width: "100%",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 1.5,
-                  px: 1.6,
-                  py: 0.2,
-                  textAlign: "center",
-                  backgroundColor: "#fff",
-                }}
-              >
-                <Typography
-                  sx={{ fontSize: 12, color: primaryBlue, fontWeight: 400 }}
-                >
-                  {otherListingsTitle}
-                </Typography>
-                <Typography sx={{ fontSize: 10, color: "#6b7280", mt: 0.15 }}>
-                  {otherListingsSubtitle}
-                </Typography>
-              </Box>
+              <CheckCircleOutlineIcon sx={{ fontSize: 14, color: "#16a34a" }} />
+              <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#16a34a" }}>
+                Lowest price
+              </Typography>
             </Box>
           )}
         </Box>
+
+        {/* ── ACTION BUTTONS ── */}
+        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1.2 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<GavelIcon />}
+            onClick={onPlaceOffer}
+            disabled={!isForSale && !isOwnerMode}
+            sx={{
+              textTransform: "none",
+              borderColor: "#e5e7eb",
+              color: "#111",
+              backgroundColor: "#fff",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
+              fontWeight: 500,
+              borderRadius: 1.5,
+            }}
+          >
+            {leftBtnLabel}
+          </Button>
+
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />}
+            onClick={isOwnerMode ? onEdit : onBuyNow}
+            disabled={!isForSale && !isOwnerMode}
+            sx={{
+              textTransform: "none",
+              backgroundColor: primaryBlue,
+              "&:hover": { backgroundColor: "#0041cc" },
+              boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
+              fontWeight: 500,
+              letterSpacing: "0.3px",
+              borderRadius: 1.5,
+            }}
+          >
+            {rightBtnLabel}
+          </Button>
+        </Box>
+
+        {/* ── OTHER LISTINGS (same condition) — always visible ── */}
+        {!isOwnerMode && (
+          <Box
+            onClick={otherCount > 0 ? () => {} : undefined}
+            sx={{
+              border: "1px solid #e5e7eb",
+              borderRadius: 1.5,
+              px: 1.6,
+              py: 0.8,
+              textAlign: "center",
+              backgroundColor: otherCount > 0 ? "#fafafa" : "#f9fafb",
+              cursor: otherCount > 0 ? "pointer" : "default",
+              "&:hover": otherCount > 0 ? { backgroundColor: "#f3f4f6" } : {},
+            }}
+          >
+            {otherCount > 0 ? (
+              <>
+                <Typography sx={{ fontSize: 12, color: primaryBlue, fontWeight: 500 }}>
+                  {otherCount} other {currentCondition} listing
+                  {otherCount !== 1 ? "s" : ""}
+                </Typography>
+                {lowestOther !== null && (
+                  <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.15 }}>
+                    As low as S${lowestOther.toFixed(2)}
+                  </Typography>
+                )}
+              </>
+            ) : (
+              <Typography sx={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}>
+                Only listing for this condition
+              </Typography>
+            )}
+          </Box>
+        )}
       </Box>
     </Box>
   );
