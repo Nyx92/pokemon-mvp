@@ -665,7 +665,8 @@ async function main() {
       buyerId: misty.id,
       amount: order.amount,
       currency: order.currency,
-      stripeEventId: "evt_test_seed_123", // must be unique
+      stripeEventId: "evt_test_seed_123",
+      tcgPlayerId: "232496",
     },
   });
 
@@ -677,11 +678,80 @@ async function main() {
       reservedById: null,
       reservedUntil: null,
       reservedCheckoutSessionId: null,
-      binderId: null, // optional
+      binderId: null,
     },
   });
 
   console.log("✅ Seeded sample Order + CardTransaction");
+
+  // ── Additional transactions so Highest Transacted has data ──────────────────
+  // Look up one card per tcgPlayerId to use as the sold card reference
+  const venusaurCard = await prisma.card.findFirst({
+    where: { tcgPlayerId: "222990", ownerId: ash.id },
+  });
+  const blastoiseCard = await prisma.card.findFirst({
+    where: { tcgPlayerId: "42360", ownerId: ash.id },
+  });
+  const starmieCard = await prisma.card.findFirst({
+    where: { tcgPlayerId: "197658", ownerId: misty.id },
+  });
+  const gyaradosCard = await prisma.card.findFirst({
+    where: { tcgPlayerId: "246724", ownerId: misty.id },
+  });
+
+  const extraTransactions = [
+    // Venusaur V — 4 transactions (most transacted)
+    { card: venusaurCard, tcgPlayerId: "222990", seller: ash, buyer: misty, events: ["evt_seed_ven_1", "evt_seed_ven_2", "evt_seed_ven_3", "evt_seed_ven_4"] },
+    // Blastoise — 3 transactions
+    { card: blastoiseCard, tcgPlayerId: "42360", seller: ash, buyer: misty, events: ["evt_seed_bla_1", "evt_seed_bla_2", "evt_seed_bla_3"] },
+    // Starmie GX — 2 transactions
+    { card: starmieCard, tcgPlayerId: "197658", seller: misty, buyer: ash, events: ["evt_seed_sta_1", "evt_seed_sta_2"] },
+    // Gyarados VMAX — 2 transactions
+    { card: gyaradosCard, tcgPlayerId: "246724", seller: misty, buyer: ash, events: ["evt_seed_gya_1", "evt_seed_gya_2"] },
+  ];
+
+  for (const { card, tcgPlayerId, seller, buyer, events } of extraTransactions) {
+    if (!card) continue;
+    for (const stripeEventId of events) {
+      const extraOrder = await prisma.order.create({
+        data: {
+          cardId: card.id,
+          sellerId: seller.id,
+          buyerId: buyer.id,
+          amount: card.price ?? dollarsToCents(50),
+          currency: "sgd",
+          status: "PAID",
+        },
+      });
+      await prisma.cardTransaction.create({
+        data: {
+          orderId: extraOrder.id,
+          cardId: card.id,
+          sellerId: seller.id,
+          buyerId: buyer.id,
+          amount: extraOrder.amount,
+          currency: extraOrder.currency,
+          stripeEventId,
+          tcgPlayerId,
+        },
+      });
+    }
+  }
+
+  console.log("✅ Seeded extra transactions for Highest Transacted");
+
+  // ── Best Sellers (admin-curated) ─────────────────────────────────────────────
+  await prisma.bestSeller.createMany({
+    data: [
+      { tcgPlayerId: "232496", position: 1 }, // Charizard VMAX
+      { tcgPlayerId: "42360",  position: 2 }, // Blastoise Holo Rare
+      { tcgPlayerId: "222990", position: 3 }, // Venusaur V
+      { tcgPlayerId: "197658", position: 4 }, // Starmie GX
+      { tcgPlayerId: "246724", position: 5 }, // Gyarados VMAX
+    ],
+  });
+
+  console.log("✅ Seeded Best Sellers");
 
   console.log("🌱 Seeding complete!");
 }

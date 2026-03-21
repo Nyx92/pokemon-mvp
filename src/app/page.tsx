@@ -4,7 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, Tabs, Tab } from "@mui/material";
-import Marketplace from "@/app/marketplace/MarketPlace";
+import HomeFeatured from "./home/HomeFeatured";
 import Carousell from "./home/carousell/Carousell";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
@@ -82,7 +82,7 @@ export default function Home() {
 
         {/* Content */}
         <Box sx={{ mt: 4 }}>
-          <Marketplace />
+          <HomeFeatured />
         </Box>
       </Box>
     </main>
