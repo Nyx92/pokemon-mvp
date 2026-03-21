@@ -55,6 +55,7 @@ interface BuyBoxProps {
   mode?: "viewer" | "owner";
   offersCount?: number;
   onEdit?: () => void;
+  onViewListings?: () => void;
 }
 
 export default function BuyBox({
@@ -70,6 +71,7 @@ export default function BuyBox({
   mode = "viewer",
   offersCount = 0,
   onEdit,
+  onViewListings,
 }: BuyBoxProps) {
   const router = useRouter();
   const isOwnerMode = mode === "owner";
@@ -261,6 +263,9 @@ export default function BuyBox({
               )
             )}
           </Box>
+          <Typography sx={{ fontSize: 11, color: "#9ca3af", mt: 0.8 }}>
+            Lowest listed price per condition
+          </Typography>
         </Box>
 
         <Divider sx={{ mb: 1.5 }} />
@@ -356,7 +361,7 @@ export default function BuyBox({
         {/* ── OTHER LISTINGS (same condition) — always visible ── */}
         {!isOwnerMode && (
           <Box
-            onClick={otherCount > 0 ? () => {} : undefined}
+            onClick={otherCount > 0 ? onViewListings : undefined}
             sx={{
               border: "1px solid #e5e7eb",
               borderRadius: 1.5,
