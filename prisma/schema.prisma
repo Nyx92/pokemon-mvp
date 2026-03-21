@@ -44,6 +44,7 @@ model User {
   reservedCards Card[] @relation("CardReservations")
   sellerTransactions CardTransaction[] @relation("SellerTransactions")
   buyerTransactions  CardTransaction[] @relation("BuyerTransactions")
+  likes         CardLike[]
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -138,6 +139,7 @@ model Card {
   offers       Offer[]
   transactions CardTransaction[]
   orders       Order[]
+  likes        CardLike[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -190,6 +192,18 @@ model BestSeller {
   tcgPlayerId String   @unique // maps to Card.tcgPlayerId
   position    Int      @unique // display order 1–5
   createdAt   DateTime @default(now())
+}
+
+// ❤️ CardLike — tracks which users liked which cards
+model CardLike {
+  id        String   @id @default(uuid())
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  createdAt DateTime @default(now())
+
+  @@unique([cardId, userId])
 }
 
 model CardTransaction {

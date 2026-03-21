@@ -16,6 +16,7 @@ import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
 import { useAuth } from "@/app/hooks/useAuth";
 import BuyBox from "@/app/shared-components/cards/BuyBox";
 import CardMarketChart from "@/app/shared-components/cards/CardMarketChart";
+import EditPriceDialog from "@/app/shared-components/cards/EditPriceDialog";
 import type { CardItem } from "@/types/card";
 
 const primaryBlue = "#0053ff";
@@ -29,6 +30,8 @@ export default function CardDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(0);
+  const [editPriceOpen, setEditPriceOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -37,8 +40,11 @@ export default function CardDetailPage() {
       try {
         const res = await fetch(`/api/cards/${id}`);
         const data = await res.json();
-        if (res.ok) setCard(data.card);
-        else console.error("Error loading card:", data.error);
+        if (res.ok) {
+          setCard(data.card);
+          setLiked(data.card.likedByUser ?? false);
+          setLikesCount(data.card.likesCount ?? 0);
+        } else console.error("Error loading card:", data.error);
       } catch (err) {
         console.error("Failed to fetch card:", err);
       } finally {
@@ -94,6 +100,17 @@ export default function CardDetailPage() {
     action();
   };
 
+  const handleLike = () => {
+    requireLogin(async () => {
+      const res = await fetch(`/api/cards/${id}/like`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setLiked(data.liked);
+        setLikesCount(data.count);
+      }
+    });
+  };
+
   const handleBuyNow = async () => {
     if (!card || !card.price || !userId) return;
     try {
@@ -140,7 +157,7 @@ export default function CardDetailPage() {
       >
         <ArrowBackIcon fontSize="small" />
         <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-          Back to Marketplace
+          Back to Home
         </Typography>
       </Box>
 
@@ -184,24 +201,37 @@ export default function CardDetailPage() {
               priority
             />
 
-            {/* Owner: like toggle */}
-            {isOwner && (
-              <IconButton
-                onClick={() => setLiked((prev) => !prev)}
+            {/* Like button — top-right, visible to non-owners */}
+            {!isOwner && (
+              <Box
                 sx={{
                   position: "absolute",
                   top: 10,
-                  left: 10,
-                  backgroundColor: "rgba(255,255,255,0.95)",
-                  "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
+                  right: 10,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 0.2,
                 }}
               >
-                {liked ? (
-                  <FavoriteIcon color="error" />
-                ) : (
-                  <FavoriteBorderIcon />
-                )}
-              </IconButton>
+                <IconButton
+                  onClick={handleLike}
+                  sx={{
+                    backgroundColor: "rgba(255,255,255,0.95)",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
+                    p: 0.8,
+                  }}
+                >
+                  {liked ? (
+                    <FavoriteIcon color="error" sx={{ fontSize: 20 }} />
+                  ) : (
+                    <FavoriteBorderIcon sx={{ fontSize: 20, color: "#555" }} />
+                  )}
+                </IconButton>
+                <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#555" }}>
+                  {likesCount}
+                </Typography>
+              </Box>
             )}
           </Box>
 
@@ -276,29 +306,6 @@ export default function CardDetailPage() {
             >
               {card.title}
             </Typography>
-            {!isOwner && (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 0.5,
-                  backgroundColor: "#fff",
-                  border: "1px solid #e5e7eb",
-                  borderRadius: 999,
-                  px: 1.2,
-                  py: 0.5,
-                  flexShrink: 0,
-                  mt: 0.5,
-                }}
-              >
-                <FavoriteIcon fontSize="small" color="error" />
-                <Typography
-                  sx={{ fontSize: 12, fontWeight: 700, color: "#111" }}
-                >
-                  {(card.likesCount ?? 0).toLocaleString()}
-                </Typography>
-              </Box>
-            )}
           </Box>
 
           {/* Metadata */}
@@ -343,7 +350,10 @@ export default function CardDetailPage() {
             currentPrice={card.price}
             mode={canManageListing ? "owner" : "viewer"}
             offersCount={10}
-            onEdit={() => console.log("Edit listing", card.id)}
+            onEdit={() => {
+            if (isAdmin) router.push(`/cards/${card.id}/edit`);
+            else setEditPriceOpen(true);
+          }}
             isForSale={isForSale}
             priceText={
               card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"
@@ -362,6 +372,21 @@ export default function CardDetailPage() {
           <CardMarketChart card={card} />
         </Box>
       </Box>
+
+      {!isAdmin && isOwner && (
+        <EditPriceDialog
+          open={editPriceOpen}
+          cardId={card.id}
+          currentPrice={card.price}
+          currentForSale={card.forSale}
+          onClose={() => setEditPriceOpen(false)}
+          onSuccess={(updatedPrice, updatedForSale) => {
+            setCard((prev) =>
+              prev ? { ...prev, price: updatedPrice, forSale: updatedForSale } : prev
+            );
+          }}
+        />
+      )}
     </Box>
   );
 }
