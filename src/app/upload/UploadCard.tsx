@@ -25,30 +25,66 @@ import {
   SGC_GRADES,
 } from "@/constants/grades";
 
-export default function UploadCard() {
-  const [form, setForm] = useState({
-    title: "",
-    price: "",
-    conditionType: "",
-    condition: "",
-    language: "",
-    tcgPlayerId: "",
-    description: "",
-    ownerId: "",
-    forSale: true,
-    setName: "",
-    rarity: "",
-  });
+type ImageSlot =
+  | { kind: "existing"; url: string }
+  | { kind: "new"; file: File; previewUrl: string };
+
+function inferConditionType(condition: string): string {
+  if ((PSA_GRADES as readonly string[]).includes(condition)) return "PSA";
+  if ((BECKETT_GRADES as readonly string[]).includes(condition)) return "Beckett";
+  if ((CGC_GRADES as readonly string[]).includes(condition)) return "CGC";
+  if ((SGC_GRADES as readonly string[]).includes(condition)) return "SGC";
+  return "RAW";
+}
+
+interface CardInitialData {
+  id: string;
+  title: string;
+  price: number | null;
+  condition: string;
+  language: string;
+  tcgPlayerId: string;
+  description: string;
+  ownerId: string;
+  forSale: boolean;
+  setName: string;
+  rarity: string;
+  imageUrls: string[];
+  cardNumber?: string;
+}
+
+interface UploadCardProps {
+  initialData?: CardInitialData;
+}
+
+export default function UploadCard({ initialData }: UploadCardProps) {
+  const isEditMode = !!initialData;
+
+  const [form, setForm] = useState(() => ({
+    title: initialData?.title ?? "",
+    price: initialData?.price != null ? String(initialData.price) : "",
+    conditionType: initialData ? inferConditionType(initialData.condition) : "",
+    condition: initialData?.condition ?? "",
+    language: initialData?.language ?? "",
+    tcgPlayerId: initialData?.tcgPlayerId ?? "",
+    description: initialData?.description ?? "",
+    ownerId: initialData?.ownerId ?? "",
+    forSale: initialData?.forSale ?? true,
+    setName: initialData?.setName ?? "",
+    rarity: initialData?.rarity ?? "",
+    cardNumber: initialData?.cardNumber ?? "",
+  }));
+
   const [users, setUsers] = useState<
     { id: string; username: string | null; email: string }[]
   >([]);
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0); // which image is shown
+  const [images, setImages] = useState<ImageSlot[]>(() =>
+    initialData?.imageUrls.map((url) => ({ kind: "existing", url })) ?? []
+  );
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
 
-  // ✅ Fetch users for dropdown
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -69,51 +105,40 @@ export default function UploadCard() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  // ✅ Handle multiple image uploads
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length > 0) {
-      const newFiles = [...imageFiles, ...files];
-      const newPreviews = [
-        ...previewUrls,
-        ...files.map((f) => URL.createObjectURL(f)),
-      ];
-
-      setImageFiles(newFiles);
-      setPreviewUrls(newPreviews);
-
-      // show the latest uploaded image
-      setCurrentImageIndex(newPreviews.length - 1);
-    }
+    if (files.length === 0) return;
+    const newSlots: ImageSlot[] = files.map((file) => ({
+      kind: "new",
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setImages((prev) => {
+      const updated = [...prev, ...newSlots];
+      setCurrentImageIndex(updated.length - 1);
+      return updated;
+    });
   };
 
-  // ✅ Delete currently selected image
   const handleRemoveImage = (index: number) => {
-    const newFiles = imageFiles.filter((_, i) => i !== index);
-    const newPreviews = previewUrls.filter((_, i) => i !== index);
-
-    setImageFiles(newFiles);
-    setPreviewUrls(newPreviews);
-
-    if (newPreviews.length === 0) {
-      setCurrentImageIndex(0);
-    } else {
-      // clamp index so we don't go out of bounds
+    setImages((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
       setCurrentImageIndex((prev) =>
-        prev >= newPreviews.length ? newPreviews.length - 1 : prev
+        prev >= updated.length ? Math.max(0, updated.length - 1) : prev
       );
-    }
+      return updated;
+    });
   };
 
   const handlePrevImage = () => {
     setCurrentImageIndex((prev) =>
-      prev === 0 ? previewUrls.length - 1 : prev - 1
+      prev === 0 ? images.length - 1 : prev - 1
     );
   };
 
   const handleNextImage = () => {
     setCurrentImageIndex((prev) =>
-      prev === previewUrls.length - 1 ? 0 : prev + 1
+      prev === images.length - 1 ? 0 : prev + 1
     );
   };
 
@@ -127,11 +152,11 @@ export default function UploadCard() {
       !form.title ||
       !form.condition ||
       !form.ownerId ||
-      imageFiles.length === 0 ||
+      images.length === 0 ||
       priceRequiredButMissing
     ) {
       return alert(
-        "Please fill in all required fields and upload at least one image."
+        "Please fill in all required fields and include at least one image."
       );
     }
 
@@ -140,31 +165,58 @@ export default function UploadCard() {
 
     try {
       const body = new FormData();
-      Object.entries(form).forEach(([key, val]) =>
+      const { conditionType: _ct, ...formFields } = form;
+      Object.entries(formFields).forEach(([key, val]) =>
         body.append(key, String(val))
       );
-      imageFiles.forEach((file) => body.append("images", file)); // 👈 multiple images
 
-      const res = await fetch("/api/cards", { method: "POST", body });
-      if (!res.ok) throw new Error("Failed to upload card.");
+      // Existing images to keep
+      const keepImageUrls = images
+        .filter((s): s is { kind: "existing"; url: string } => s.kind === "existing")
+        .map((s) => s.url);
+      body.append("keepImageUrls", JSON.stringify(keepImageUrls));
+
+      // New image files
+      images
+        .filter(
+          (s): s is { kind: "new"; file: File; previewUrl: string } =>
+            s.kind === "new"
+        )
+        .forEach((s) => body.append("images", s.file));
+
+      const url = isEditMode
+        ? `/api/cards/${initialData!.id}`
+        : "/api/cards";
+      const method = isEditMode ? "PUT" : "POST";
+
+      const res = await fetch(url, { method, body });
+      if (!res.ok) throw new Error("Failed to save card.");
       const data = await res.json();
-      setSuccessMsg(`✅ Card "${data.card.title}" uploaded successfully!`);
-      setForm({
-        title: "",
-        price: "",
-        conditionType: "",
-        condition: "",
-        language: "",
-        tcgPlayerId: "",
-        description: "",
-        ownerId: "",
-        forSale: false,
-        setName: "",
-        rarity: "",
-      });
-      setImageFiles([]);
-      setPreviewUrls([]);
-      setCurrentImageIndex(0);
+
+      setSuccessMsg(
+        isEditMode
+          ? `✅ Card "${data.card.title}" updated successfully!`
+          : `✅ Card "${data.card.title}" uploaded successfully!`
+      );
+
+      if (!isEditMode) {
+        setForm({
+          title: "",
+          price: "",
+          conditionType: "",
+          condition: "",
+          language: "",
+          tcgPlayerId: "",
+          description: "",
+          ownerId: "",
+          forSale: false,
+          setName: "",
+          rarity: "",
+          cardNumber: "",
+        });
+        setImages([]);
+        setCurrentImageIndex(0);
+      }
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Something went wrong.");
@@ -172,6 +224,13 @@ export default function UploadCard() {
       setUploading(false);
     }
   };
+
+  const displayUrl =
+    images.length > 0
+      ? images[currentImageIndex].kind === "existing"
+        ? images[currentImageIndex].url
+        : images[currentImageIndex].previewUrl
+      : null;
 
   return (
     <Box sx={{ px: 2, py: 6, display: "flex", justifyContent: "center" }}>
@@ -183,12 +242,12 @@ export default function UploadCard() {
           maxWidth: 850,
           width: "100%",
           backgroundColor: "#fafafa",
-          userSelect: "none", // can't select text inside
-          caretColor: "transparent", // hide the blinking text cursor
+          userSelect: "none",
+          caretColor: "transparent",
         }}
       >
         <Typography variant="h5" fontWeight={700} textAlign="center" mb={1}>
-          Upload a Card (Admin)
+          {isEditMode ? "Edit Card (Admin)" : "Upload a Card (Admin)"}
         </Typography>
         <Typography
           variant="body2"
@@ -196,9 +255,9 @@ export default function UploadCard() {
           textAlign="center"
           mb={4}
         >
-          {
-            "Add a new card to a specific user's collection and make it available in the marketplace."
-          }
+          {isEditMode
+            ? "Update the card details. Existing images are shown — remove or add new ones as needed."
+            : "Add a new card to a specific user's collection and make it available in the marketplace."}
         </Typography>
 
         <form onSubmit={handleSubmit}>
@@ -228,8 +287,8 @@ export default function UploadCard() {
                 value={form.price}
                 onChange={handleChange}
                 fullWidth
-                required={form.forSale} // ⬅ required only if selling
-                disabled={!form.forSale} // ⬅ disabled for collection-only
+                required={form.forSale}
+                disabled={!form.forSale}
                 sx={{ mb: 2 }}
                 helperText={
                   form.forSale
@@ -238,9 +297,7 @@ export default function UploadCard() {
                 }
               />
 
-              {/* 🧩 Condition (RAW / Graded) */}
               <Box sx={{ mb: 2, display: "flex", gap: 2 }}>
-                {/* Primary type */}
                 <TextField
                   select
                   label="Condition Type"
@@ -263,94 +320,29 @@ export default function UploadCard() {
                   <MenuItem value="SGC">SGC</MenuItem>
                 </TextField>
 
-                {/* Dynamic grade list */}
                 {form.conditionType === "RAW" && (
-                  <TextField
-                    select
-                    label="Raw Condition"
-                    name="condition"
-                    value={form.condition}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                  >
-                    {RAW_GRADES.map((g) => (
-                      <MenuItem key={g} value={g}>
-                        {g}
-                      </MenuItem>
-                    ))}
+                  <TextField select label="Raw Condition" name="condition" value={form.condition} onChange={handleChange} fullWidth required>
+                    {RAW_GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                 )}
-
                 {form.conditionType === "PSA" && (
-                  <TextField
-                    select
-                    label="PSA Grade"
-                    name="condition"
-                    value={form.condition}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                  >
-                    {PSA_GRADES.map((g) => (
-                      <MenuItem key={g} value={g}>
-                        {g}
-                      </MenuItem>
-                    ))}
+                  <TextField select label="PSA Grade" name="condition" value={form.condition} onChange={handleChange} fullWidth required>
+                    {PSA_GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                 )}
-
                 {form.conditionType === "Beckett" && (
-                  <TextField
-                    select
-                    label="Beckett Grade"
-                    name="condition"
-                    value={form.condition}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                  >
-                    {BECKETT_GRADES.map((g) => (
-                      <MenuItem key={g} value={g}>
-                        {g}
-                      </MenuItem>
-                    ))}
+                  <TextField select label="Beckett Grade" name="condition" value={form.condition} onChange={handleChange} fullWidth required>
+                    {BECKETT_GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                 )}
-
                 {form.conditionType === "CGC" && (
-                  <TextField
-                    select
-                    label="CGC Grade"
-                    name="condition"
-                    value={form.condition}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                  >
-                    {CGC_GRADES.map((g) => (
-                      <MenuItem key={g} value={g}>
-                        {g}
-                      </MenuItem>
-                    ))}
+                  <TextField select label="CGC Grade" name="condition" value={form.condition} onChange={handleChange} fullWidth required>
+                    {CGC_GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                 )}
-
                 {form.conditionType === "SGC" && (
-                  <TextField
-                    select
-                    label="SGC Grade"
-                    name="condition"
-                    value={form.condition}
-                    onChange={handleChange}
-                    fullWidth
-                    required
-                  >
-                    {SGC_GRADES.map((g) => (
-                      <MenuItem key={g} value={g}>
-                        {g}
-                      </MenuItem>
-                    ))}
+                  <TextField select label="SGC Grade" name="condition" value={form.condition} onChange={handleChange} fullWidth required>
+                    {SGC_GRADES.map((g) => <MenuItem key={g} value={g}>{g}</MenuItem>)}
                   </TextField>
                 )}
               </Box>
@@ -366,9 +358,7 @@ export default function UploadCard() {
                 sx={{ mb: 2 }}
               >
                 {POKEMON_LANGUAGES.map((g) => (
-                  <MenuItem key={g} value={g}>
-                    {g}
-                  </MenuItem>
+                  <MenuItem key={g} value={g}>{g}</MenuItem>
                 ))}
               </TextField>
 
@@ -383,7 +373,6 @@ export default function UploadCard() {
                 helperText="Required for Price History"
               />
 
-              {/* 🧩 Owner dropdown */}
               <TextField
                 select
                 label="Select Owner"
@@ -394,34 +383,16 @@ export default function UploadCard() {
                 required
                 sx={{ mb: 3 }}
                 helperText="Pick the card owner's username"
-                SelectProps={{
-                  MenuProps: {
-                    PaperProps: { sx: { maxHeight: 300 } },
-                  },
+                slotProps={{
+                  select: { MenuProps: { PaperProps: { sx: { maxHeight: 300 } } } },
                 }}
               >
                 {users.map((u) => (
-                  <MenuItem
-                    key={u.id}
-                    value={u.id}
-                    sx={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "flex-start",
-                      py: 1,
-                    }}
-                  >
+                  <MenuItem key={u.id} value={u.id} sx={{ display: "flex", flexDirection: "column", alignItems: "flex-start", py: 1 }}>
                     <Typography variant="body1" sx={{ fontWeight: 600 }}>
                       {u.username || "(no username)"}
                     </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "text.secondary",
-                        fontSize: "0.8rem",
-                        wordBreak: "break-all",
-                      }}
-                    >
+                    <Typography variant="body2" sx={{ color: "text.secondary", fontSize: "0.8rem", wordBreak: "break-all" }}>
                       User ID: {u.id}
                     </Typography>
                   </MenuItem>
@@ -438,7 +409,6 @@ export default function UploadCard() {
                   setForm((prev) => ({
                     ...prev,
                     forSale: isForSale,
-                    // if not for sale, clear price
                     price: isForSale ? prev.price : "",
                   }));
                 }}
@@ -450,7 +420,6 @@ export default function UploadCard() {
                 <MenuItem value="false">No — Collection Only</MenuItem>
               </TextField>
 
-              {/* Optional fields below */}
               <Divider sx={{ my: 2 }} />
 
               <TextField
@@ -484,27 +453,18 @@ export default function UploadCard() {
                 helperText="(Optional)"
                 slotProps={{
                   select: {
-                    MenuProps: {
-                      PaperProps: {
-                        sx: {
-                          maxHeight: 250,
-                          overflowY: "auto",
-                        },
-                      },
-                    },
+                    MenuProps: { PaperProps: { sx: { maxHeight: 250, overflowY: "auto" } } },
                   },
                 }}
               >
                 <MenuItem value="">None</MenuItem>
                 {POKEMON_RARITIES.map((r) => (
-                  <MenuItem key={r} value={r}>
-                    {r}
-                  </MenuItem>
+                  <MenuItem key={r} value={r}>{r}</MenuItem>
                 ))}
               </TextField>
             </Box>
 
-            {/* Right: multiple image upload */}
+            {/* Right: image management */}
             <Box
               sx={{
                 flexBasis: { md: "40%", xs: "100%" },
@@ -519,14 +479,9 @@ export default function UploadCard() {
               <Button
                 variant="outlined"
                 component="label"
-                sx={{
-                  mb: 2,
-                  borderRadius: 2,
-                  fontWeight: 500,
-                  borderColor: "#ccc",
-                }}
+                sx={{ mb: 2, borderRadius: 2, fontWeight: 500, borderColor: "#ccc" }}
               >
-                Choose Images
+                {isEditMode ? "Add Images" : "Choose Images"}
                 <input
                   type="file"
                   hidden
@@ -536,9 +491,8 @@ export default function UploadCard() {
                 />
               </Button>
 
-              {previewUrls.length > 0 && (
+              {images.length > 0 && (
                 <>
-                  {/* Main image area */}
                   <Box
                     sx={{
                       position: "relative",
@@ -546,12 +500,12 @@ export default function UploadCard() {
                       borderRadius: 3,
                       overflow: "hidden",
                       backgroundColor: "#fff",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.18)", // shadow around the box
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
                       p: 1.5,
                     }}
                   >
                     <img
-                      src={previewUrls[currentImageIndex]}
+                      src={displayUrl!}
                       alt={`Preview ${currentImageIndex + 1}`}
                       style={{
                         width: "100%",
@@ -562,66 +516,35 @@ export default function UploadCard() {
                       }}
                     />
 
-                    {/* Left/right arrows */}
-                    {previewUrls.length > 1 && (
+                    {images.length > 1 && (
                       <>
                         <IconButton
                           onClick={handlePrevImage}
-                          sx={{
-                            position: "absolute",
-                            top: "50%",
-                            left: 12,
-                            transform: "translateY(-50%)",
-                            backgroundColor: "rgba(255,255,255,0.9)",
-                            "&:hover": { backgroundColor: "#eee" },
-                          }}
+                          sx={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", backgroundColor: "rgba(255,255,255,0.9)", "&:hover": { backgroundColor: "#eee" } }}
                         >
                           <ChevronLeftIcon />
                         </IconButton>
                         <IconButton
                           onClick={handleNextImage}
-                          sx={{
-                            position: "absolute",
-                            top: "50%",
-                            right: 12,
-                            transform: "translateY(-50%)",
-                            backgroundColor: "rgba(255,255,255,0.9)",
-                            "&:hover": { backgroundColor: "#eee" },
-                          }}
+                          sx={{ position: "absolute", top: "50%", right: 12, transform: "translateY(-50%)", backgroundColor: "rgba(255,255,255,0.9)", "&:hover": { backgroundColor: "#eee" } }}
                         >
                           <ChevronRightIcon />
                         </IconButton>
                       </>
                     )}
 
-                    {/* Delete current image */}
                     <IconButton
                       onClick={() => handleRemoveImage(currentImageIndex)}
                       size="small"
-                      sx={{
-                        position: "absolute",
-                        top: 10,
-                        right: 10,
-                        backgroundColor: "rgba(255,255,255,0.95)",
-                        "&:hover": { backgroundColor: "#f8d7da" },
-                      }}
+                      sx={{ position: "absolute", top: 10, right: 10, backgroundColor: "rgba(255,255,255,0.95)", "&:hover": { backgroundColor: "#f8d7da" } }}
                     >
                       <DeleteIcon color="error" fontSize="small" />
                     </IconButton>
                   </Box>
 
-                  {/* Thumbnails */}
-                  {previewUrls.length > 1 && (
-                    <Box
-                      sx={{
-                        display: "flex",
-                        gap: 1,
-                        mt: 2,
-                        justifyContent: "center",
-                        flexWrap: "wrap",
-                      }}
-                    >
-                      {previewUrls.map((url, i) => (
+                  {images.length > 1 && (
+                    <Box sx={{ display: "flex", gap: 1, mt: 2, justifyContent: "center", flexWrap: "wrap" }}>
+                      {images.map((slot, i) => (
                         <Box
                           key={i}
                           onClick={() => setCurrentImageIndex(i)}
@@ -631,21 +554,13 @@ export default function UploadCard() {
                             borderRadius: 1.5,
                             overflow: "hidden",
                             cursor: "pointer",
-                            border:
-                              i === currentImageIndex
-                                ? "2px solid #1976d2"
-                                : "1px solid #ddd",
+                            border: i === currentImageIndex ? "2px solid #1976d2" : "1px solid #ddd",
                           }}
                         >
                           <img
-                            src={url}
+                            src={slot.kind === "existing" ? slot.url : slot.previewUrl}
                             alt={`Thumb ${i + 1}`}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain", // show whole pic
-                              display: "block",
-                            }}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                           />
                         </Box>
                       ))}
@@ -662,25 +577,13 @@ export default function UploadCard() {
             color="primary"
             disabled={uploading}
             fullWidth
-            sx={{
-              mt: 4,
-              py: 1.3,
-              borderRadius: 2,
-              fontWeight: 600,
-              letterSpacing: "0.5px",
-              textTransform: "uppercase",
-            }}
+            sx={{ mt: 4, py: 1.3, borderRadius: 2, fontWeight: 600, letterSpacing: "0.5px", textTransform: "uppercase" }}
           >
-            {uploading ? <CircularProgress size={22} /> : "Upload Card"}
+            {uploading ? <CircularProgress size={22} /> : isEditMode ? "Save Changes" : "Upload Card"}
           </Button>
 
           {successMsg && (
-            <Typography
-              variant="body1"
-              color="success.main"
-              textAlign="center"
-              sx={{ mt: 3, fontWeight: 500 }}
-            >
+            <Typography variant="body1" color="success.main" textAlign="center" sx={{ mt: 3, fontWeight: 500 }}>
               {successMsg}
             </Typography>
           )}

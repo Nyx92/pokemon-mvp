@@ -21,8 +21,8 @@ import {
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
+import { useRouter } from "next/navigation";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
-import CardDetailDialog from "../shared-components/cards/CardDetailDialog";
 import CardListItem from "../shared-components/cards/CardListItem";
 import type { CardItem } from "@/types/card";
 import { centsToDollars } from "@/lib/money";
@@ -36,7 +36,7 @@ export default function MyCollection() {
   const [binder, setBinder] = useState("all");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [selectedCard, setSelectedCard] = useState<CardItem | null>(null);
+  const router = useRouter();
   const [openDialog, setOpenDialog] = useState(false);
   const [newBinderName, setNewBinderName] = useState("");
 
@@ -229,7 +229,7 @@ export default function MyCollection() {
               <CardListItem
                 key={product.id}
                 card={product}
-                onClick={(card) => setSelectedCard(card)}
+                onClick={(card) => router.push(`/cards/${card.id}`)}
               />
             ))
           ) : (
@@ -244,13 +244,6 @@ export default function MyCollection() {
           )}
         </Box>
       </Box>
-
-      {/* Card Detail Modal */}
-      <CardDetailDialog
-        open={!!selectedCard}
-        card={selectedCard}
-        onClose={() => setSelectedCard(null)}
-      />
 
       {/* Create Binder Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
