@@ -17,6 +17,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import BuyBox from "@/app/shared-components/cards/BuyBox";
 import CardMarketChart from "@/app/shared-components/cards/CardMarketChart";
 import EditPriceDialog from "@/app/shared-components/cards/EditPriceDialog";
+import AllListings from "@/app/shared-components/cards/AllListings";
 import type { CardItem } from "@/types/card";
 
 const primaryBlue = "#0053ff";
@@ -354,6 +355,9 @@ export default function CardDetailPage() {
             if (isAdmin) router.push(`/cards/${card.id}/edit`);
             else setEditPriceOpen(true);
           }}
+          onViewListings={() =>
+            document.getElementById("all-listings")?.scrollIntoView({ behavior: "smooth" })
+          }
             isForSale={isForSale}
             priceText={
               card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"
@@ -371,6 +375,11 @@ export default function CardDetailPage() {
           {/* Market Chart */}
           <CardMarketChart card={card} />
         </Box>
+      </Box>
+
+      {/* All Listings */}
+      <Box id="all-listings" sx={{ mt: 4 }}>
+        <AllListings tcgPlayerId={card.tcgPlayerId} currentCardId={card.id} />
       </Box>
 
       {!isAdmin && isOwner && (
