@@ -50,7 +50,14 @@ export default function CardDetailPage() {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+        }}
+      >
         <CircularProgress />
       </Box>
     );
@@ -120,7 +127,7 @@ export default function CardDetailPage() {
     >
       {/* Back button */}
       <Box
-        onClick={() => router.back()}
+        onClick={() => router.push("/")}
         sx={{
           display: "inline-flex",
           alignItems: "center",
@@ -132,7 +139,9 @@ export default function CardDetailPage() {
         }}
       >
         <ArrowBackIcon fontSize="small" />
-        <Typography sx={{ fontSize: 14, fontWeight: 500 }}>Back</Typography>
+        <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+          Back to Marketplace
+        </Typography>
       </Box>
 
       <Box
@@ -198,7 +207,14 @@ export default function CardDetailPage() {
 
           {/* Thumbnails */}
           {card.imageUrls?.length > 1 && (
-            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", justifyContent: "center" }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                flexWrap: "wrap",
+                justifyContent: "center",
+              }}
+            >
               {card.imageUrls.map((url, i) => (
                 <Box
                   key={i}
@@ -231,9 +247,24 @@ export default function CardDetailPage() {
         </Box>
 
         {/* ===== RIGHT: details ===== */}
-        <Box sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <Box
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
           {/* Title row */}
-          <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 1,
+            }}
+          >
             <Typography
               sx={{
                 fontSize: { xs: 20, sm: 24, md: 28 },
@@ -261,7 +292,9 @@ export default function CardDetailPage() {
                 }}
               >
                 <FavoriteIcon fontSize="small" color="error" />
-                <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#111" }}>
+                <Typography
+                  sx={{ fontSize: 12, fontWeight: 700, color: "#111" }}
+                >
                   {(card.likesCount ?? 0).toLocaleString()}
                 </Typography>
               </Box>
@@ -282,11 +315,18 @@ export default function CardDetailPage() {
                 sx={{ display: "flex", py: 0.4, alignItems: "baseline" }}
               >
                 <Typography
-                  sx={{ width: 140, fontSize: 13, color: "#6b7280", flexShrink: 0 }}
+                  sx={{
+                    width: 140,
+                    fontSize: 13,
+                    color: "#6b7280",
+                    flexShrink: 0,
+                  }}
                 >
                   {label}
                 </Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111" }}>
+                <Typography
+                  sx={{ fontSize: 13, fontWeight: 700, color: "#111" }}
+                >
                   {value}
                 </Typography>
               </Box>
@@ -305,7 +345,9 @@ export default function CardDetailPage() {
             offersCount={10}
             onEdit={() => console.log("Edit listing", card.id)}
             isForSale={isForSale}
-            priceText={card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"}
+            priceText={
+              card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"
+            }
             primaryBlue={primaryBlue}
             onPlaceOffer={() =>
               requireLogin(() => {

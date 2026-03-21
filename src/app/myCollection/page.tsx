@@ -1,26 +1,20 @@
 "use client";
 
-import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Box, Tabs, Tab } from "@mui/material";
-import Marketplace from "@/app/marketplace/MarketPlace";
-import Carousell from "./home/carousell/Carousell";
+import { useAuth } from "@/app/hooks/useAuth";
+import MyCollection from "./MyCollection";
+import { Box, Tabs, Tab, Typography } from "@mui/material";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import UploadIcon from "@mui/icons-material/Upload";
-import { useAuth } from "@/app/hooks/useAuth";
 
-export default function Home() {
+export default function CollectionPage() {
   const pathname = usePathname();
   const { isLoggedIn, isAdmin } = useAuth();
 
   return (
     <main>
-      {/* Hero Carousel */}
-      <Carousell />
-
-      {/* Tab Bar Section */}
       <Box sx={{ mt: 4, px: { xs: 2, md: 4 } }}>
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Tabs
@@ -80,9 +74,14 @@ export default function Home() {
           </Tabs>
         </Box>
 
-        {/* Content */}
         <Box sx={{ mt: 4 }}>
-          <Marketplace />
+          {isLoggedIn ? (
+            <MyCollection />
+          ) : (
+            <Typography textAlign="center" variant="h6" color="text.secondary">
+              Please log in to view this section.
+            </Typography>
+          )}
         </Box>
       </Box>
     </main>

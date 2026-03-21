@@ -1,26 +1,20 @@
 "use client";
 
-import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/app/hooks/useAuth";
+import Marketplace from "./MarketPlace";
 import { Box, Tabs, Tab } from "@mui/material";
-import Marketplace from "@/app/marketplace/MarketPlace";
-import Carousell from "./home/carousell/Carousell";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import UploadIcon from "@mui/icons-material/Upload";
-import { useAuth } from "@/app/hooks/useAuth";
 
-export default function Home() {
+export default function MarketplacePage() {
   const pathname = usePathname();
   const { isLoggedIn, isAdmin } = useAuth();
 
   return (
     <main>
-      {/* Hero Carousel */}
-      <Carousell />
-
-      {/* Tab Bar Section */}
       <Box sx={{ mt: 4, px: { xs: 2, md: 4 } }}>
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Tabs
@@ -80,7 +74,6 @@ export default function Home() {
           </Tabs>
         </Box>
 
-        {/* Content */}
         <Box sx={{ mt: 4 }}>
           <Marketplace />
         </Box>
