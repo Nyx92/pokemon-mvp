@@ -33,7 +33,7 @@ export default async function RootLayout({
     <html lang="en" className={inter.variable}>
       {" "}
       {/* 👈 Add inter.variable here */}{" "}
-      <body className={inter.className} style={{ backgroundColor: "#f9f9f9" }}>
+      <body className={inter.className} style={{ backgroundColor: "#f4f4f4" }}>
         {/* Wrap with SessionProvider so NextAuth session is available throughout */}
         <SessionProviderWrapper session={session}>
           <ThemeRegistry>

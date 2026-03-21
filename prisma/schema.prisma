@@ -184,6 +184,14 @@ model Offer {
   updatedAt   DateTime @updatedAt
 }
 
+// 🌟 Admin-curated best sellers (by card type, not individual listing)
+model BestSeller {
+  id          String   @id @default(uuid())
+  tcgPlayerId String   @unique // maps to Card.tcgPlayerId
+  position    Int      @unique // display order 1–5
+  createdAt   DateTime @default(now())
+}
+
 model CardTransaction {
   id            String @id @default(uuid())
 
@@ -202,6 +210,7 @@ model CardTransaction {
   amount        Int
   currency      String
   stripeEventId String @unique
+  tcgPlayerId   String?
 
   createdAt     DateTime @default(now())
 }
