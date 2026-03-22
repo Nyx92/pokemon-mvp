@@ -3,13 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Box,
-  Typography,
-  Divider,
-  IconButton,
-  CircularProgress,
-} from "@mui/material";
+import { Box, Typography, IconButton, CircularProgress } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
@@ -137,7 +131,7 @@ export default function CardDetailPage() {
   return (
     <Box
       sx={{
-        maxWidth: 1100,
+        maxWidth: 1400,
         mx: "auto",
         px: { xs: 2, md: 4 },
         py: { xs: 3, md: 5 },
@@ -166,38 +160,44 @@ export default function CardDetailPage() {
         sx={{
           display: "flex",
           flexDirection: { xs: "column", md: "row" },
-          gap: 4,
+          gap: 5,
           alignItems: "flex-start",
         }}
       >
-        {/* ===== LEFT: image ===== */}
+        {/* ===== COL 1: image ===== */}
         <Box
           sx={{
-            flex: { xs: "0 0 auto", md: "0 0 38%" },
+            flex: { xs: "0 0 auto", md: "0 0 360px" },
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: 1.5,
-            position: "relative",
+            px: 1,
           }}
         >
           {/* Main image */}
           <Box
             sx={{
-              position: "relative",
               width: "100%",
-              maxWidth: { xs: 300, md: 360 },
-              aspectRatio: "2/3",
               backgroundColor: "#f8f8f8",
               borderRadius: 3,
-              overflow: "hidden",
+              p: 2,
             }}
           >
+            <Box
+              sx={{
+                position: "relative",
+                width: "100%",
+                aspectRatio: "2/3",
+                overflow: "hidden",
+                borderRadius: 1.5,
+              }}
+            >
             <Image
               src={card.imageUrls?.[activeImageIndex] || "/placeholder.png"}
               alt={card.title}
               fill
-              sizes="(max-width: 600px) 300px, 360px"
+              sizes="360px"
               style={{ objectFit: "contain" }}
               priority
             />
@@ -229,11 +229,14 @@ export default function CardDetailPage() {
                     <FavoriteBorderIcon sx={{ fontSize: 20, color: "#555" }} />
                   )}
                 </IconButton>
-                <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#555" }}>
+                <Typography
+                  sx={{ fontSize: 11, fontWeight: 600, color: "#555" }}
+                >
                   {likesCount}
                 </Typography>
               </Box>
             )}
+            </Box>
           </Box>
 
           {/* Thumbnails */}
@@ -251,8 +254,8 @@ export default function CardDetailPage() {
                   key={i}
                   onClick={() => setActiveImageIndex(i)}
                   sx={{
-                    width: 60,
-                    height: 60,
+                    width: 56,
+                    height: 56,
                     borderRadius: 1.5,
                     overflow: "hidden",
                     cursor: "pointer",
@@ -268,7 +271,7 @@ export default function CardDetailPage() {
                     src={url || "/placeholder.png"}
                     alt={`thumb ${i + 1}`}
                     fill
-                    sizes="60px"
+                    sizes="56px"
                     style={{ objectFit: "cover" }}
                   />
                 </Box>
@@ -277,39 +280,28 @@ export default function CardDetailPage() {
           )}
         </Box>
 
-        {/* ===== RIGHT: details ===== */}
+        {/* ===== COL 2: title + metadata ===== */}
         <Box
           sx={{
             flex: 1,
             minWidth: 0,
             display: "flex",
             flexDirection: "column",
-            gap: 2,
+            gap: 1.5,
           }}
         >
-          {/* Title row */}
-          <Box
+          <Typography
             sx={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              gap: 1,
+              fontSize: { xs: 20, sm: 24, md: 28 },
+              fontWeight: 800,
+              lineHeight: 1.15,
+              letterSpacing: "-0.4px",
+              color: "#111",
             }}
           >
-            <Typography
-              sx={{
-                fontSize: { xs: 20, sm: 24, md: 28 },
-                fontWeight: 800,
-                lineHeight: 1.15,
-                letterSpacing: "-0.4px",
-                color: "#111",
-              }}
-            >
-              {card.title}
-            </Typography>
-          </Box>
+            {card.title}
+          </Typography>
 
-          {/* Metadata */}
           <Box>
             {[
               ["Card No.", cardNumber],
@@ -320,11 +312,11 @@ export default function CardDetailPage() {
             ].map(([label, value]) => (
               <Box
                 key={label}
-                sx={{ display: "flex", py: 0.4, alignItems: "baseline" }}
+                sx={{ display: "flex", py: 0.5, alignItems: "baseline" }}
               >
                 <Typography
                   sx={{
-                    width: 140,
+                    width: 120,
                     fontSize: 13,
                     color: "#6b7280",
                     flexShrink: 0,
@@ -340,10 +332,17 @@ export default function CardDetailPage() {
               </Box>
             ))}
           </Box>
+        </Box>
 
-          <Divider />
-
-          {/* Buy Box */}
+        {/* ===== COL 3: buybox + market chart ===== */}
+        <Box
+          sx={{
+            flex: { xs: "0 0 auto", md: "0 0 500px" },
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
           <BuyBox
             tcgPlayerId={card.tcgPlayerId}
             currentCardId={card.id}
@@ -352,12 +351,14 @@ export default function CardDetailPage() {
             mode={canManageListing ? "owner" : "viewer"}
             offersCount={10}
             onEdit={() => {
-            if (isAdmin) router.push(`/cards/${card.id}/edit`);
-            else setEditPriceOpen(true);
-          }}
-          onViewListings={() =>
-            document.getElementById("all-listings")?.scrollIntoView({ behavior: "smooth" })
-          }
+              if (isAdmin) router.push(`/cards/${card.id}/edit`);
+              else setEditPriceOpen(true);
+            }}
+            onViewListings={() =>
+              document
+                .getElementById("all-listings")
+                ?.scrollIntoView({ behavior: "smooth" })
+            }
             isForSale={isForSale}
             priceText={
               card.price != null ? `S$${card.price.toFixed(2)}` : "S$ -"
@@ -372,7 +373,6 @@ export default function CardDetailPage() {
             onBuyNow={() => requireLogin(handleBuyNow)}
           />
 
-          {/* Market Chart */}
           <CardMarketChart card={card} />
         </Box>
       </Box>
@@ -391,7 +391,9 @@ export default function CardDetailPage() {
           onClose={() => setEditPriceOpen(false)}
           onSuccess={(updatedPrice, updatedForSale) => {
             setCard((prev) =>
-              prev ? { ...prev, price: updatedPrice, forSale: updatedForSale } : prev
+              prev
+                ? { ...prev, price: updatedPrice, forSale: updatedForSale }
+                : prev
             );
           }}
         />
