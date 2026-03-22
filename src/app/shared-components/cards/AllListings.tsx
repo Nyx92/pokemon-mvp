@@ -125,14 +125,14 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "2fr 1fr 100px 100px",
+          gridTemplateColumns: "2fr 100px 100px",
           px: 3,
           py: 1,
           borderBottom: "1px solid #f3f4f6",
           backgroundColor: "#fafafa",
         }}
       >
-        {["Condition", "Seller", "Price", ""].map((h) => (
+        {["Condition", "Price", ""].map((h) => (
           <Typography key={h} sx={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.4px" }}>
             {h}
           </Typography>
@@ -152,7 +152,7 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
               key={listing.id}
               sx={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1fr 100px 100px",
+                gridTemplateColumns: "2fr 100px 100px",
                 alignItems: "center",
                 px: 3,
                 py: 1.4,
@@ -182,11 +182,6 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
                   </Box>
                 )}
               </Box>
-
-              {/* Seller */}
-              <Typography sx={{ fontSize: 13, color: "#6b7280" }}>
-                {listing.owner?.username ?? "—"}
-              </Typography>
 
               {/* Price */}
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#111" }}>
