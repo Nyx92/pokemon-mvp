@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Chip,
-  Button,
   CircularProgress,
   Alert,
   Divider,
@@ -28,31 +27,40 @@ interface MyOffer {
   id: string;
   price: number | null;
   message: string | null;
-  status: string; // pending | accepted | rejected | paid
+  // pending  — awaiting seller response (funds authorised, held on card)
+  // accepted — seller accepted; payment captured instantly (brief transient state)
+  // rejected — seller declined; PI cancelled, no charge
+  // expired  — seller didn't respond in 24h; PI cancelled by cron
+  // paid     — fully complete; card transferred to buyer
+  status: string;
   archivedAt: string | null;
   createdAt: string;
   card: OfferCard;
 }
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "error" | "info"> = {
-  pending: "warning",
+  pending:  "warning",
   accepted: "success",
   rejected: "error",
-  paid: "info",
+  expired:  "default",
+  paid:     "info",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  pending: "Pending",
-  accepted: "Accepted — Pay Now",
+  pending:  "Pending",
+  // "accepted" is a very brief transient state — payment is captured immediately
+  // when the seller accepts. The buyer rarely sees this; they'll typically see
+  // "Purchased" on next page load.
+  accepted: "Accepted",
   rejected: "Declined",
-  paid: "Purchased",
+  expired:  "Expired",
+  paid:     "Purchased",
 };
 
 export default function MyOffersPage() {
   const router = useRouter();
   const [offers, setOffers] = useState<MyOffer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [payLoading, setPayLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,29 +74,9 @@ export default function MyOffersPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handlePayNow = async (offerId: string) => {
-    setPayLoading(offerId);
-    try {
-      const res = await fetch("/api/checkout/offer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offerId }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Failed to start checkout.");
-        return;
-      }
-      if (data.url) window.location.href = data.url;
-    } catch {
-      setError("Something went wrong. Please try again.");
-    } finally {
-      setPayLoading(null);
-    }
-  };
-
-  // Group: active (non-archived) first, then archived history
-  const activeOffers = offers.filter((o) => !o.archivedAt || o.status === "paid");
+  // Active: non-archived or paid (buyer wants to see completed purchases)
+  // Archived: card was sold to someone else — historical record only
+  const activeOffers   = offers.filter((o) => !o.archivedAt || o.status === "paid");
   const archivedOffers = offers.filter((o) => o.archivedAt && o.status !== "paid");
 
   const renderOffer = (offer: MyOffer) => (
@@ -105,7 +93,7 @@ export default function MyOffersPage() {
         alignItems: "flex-start",
       }}
     >
-      {/* Card thumbnail */}
+      {/* Card thumbnail — click to go to the card detail page */}
       <Box
         onClick={() => router.push(`/cards/${offer.card.id}`)}
         sx={{
@@ -128,7 +116,7 @@ export default function MyOffersPage() {
         />
       </Box>
 
-      {/* Details */}
+      {/* Offer details */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
           <Typography
@@ -163,26 +151,6 @@ export default function MyOffersPage() {
         <Typography sx={{ fontSize: 11, color: "#9ca3af", mt: 0.5 }}>
           Offered on {new Date(offer.createdAt).toLocaleDateString()}
         </Typography>
-
-        {offer.status === "accepted" && !offer.archivedAt && (
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => handlePayNow(offer.id)}
-            disabled={payLoading === offer.id}
-            startIcon={payLoading === offer.id ? <CircularProgress size={12} color="inherit" /> : undefined}
-            sx={{
-              mt: 1,
-              textTransform: "none",
-              backgroundColor: "#0053ff",
-              "&:hover": { backgroundColor: "#0041cc" },
-              fontWeight: 600,
-              borderRadius: 1.5,
-            }}
-          >
-            {payLoading === offer.id ? "Loading…" : "Pay Now"}
-          </Button>
-        )}
       </Box>
     </Box>
   );
