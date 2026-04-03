@@ -238,17 +238,7 @@ export async function POST(req: NextRequest) {
             data: { archivedAt: new Date() },
           });
 
-          /**
-           * 3h) If this was an offer-based checkout, mark that specific offer as paid
-           * and link it to the order (overrides the archivedAt set above for status tracking).
-           */
-          const offerId = session.metadata?.offerId;
-          if (offerId) {
-            await tx.offer.update({
-              where: { id: offerId },
-              data: { status: "paid", orderId: order.id },
-            });
-          }
+
         });
 
         break;

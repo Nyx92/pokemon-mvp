@@ -118,13 +118,14 @@ model Card {
   imageUrls    String[]   // URLs to Supabase Storage images
   forSale      Boolean    @default(false)
 
-  // reservation fields (prevent double-sell)
-  reservedBy          User?   @relation("CardReservations", fields: [reservedById], references: [id], onDelete: SetNull)
-  reservedById        String?
-  reservedUntil       DateTime?
-  reservedCheckoutSessionId String? @unique
-  // true when card is locked for an accepted offer (not a Stripe checkout yet)
-  reservedForOffer    Boolean @default(false)
+  // Reservation fields — used by the Buy Now Stripe Checkout flow to prevent
+  // double-selling while the buyer is on Stripe's hosted payment page.
+  // When a buyer starts checkout, the card is locked for a short window
+  // (reservedUntil). On payment success the lock is cleared and ownership transfers.
+  reservedBy                User?     @relation("CardReservations", fields: [reservedById], references: [id], onDelete: SetNull)
+  reservedById              String?
+  reservedUntil             DateTime?
+  reservedCheckoutSessionId String?   @unique
 
   // Optional enrichment fields (future-proof)
   tcgPlayerId  String

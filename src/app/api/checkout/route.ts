@@ -36,13 +36,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Block regular checkout if the card is locked for an accepted offer
-    if (card.reservedForOffer && card.reservedUntil && card.reservedUntil > new Date()) {
-      return NextResponse.json(
-        { error: "This card has a pending accepted offer. Regular purchase is unavailable." },
-        { status: 409 }
-      );
-    }
     if (card.price == null || card.price <= 0) {
       return NextResponse.json(
         { error: "Card has invalid price" },

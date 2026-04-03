@@ -202,8 +202,8 @@ export default function ProfileCard() {
               </ListItemButton>
             </ListItem>
             <ListItem disablePadding>
-              <ListItemButton component={Link} href="/profile/purchases">
-                <ListItemText primary="Purchase History" />
+              <ListItemButton component={Link} href="/profile/transactions">
+                <ListItemText primary="Transaction History" />
               </ListItemButton>
             </ListItem>
           </List>

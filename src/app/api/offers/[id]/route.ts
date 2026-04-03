@@ -160,7 +160,6 @@ export async function PATCH(
           data: {
             ownerId: offer.buyerId,
             forSale: false,
-            reservedForOffer: false,
             reservedById: null,
             reservedUntil: null,
             reservedCheckoutSessionId: null,

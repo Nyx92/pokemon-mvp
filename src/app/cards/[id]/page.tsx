@@ -469,12 +469,13 @@ export default function CardDetailPage() {
               .catch(() => {});
           }}
           onAccepted={() => {
-            // Seller accepted an offer — card was immediately transferred to the buyer.
-            // We are no longer the card owner, so GET /api/offers?cardId=X would 403.
-            // Instead, reload the page so the UI reflects the sold state (forSale=false,
-            // new owner, no more seller controls).
+            // Seller accepted an offer — card was immediately transferred to the buyer
+            // (PI captured + ownerId changed atomically in PATCH /api/offers/[id]).
+            // We are no longer the card owner. Instead of reloading this page
+            // (which would show a confusing state), send the seller to their
+            // Transaction History → Sold tab so they can see the completed sale.
             setSellerOffersOpen(false);
-            window.location.reload();
+            window.location.href = "/profile/transactions?tab=sold&success=1";
           }}
         />
       )}
