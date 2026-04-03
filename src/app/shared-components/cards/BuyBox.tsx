@@ -8,7 +8,6 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
-import PendingIcon from "@mui/icons-material/Pending";
 import {
   RAW_GRADES,
   PSA_GRADES,
@@ -44,8 +43,13 @@ type ListingSummary = { id: string; condition: string; price: number | null };
 export interface ActiveOffer {
   id: string;
   price: number;
+  // Possible statuses after the manual-capture flow:
+  //   pending  — buyer placed offer, waiting for seller response
+  //   accepted — seller accepted, PI captured; card transfer in progress
+  //   rejected — seller declined; PI cancelled, no charge
+  //   expired  — seller didn't respond within 24h; PI cancelled by cron
+  //   paid     — fully completed; card ownership transferred to buyer
   status: "pending" | "accepted" | "rejected" | "expired" | "paid" | string;
-  acceptedUntil: string | null;
   message: string | null;
 }
 
@@ -61,17 +65,17 @@ interface BuyBoxProps {
 
   onPlaceOffer: () => void;
   onBuyNow: () => void;
-  onPayOffer?: () => void; // called when buyer pays their accepted offer
 
   mode?: "viewer" | "owner";
   offersCount?: number;
   onEdit?: () => void;
   onViewListings?: () => void;
 
-  // Viewer's own offer on this card (if any)
+  // Viewer's own offer on this card (if any).
+  // With manual-capture flow, the buyer never needs a separate "Pay Now" step —
+  // funds are captured instantly when the seller accepts. So this is used only
+  // to show the offer status callout (pending / rejected / expired).
   activeOffer?: ActiveOffer | null;
-  // Card is locked for another buyer's accepted offer
-  cardHasPendingOffer?: boolean;
 }
 
 export default function BuyBox({
@@ -84,13 +88,11 @@ export default function BuyBox({
   primaryBlue,
   onPlaceOffer,
   onBuyNow,
-  onPayOffer,
   mode = "viewer",
   offersCount = 0,
   onEdit,
   onViewListings,
   activeOffer = null,
-  cardHasPendingOffer = false,
 }: BuyBoxProps) {
   const router = useRouter();
   const isOwnerMode = mode === "owner";
@@ -207,48 +209,25 @@ export default function BuyBox({
 
   // ── Derived viewer offer state ─────────────────────────────────────────────
   const offerIsPending  = activeOffer?.status === "pending";
+  // "accepted" is now a very brief transient state — the PATCH endpoint captures
+  // the PI and transfers the card immediately. The buyer rarely sees this; they
+  // are more likely to see "paid" on next page load. We still handle it for safety.
   const offerIsAccepted = activeOffer?.status === "accepted";
   const offerIsRejected = activeOffer?.status === "rejected";
   const offerIsExpired  = activeOffer?.status === "expired";
 
-  // Time-remaining string for accepted offer countdown
-  const acceptedUntilMs = activeOffer?.acceptedUntil
-    ? new Date(activeOffer.acceptedUntil).getTime() - Date.now()
-    : null;
-  const hoursLeft = acceptedUntilMs != null
-    ? Math.max(0, Math.floor(acceptedUntilMs / 3_600_000))
-    : null;
-
-  // Price label
-  const priceLabel = isOwnerMode
-    ? "Listed for"
-    : offerIsAccepted
-    ? "Your accepted offer"
-    : "Buy Now for";
-
-  // Price text override when offer is accepted
-  const displayPriceText = offerIsAccepted && activeOffer?.price != null
-    ? `S$${activeOffer.price.toFixed(2)}`
-    : priceText;
-
-  // Left button
+  // Left button — "See Offers (N)" for the seller, "Place Offer" for the buyer.
+  // Label flips to "Amend Offer" when the buyer has a pending offer (they can
+  // update the price/message, which will cancel the old PI and create a new one).
   const leftBtnLabel = isOwnerMode ? `See Offers (${offersCount})` : "Place Offer";
   const leftBtnDisabled = isOwnerMode
     ? false
-    : !isForSale || offerIsAccepted; // can't amend while accepted
+    : !isForSale || offerIsAccepted; // can't amend while offer is mid-capture
 
-  // Right button — transforms to "Pay Now" when offer is accepted
-  const rightBtnIsPayOffer = !isOwnerMode && offerIsAccepted;
-  const rightBtnLabel = isOwnerMode
-    ? "Edit"
-    : rightBtnIsPayOffer
-    ? `Pay S$${activeOffer!.price!.toFixed(2)}`
-    : "Buy Now";
-  const rightBtnDisabled = isOwnerMode
-    ? false
-    : rightBtnIsPayOffer
-    ? false
-    : (!isForSale || cardHasPendingOffer);
+  // Right button — always "Buy Now" or "Edit" (no "Pay Now" button in the
+  // new flow since payment is captured automatically on seller accept).
+  const rightBtnLabel = isOwnerMode ? "Edit" : "Buy Now";
+  const rightBtnDisabled = isOwnerMode ? false : !isForSale;
 
   return (
     <Box
@@ -331,52 +310,46 @@ export default function BuyBox({
         <Divider sx={{ mb: 1.5 }} />
 
         {/* ── VIEWER OFFER STATUS CALLOUT ── */}
+        {/* Shown only to the buyer (non-owner) when they have an active offer. */}
         {!isOwnerMode && activeOffer && (
           <Box sx={{ mb: 1.2 }}>
+            {/* Accepted: PI was captured, card transfer is in progress.
+                The buyer should refresh — they may now own the card. */}
             {offerIsAccepted && (
               <Alert
                 icon={<CheckCircleOutlineIcon fontSize="small" />}
                 severity="success"
                 sx={{ py: 0.5, fontSize: 12 }}
               >
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was accepted!
-                {hoursLeft !== null && hoursLeft > 0 && (
-                  <> You have <strong>{hoursLeft}h</strong> to pay.</>
-                )}
-                {hoursLeft === 0 && <> Payment window closing soon.</>}
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was
+                accepted and payment is being processed.
               </Alert>
             )}
+            {/* Pending: waiting for seller to accept or reject */}
             {offerIsPending && (
               <Alert
                 icon={<AccessTimeIcon fontSize="small" />}
                 severity="info"
                 sx={{ py: 0.5, fontSize: 12 }}
               >
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> is pending.
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> is
+                pending — funds are authorised and held.
               </Alert>
             )}
+            {/* Rejected: seller declined; PI was cancelled, no charge */}
             {offerIsRejected && (
               <Alert severity="error" sx={{ py: 0.5, fontSize: 12 }}>
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was declined.
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was
+                declined. No charge was made.
               </Alert>
             )}
+            {/* Expired: seller didn't respond within 24h; PI was cancelled by cron */}
             {offerIsExpired && (
               <Alert severity="warning" sx={{ py: 0.5, fontSize: 12 }}>
-                Your accepted offer expired before payment.
+                Your offer expired (seller didn&apos;t respond in time). No charge was made.
               </Alert>
             )}
           </Box>
-        )}
-
-        {/* Card locked for another buyer's accepted offer */}
-        {!isOwnerMode && cardHasPendingOffer && !activeOffer && (
-          <Alert
-            icon={<PendingIcon fontSize="small" />}
-            severity="warning"
-            sx={{ mb: 1.2, py: 0.5, fontSize: 12 }}
-          >
-            An offer has been accepted — this card is pending purchase.
-          </Alert>
         )}
 
         {/* ── PRICE ROW ── */}
@@ -389,26 +362,23 @@ export default function BuyBox({
           }}
         >
           <Box>
-            <Typography sx={{ fontSize: 11, color: "#6b7280" }}>{priceLabel}</Typography>
+            <Typography sx={{ fontSize: 11, color: "#6b7280" }}>
+              {isOwnerMode ? "Listed for" : "Buy Now for"}
+            </Typography>
             <Typography
               sx={{
                 fontSize: { xs: 22, sm: 26 },
                 fontWeight: 700,
                 lineHeight: 1.05,
-                color: offerIsAccepted ? "#16a34a" : "#111",
+                color: "#111",
                 mt: 0.3,
               }}
             >
-              {displayPriceText}
+              {priceText}
             </Typography>
-            {offerIsAccepted && (
-              <Typography sx={{ fontSize: 11, color: "#6b7280", textDecoration: "line-through" }}>
-                Listed: {priceText}
-              </Typography>
-            )}
           </Box>
 
-          {isLowest && !isOwnerMode && !offerIsAccepted && (
+          {isLowest && !isOwnerMode && (
             <Box
               sx={{
                 display: "flex",
@@ -455,20 +425,14 @@ export default function BuyBox({
           <Button
             fullWidth
             variant="contained"
-            startIcon={
-              isOwnerMode ? <EditIcon /> :
-              rightBtnIsPayOffer ? <CheckCircleOutlineIcon /> :
-              <ShoppingCartIcon />
-            }
-            onClick={isOwnerMode ? onEdit : rightBtnIsPayOffer ? onPayOffer : onBuyNow}
+            startIcon={isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />}
+            onClick={isOwnerMode ? onEdit : onBuyNow}
             disabled={rightBtnDisabled}
             sx={{
               textTransform: "none",
-              backgroundColor: rightBtnIsPayOffer ? "#16a34a" : primaryBlue,
-              "&:hover": { backgroundColor: rightBtnIsPayOffer ? "#15803d" : "#0041cc" },
-              boxShadow: rightBtnIsPayOffer
-                ? "0 3px 10px rgba(22,163,74,0.3)"
-                : "0 3px 10px rgba(0,83,255,0.25)",
+              backgroundColor: primaryBlue,
+              "&:hover": { backgroundColor: "#0041cc" },
+              boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
               fontWeight: 500,
               letterSpacing: "0.3px",
               borderRadius: 1.5,

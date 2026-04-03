@@ -177,20 +177,29 @@ model Offer {
   id          String    @id @default(uuid())
   price       Int?
   message     String?
-  status      String    @default("pending") // pending | accepted | rejected | paid
+  // Lifecycle: pending → accepted → paid  (happy path)
+  //            pending → rejected         (seller declines)
+  //            pending → expired          (no seller response within 24h; PI cancelled by cron)
+  status      String    @default("pending")
 
   // Set when the card changes ownership (sold). New owner won't see archived offers,
   // but the historical record is preserved for buyers and admins.
   archivedAt  DateTime?
+
+  // Stripe PaymentIntent ID for the authorised-but-not-captured charge.
+  // Created when the buyer submits the offer form (capture_method: manual).
+  // Captured on accept, cancelled on reject/expiry.
+  paymentIntentId String?
+
+  // When this pending offer expires (24h from creation).
+  // After this point the cron job will cancel the PI and mark status → "expired".
+  expiresAt   DateTime?
 
   // Relations
   card        Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
   cardId      String
   buyer       User      @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
   buyerId     String
-
-  // Deadline for buyer to pay after seller accepts (24h window)
-  acceptedUntil DateTime?
 
   // Linked to an Order when the accepted offer is paid
   order       Order?    @relation(fields: [orderId], references: [id])

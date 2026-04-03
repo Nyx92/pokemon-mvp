@@ -4,7 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { dollarsToCents, centsToDollars } from "@/lib/money";
-import { releaseExpiredOfferReservation } from "@/lib/offerExpiry";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -18,10 +17,7 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-    // Release any expired offer reservations before returning card state
-    await releaseExpiredOfferReservation(params.id);
-
-    const card = await prisma.card.findUnique({
+const card = await prisma.card.findUnique({
       where: { id: params.id },
       include: {
         binder: true,

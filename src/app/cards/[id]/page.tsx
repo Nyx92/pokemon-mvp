@@ -32,8 +32,9 @@ export default function CardDetailPage() {
   const [placeOfferOpen, setPlaceOfferOpen] = useState(false);
   const [sellerOffersOpen, setSellerOffersOpen] = useState(false);
   const [offersCount, setOffersCount] = useState(0);
+  // The viewer's own offer on this card (pending/accepted/rejected/expired/paid).
+  // Shown in the BuyBox as a status callout so the buyer knows what's happening.
   const [activeOffer, setActiveOffer] = useState<ActiveOffer | null>(null);
-  const [cardHasPendingOffer, setCardHasPendingOffer] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -46,7 +47,6 @@ export default function CardDetailPage() {
           setCard(data.card);
           setLiked(data.card.likedByUser ?? false);
           setLikesCount(data.card.likesCount ?? 0);
-          setCardHasPendingOffer(!!data.card.reservedForOffer);
         } else console.error("Error loading card:", data.error);
       } catch (err) {
         console.error("Failed to fetch card:", err);
@@ -154,25 +154,6 @@ export default function CardDetailPage() {
     }
   };
 
-  const handlePayOffer = async () => {
-    if (!activeOffer) return;
-    try {
-      const res = await fetch("/api/checkout/offer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offerId: activeOffer.id }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        console.error("Failed to start offer checkout:", data.error);
-        return;
-      }
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch (err) {
-      console.error("Error calling /api/checkout/offer:", err);
-    }
-  };
 
   return (
     <Box
@@ -397,7 +378,6 @@ export default function CardDetailPage() {
             mode={canManageListing ? "owner" : "viewer"}
             offersCount={offersCount}
             activeOffer={activeOffer}
-            cardHasPendingOffer={cardHasPendingOffer && !activeOffer}
             onEdit={() => {
               if (isAdmin) router.push(`/cards/${card.id}/edit`);
               else setEditPriceOpen(true);
@@ -421,7 +401,6 @@ export default function CardDetailPage() {
               })
             }
             onBuyNow={() => requireLogin(handleBuyNow)}
-            onPayOffer={() => requireLogin(handlePayOffer)}
           />
 
           <CardMarketChart card={card} />
@@ -482,26 +461,20 @@ export default function CardDetailPage() {
           cardTitle={card.title}
           onClose={() => {
             setSellerOffersOpen(false);
-            // onClose fires regardless of what the seller did inside the dialog
-            // (accepted, rejected, or just closed it). The page had no visibility
-            // into those actions — the dialog managed its own state — so we
-            // re-sync both values that could now be stale:
-            //
-            // 1. Offer count: always re-fetch so the "See Offers (N)" badge is accurate.
+            // Seller closed the dialog after rejecting (or without acting).
+            // Re-fetch offer count so the "See Offers (N)" badge stays accurate.
             fetch(`/api/offers?cardId=${encodeURIComponent(card.id)}`)
               .then((r) => r.json())
               .then((data) => { if (data.offers) setOffersCount(data.offers.length); })
               .catch(() => {});
-            // 2. Card reservation: this only *matters* if the seller accepted an offer
-            //    (which sets reservedForOffer=true on the card in the DB). But we
-            //    always re-fetch defensively — if nothing changed it just returns false
-            //    and setCardHasPendingOffer stays false. If the seller did accept,
-            //    this will flip cardHasPendingOffer to true, which disables Buy Now
-            //    and shows the "Offer Pending" warning to other buyers on this page.
-            fetch(`/api/cards/${card.id}`)
-              .then((r) => r.json())
-              .then((data) => { if (data.card) setCardHasPendingOffer(!!data.card.reservedForOffer); })
-              .catch(() => {});
+          }}
+          onAccepted={() => {
+            // Seller accepted an offer — card was immediately transferred to the buyer.
+            // We are no longer the card owner, so GET /api/offers?cardId=X would 403.
+            // Instead, reload the page so the UI reflects the sold state (forSale=false,
+            // new owner, no more seller controls).
+            setSellerOffersOpen(false);
+            window.location.reload();
           }}
         />
       )}
