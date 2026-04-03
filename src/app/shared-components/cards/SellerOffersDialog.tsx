@@ -33,6 +33,10 @@ interface SellerOffersDialogProps {
   cardId: string;
   cardTitle: string;
   onClose: () => void;
+  // Called instead of onClose when an offer is accepted and the card is sold.
+  // The page uses this to reload card data (forSale=false, new owner) rather
+  // than trying to re-fetch offers — which would 403 since we no longer own the card.
+  onAccepted?: () => void;
 }
 
 const STATUS_COLORS: Record<string, "default" | "warning" | "success" | "error"> = {
@@ -47,6 +51,7 @@ export default function SellerOffersDialog({
   cardId,
   cardTitle,
   onClose,
+  onAccepted,
 }: SellerOffersDialogProps) {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,10 +87,19 @@ export default function SellerOffersDialog({
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error ?? "Failed to update offer."); return; }
-      // Re-fetch so the dialog reflects the new statuses from the DB —
-      // accepted offer moves to Resolved, auto-rejected offers follow.
-      // Without this the list stays stale until the seller closes and reopens.
-      await fetchOffers();
+
+      if (action === "accept") {
+        // After accepting, the card is immediately transferred to the buyer
+        // (PI captured + ownerId changed in one atomic step). The seller is
+        // no longer the card owner, so re-fetching GET /api/offers?cardId=X
+        // would return 403. Call onAccepted so the page can reload card data
+        // (showing forSale=false) instead of re-fetching the offers list.
+        onAccepted ? onAccepted() : onClose();
+      } else {
+        // After rejecting, the card is still ours. Re-fetch so the offer
+        // moves from Pending → Resolved in the list.
+        await fetchOffers();
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
