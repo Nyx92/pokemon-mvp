@@ -123,6 +123,8 @@ model Card {
   reservedById        String?
   reservedUntil       DateTime?
   reservedCheckoutSessionId String? @unique
+  // true when card is locked for an accepted offer (not a Stripe checkout yet)
+  reservedForOffer    Boolean @default(false)
 
   // Optional enrichment fields (future-proof)
   tcgPlayerId  String
@@ -166,24 +168,36 @@ model Order {
   updatedAt          DateTime @updatedAt
 
   transactions       CardTransaction[]
+  offer              Offer?
 }
 
 
 // 💸 Offer — represents an offer made by a buyer on a card
 model Offer {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   price       Int?
   message     String?
-  status      String   @default("pending") // pending | accepted | rejected
+  status      String    @default("pending") // pending | accepted | rejected | paid
+
+  // Set when the card changes ownership (sold). New owner won't see archived offers,
+  // but the historical record is preserved for buyers and admins.
+  archivedAt  DateTime?
 
   // Relations
-  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  card        Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
   cardId      String
-  buyer       User     @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyer       User      @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
   buyerId     String
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Deadline for buyer to pay after seller accepts (24h window)
+  acceptedUntil DateTime?
+
+  // Linked to an Order when the accepted offer is paid
+  order       Order?    @relation(fields: [orderId], references: [id])
+  orderId     String?   @unique
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // 🌟 Admin-curated best sellers (by card type, not individual listing)
