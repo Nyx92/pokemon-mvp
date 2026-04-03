@@ -670,17 +670,24 @@ async function main() {
     },
   });
 
-  await prisma.card.update({
-    where: { id: charizard.id },
-    data: {
-      ownerId: misty.id,
-      forSale: false,
-      reservedById: null,
-      reservedUntil: null,
-      reservedCheckoutSessionId: null,
-      binderId: null,
-    },
-  });
+  await prisma.$transaction([
+    prisma.card.update({
+      where: { id: charizard.id },
+      data: {
+        ownerId: misty.id,
+        forSale: false,
+        reservedById: null,
+        reservedUntil: null,
+        reservedCheckoutSessionId: null,
+        binderId: null,
+      },
+    }),
+    // Mark the specific offer as paid and archive it
+    prisma.offer.update({
+      where: { id: offer.id },
+      data: { archivedAt: new Date(), status: "paid", orderId: order.id },
+    }),
+  ]);
 
   console.log("✅ Seeded sample Order + CardTransaction");
 

@@ -1,12 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Button, Divider } from "@mui/material";
+import { Box, Typography, Button, Divider, Alert } from "@mui/material";
 import { useRouter } from "next/navigation";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import PendingIcon from "@mui/icons-material/Pending";
 import {
   RAW_GRADES,
   PSA_GRADES,
@@ -39,6 +41,14 @@ function getGradesForCompany(company: GradeCompany): string[] {
 
 type ListingSummary = { id: string; condition: string; price: number | null };
 
+export interface ActiveOffer {
+  id: string;
+  price: number;
+  status: "pending" | "accepted" | "rejected" | "expired" | "paid" | string;
+  acceptedUntil: string | null;
+  message: string | null;
+}
+
 interface BuyBoxProps {
   tcgPlayerId: string;
   currentCardId: string;
@@ -51,11 +61,17 @@ interface BuyBoxProps {
 
   onPlaceOffer: () => void;
   onBuyNow: () => void;
+  onPayOffer?: () => void; // called when buyer pays their accepted offer
 
   mode?: "viewer" | "owner";
   offersCount?: number;
   onEdit?: () => void;
   onViewListings?: () => void;
+
+  // Viewer's own offer on this card (if any)
+  activeOffer?: ActiveOffer | null;
+  // Card is locked for another buyer's accepted offer
+  cardHasPendingOffer?: boolean;
 }
 
 export default function BuyBox({
@@ -68,10 +84,13 @@ export default function BuyBox({
   primaryBlue,
   onPlaceOffer,
   onBuyNow,
+  onPayOffer,
   mode = "viewer",
   offersCount = 0,
   onEdit,
   onViewListings,
+  activeOffer = null,
+  cardHasPendingOffer = false,
 }: BuyBoxProps) {
   const router = useRouter();
   const isOwnerMode = mode === "owner";
@@ -186,9 +205,50 @@ export default function BuyBox({
     );
   };
 
-  const priceLabel = isOwnerMode ? "Listed for" : "Buy Now for";
+  // ── Derived viewer offer state ─────────────────────────────────────────────
+  const offerIsPending  = activeOffer?.status === "pending";
+  const offerIsAccepted = activeOffer?.status === "accepted";
+  const offerIsRejected = activeOffer?.status === "rejected";
+  const offerIsExpired  = activeOffer?.status === "expired";
+
+  // Time-remaining string for accepted offer countdown
+  const acceptedUntilMs = activeOffer?.acceptedUntil
+    ? new Date(activeOffer.acceptedUntil).getTime() - Date.now()
+    : null;
+  const hoursLeft = acceptedUntilMs != null
+    ? Math.max(0, Math.floor(acceptedUntilMs / 3_600_000))
+    : null;
+
+  // Price label
+  const priceLabel = isOwnerMode
+    ? "Listed for"
+    : offerIsAccepted
+    ? "Your accepted offer"
+    : "Buy Now for";
+
+  // Price text override when offer is accepted
+  const displayPriceText = offerIsAccepted && activeOffer?.price != null
+    ? `S$${activeOffer.price.toFixed(2)}`
+    : priceText;
+
+  // Left button
   const leftBtnLabel = isOwnerMode ? `See Offers (${offersCount})` : "Place Offer";
-  const rightBtnLabel = isOwnerMode ? "Edit" : "Buy Now";
+  const leftBtnDisabled = isOwnerMode
+    ? false
+    : !isForSale || offerIsAccepted; // can't amend while accepted
+
+  // Right button — transforms to "Pay Now" when offer is accepted
+  const rightBtnIsPayOffer = !isOwnerMode && offerIsAccepted;
+  const rightBtnLabel = isOwnerMode
+    ? "Edit"
+    : rightBtnIsPayOffer
+    ? `Pay S$${activeOffer!.price!.toFixed(2)}`
+    : "Buy Now";
+  const rightBtnDisabled = isOwnerMode
+    ? false
+    : rightBtnIsPayOffer
+    ? false
+    : (!isForSale || cardHasPendingOffer);
 
   return (
     <Box
@@ -270,6 +330,55 @@ export default function BuyBox({
 
         <Divider sx={{ mb: 1.5 }} />
 
+        {/* ── VIEWER OFFER STATUS CALLOUT ── */}
+        {!isOwnerMode && activeOffer && (
+          <Box sx={{ mb: 1.2 }}>
+            {offerIsAccepted && (
+              <Alert
+                icon={<CheckCircleOutlineIcon fontSize="small" />}
+                severity="success"
+                sx={{ py: 0.5, fontSize: 12 }}
+              >
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was accepted!
+                {hoursLeft !== null && hoursLeft > 0 && (
+                  <> You have <strong>{hoursLeft}h</strong> to pay.</>
+                )}
+                {hoursLeft === 0 && <> Payment window closing soon.</>}
+              </Alert>
+            )}
+            {offerIsPending && (
+              <Alert
+                icon={<AccessTimeIcon fontSize="small" />}
+                severity="info"
+                sx={{ py: 0.5, fontSize: 12 }}
+              >
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> is pending.
+              </Alert>
+            )}
+            {offerIsRejected && (
+              <Alert severity="error" sx={{ py: 0.5, fontSize: 12 }}>
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was declined.
+              </Alert>
+            )}
+            {offerIsExpired && (
+              <Alert severity="warning" sx={{ py: 0.5, fontSize: 12 }}>
+                Your accepted offer expired before payment.
+              </Alert>
+            )}
+          </Box>
+        )}
+
+        {/* Card locked for another buyer's accepted offer */}
+        {!isOwnerMode && cardHasPendingOffer && !activeOffer && (
+          <Alert
+            icon={<PendingIcon fontSize="small" />}
+            severity="warning"
+            sx={{ mb: 1.2, py: 0.5, fontSize: 12 }}
+          >
+            An offer has been accepted — this card is pending purchase.
+          </Alert>
+        )}
+
         {/* ── PRICE ROW ── */}
         <Box
           sx={{
@@ -286,15 +395,20 @@ export default function BuyBox({
                 fontSize: { xs: 22, sm: 26 },
                 fontWeight: 700,
                 lineHeight: 1.05,
-                color: "#111",
+                color: offerIsAccepted ? "#16a34a" : "#111",
                 mt: 0.3,
               }}
             >
-              {priceText}
+              {displayPriceText}
             </Typography>
+            {offerIsAccepted && (
+              <Typography sx={{ fontSize: 11, color: "#6b7280", textDecoration: "line-through" }}>
+                Listed: {priceText}
+              </Typography>
+            )}
           </Box>
 
-          {isLowest && !isOwnerMode && (
+          {isLowest && !isOwnerMode && !offerIsAccepted && (
             <Box
               sx={{
                 display: "flex",
@@ -323,7 +437,7 @@ export default function BuyBox({
             variant="outlined"
             startIcon={<GavelIcon />}
             onClick={onPlaceOffer}
-            disabled={!isForSale && !isOwnerMode}
+            disabled={leftBtnDisabled}
             sx={{
               textTransform: "none",
               borderColor: "#e5e7eb",
@@ -335,20 +449,26 @@ export default function BuyBox({
               borderRadius: 1.5,
             }}
           >
-            {leftBtnLabel}
+            {offerIsPending && !isOwnerMode ? "Amend Offer" : leftBtnLabel}
           </Button>
 
           <Button
             fullWidth
             variant="contained"
-            startIcon={isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />}
-            onClick={isOwnerMode ? onEdit : onBuyNow}
-            disabled={!isForSale && !isOwnerMode}
+            startIcon={
+              isOwnerMode ? <EditIcon /> :
+              rightBtnIsPayOffer ? <CheckCircleOutlineIcon /> :
+              <ShoppingCartIcon />
+            }
+            onClick={isOwnerMode ? onEdit : rightBtnIsPayOffer ? onPayOffer : onBuyNow}
+            disabled={rightBtnDisabled}
             sx={{
               textTransform: "none",
-              backgroundColor: primaryBlue,
-              "&:hover": { backgroundColor: "#0041cc" },
-              boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
+              backgroundColor: rightBtnIsPayOffer ? "#16a34a" : primaryBlue,
+              "&:hover": { backgroundColor: rightBtnIsPayOffer ? "#15803d" : "#0041cc" },
+              boxShadow: rightBtnIsPayOffer
+                ? "0 3px 10px rgba(22,163,74,0.3)"
+                : "0 3px 10px rgba(0,83,255,0.25)",
               fontWeight: 500,
               letterSpacing: "0.3px",
               borderRadius: 1.5,

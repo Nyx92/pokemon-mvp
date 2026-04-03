@@ -221,13 +221,34 @@ export async function POST(req: NextRequest) {
            * (wrong session, already sold, race condition, etc).
            */
           if (moved.count !== 1) {
-            console.error(`[webhook] ❌ Transfer FAILED. Count: ${moved.count}. 
+            console.error(`[webhook] ❌ Transfer FAILED. Count: ${moved.count}.
               Likely mismatch in reservedCheckoutSessionId (${session.id}) or reservedById (${buyerId})`);
             throw new Error("Card was not reserved by this checkout session");
           }
           console.log(
             "[webhook] 🎉 Transfer successful! Card ownership updated."
           );
+
+          /**
+           * 3g) Archive all offers for this card so the new owner never sees them.
+           * Historical records are preserved; buyers can still view their own offer history.
+           */
+          await tx.offer.updateMany({
+            where: { cardId },
+            data: { archivedAt: new Date() },
+          });
+
+          /**
+           * 3h) If this was an offer-based checkout, mark that specific offer as paid
+           * and link it to the order (overrides the archivedAt set above for status tracking).
+           */
+          const offerId = session.metadata?.offerId;
+          if (offerId) {
+            await tx.offer.update({
+              where: { id: offerId },
+              data: { status: "paid", orderId: order.id },
+            });
+          }
         });
 
         break;
