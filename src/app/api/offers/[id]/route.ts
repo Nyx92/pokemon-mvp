@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { expireOffer } from "@/lib/offerExpiry";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -82,6 +83,16 @@ export async function PATCH(
         { error: "Offer is not pending" },
         { status: 409 }
       );
+    }
+
+    // On-demand expiry guard — catches the window between expiresAt passing
+    // and the cron job running. If the seller tries to accept/reject an offer
+    // that has already passed its deadline (but is still "pending" in the DB
+    // because the cron hasn't fired yet), we expire it right now — same two
+    // steps as the cron: cancel the Stripe PI, then mark status → "expired".
+    if (offer.expiresAt && offer.expiresAt < new Date()) {
+      await expireOffer({ id: offer.id, paymentIntentId: offer.paymentIntentId });
+      return NextResponse.json({ error: "This offer has expired" }, { status: 409 });
     }
 
     // The offer must have a PaymentIntent — it was created when the buyer

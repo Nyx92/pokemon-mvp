@@ -33,21 +33,28 @@ export async function expireOffer(offer: {
     try {
       await stripe.paymentIntents.cancel(offer.paymentIntentId);
     } catch (err: unknown) {
-      // Stripe returns an error if the PI is already cancelled, already
-      // captured, or doesn't exist. In all these cases, we still want to
-      // update our DB — so we log and continue rather than throwing.
       const stripeErr = err as { code?: string; message?: string };
-      if (stripeErr?.code !== "payment_intent_unexpected_state") {
-        console.error(
-          "[offerExpiry] Unexpected error cancelling PI:",
-          offer.paymentIntentId,
-          stripeErr
-        );
-      } else {
+
+      if (stripeErr?.code === "payment_intent_unexpected_state") {
+        // PI is already in a terminal state (cancelled, captured, etc.).
+        // The hold is already released or the payment already went through —
+        // safe to fall through and mark the offer expired in the DB.
         console.warn(
           "[offerExpiry] PI already in terminal state, skipping cancel:",
           offer.paymentIntentId
         );
+      } else {
+        // Unexpected error (network failure, Stripe outage, etc.).
+        // Re-throw so the DB update below does NOT run.
+        // The offer stays "pending" and the cron will retry on its next run.
+        // This prevents the offer from being permanently stranded as "expired"
+        // in our DB while the PI is still holding the buyer's funds on Stripe.
+        console.error(
+          "[offerExpiry] Unexpected error cancelling PI — leaving offer pending for retry:",
+          offer.paymentIntentId,
+          stripeErr
+        );
+        throw err;
       }
     }
   }

@@ -16,6 +16,7 @@ import {
   SGC_GRADES,
 } from "@/constants/grades";
 import type { CardItem } from "@/types/card";
+import OfferCountdown from "./OfferCountdown";
 
 type GradeCompany = "Raw" | "PSA" | "Beckett" | "CGC" | "SGC";
 const GRADE_COMPANIES: GradeCompany[] = ["Raw", "PSA", "Beckett", "CGC", "SGC"];
@@ -51,6 +52,7 @@ export interface ActiveOffer {
   //   paid     — fully completed; card ownership transferred to buyer
   status: "pending" | "accepted" | "rejected" | "expired" | "paid" | string;
   message: string | null;
+  expiresAt?: string | null; // ISO string — used for the countdown timer
 }
 
 interface BuyBoxProps {
@@ -334,6 +336,11 @@ export default function BuyBox({
               >
                 Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> is
                 pending — funds are authorised and held.
+                {activeOffer.expiresAt && (
+                  <Box sx={{ mt: 0.4 }}>
+                    <OfferCountdown expiresAt={activeOffer.expiresAt} />
+                  </Box>
+                )}
               </Alert>
             )}
             {/* Rejected: seller declined; PI was cancelled, no charge */}
