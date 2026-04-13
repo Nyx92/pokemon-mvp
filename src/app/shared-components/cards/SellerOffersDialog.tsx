@@ -18,6 +18,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import GavelIcon from "@mui/icons-material/Gavel";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseOutlinedIcon from "@mui/icons-material/CloseOutlined";
+import OfferCountdown from "./OfferCountdown";
 
 interface Offer {
   id: string;
@@ -25,6 +26,7 @@ interface Offer {
   message: string | null;
   status: string;
   createdAt: string;
+  expiresAt?: string | null; // ISO string — used for the countdown timer
   buyer: { id: string; username: string | null; email: string };
 }
 
@@ -130,6 +132,11 @@ export default function SellerOffersDialog({
             {offer.buyer.username ?? offer.buyer.email} &middot;{" "}
             {new Date(offer.createdAt).toLocaleDateString()}
           </Typography>
+          {offer.status === "pending" && offer.expiresAt && (
+            <Box sx={{ mt: 0.3 }}>
+              <OfferCountdown expiresAt={offer.expiresAt} />
+            </Box>
+          )}
         </Box>
         <Chip
           label={offer.status}

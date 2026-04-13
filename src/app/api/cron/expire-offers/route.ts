@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { expireOffer } from "@/lib/offerExpiry";
 
 /**
- * POST /api/cron/expire-offers
+ * GET /api/cron/expire-offers  ← called by Vercel Cron Jobs (vercel.json)
+ * POST /api/cron/expire-offers ← kept for local curl testing
  *
  * Background job that cleans up overdue pending offers.
  *
@@ -22,23 +23,19 @@ import { expireOffer } from "@/lib/offerExpiry";
  *
  * How to run it:
  * ──────────────
- * Call this endpoint on a schedule (e.g. every 15 minutes). Options:
- *   - Vercel Cron Jobs (vercel.json "crons" config, if using Vercel)
- *   - A GitHub Actions scheduled workflow
- *   - Any external cron service (e.g. cron-job.org, EasyCron)
- *   - Locally for testing: `curl -X POST http://localhost:3000/api/cron/expire-offers \
- *       -H "Authorization: Bearer <CRON_SECRET>"`
+ * Vercel Cron Jobs (vercel.json) call this via GET every 5 minutes on Pro plan.
+ * Vercel automatically sends Authorization: Bearer <CRON_SECRET> for you.
+ *
+ * For local testing:
+ *   curl http://localhost:3000/api/cron/expire-offers \
+ *     -H "Authorization: Bearer <CRON_SECRET>"
  *
  * Security:
  * ─────────
- * The endpoint is protected by a shared secret in CRON_SECRET env var.
- * Requests without the correct bearer token are rejected with 401.
- * This prevents arbitrary callers from triggering mass PI cancellations.
- *
- * Set CRON_SECRET in your .env:
- *   CRON_SECRET=some-long-random-secret
+ * Protected by CRON_SECRET env var. Set it in Vercel → Settings → Environment
+ * Variables AND in your local .env file with the same value.
  */
-export async function POST(req: NextRequest) {
+async function runExpiry(req: NextRequest): Promise<NextResponse> {
   // ── 1. Authorise the cron caller ──────────────────────────────────────────
   // The secret must match CRON_SECRET in env. Use a long random string.
   const authHeader = req.headers.get("authorization");
@@ -110,3 +107,7 @@ export async function POST(req: NextRequest) {
     ...(results.errors.length > 0 && { errors: results.errors }),
   });
 }
+
+// Vercel Cron Jobs call via GET — export both so local curl testing still works.
+export const GET = runExpiry;
+export const POST = runExpiry;
