@@ -132,7 +132,10 @@ Use the **Transaction Pooler** `DATABASE_URL` (port 6543) in production.
 
 ### Cron job (offer expiry)
 
-Pending offers expire after 24 hours. The cron job at `GET /api/cron/expire-offers` runs every 5 minutes on Vercel Pro (configured in `vercel.json`).
+Pending offers expire after 24 hours. The cron job at `GET /api/cron/expire-offers` is configured in `vercel.json`.
+
+> **Current schedule:** `0 0 * * *` (once daily at midnight UTC) — set for Vercel Hobby plan.
+> **When you upgrade to Vercel Pro:** change the schedule in `vercel.json` to `*/5 * * * *` to run every 5 minutes.
 
 Two things are required for it to work:
 
