@@ -91,8 +91,14 @@ export async function PATCH(
     // because the cron hasn't fired yet), we expire it right now — same two
     // steps as the cron: cancel the Stripe PI, then mark status → "expired".
     if (offer.expiresAt && offer.expiresAt < new Date()) {
-      await expireOffer({ id: offer.id, paymentIntentId: offer.paymentIntentId });
-      return NextResponse.json({ error: "This offer has expired" }, { status: 409 });
+      await expireOffer({
+        id: offer.id,
+        paymentIntentId: offer.paymentIntentId,
+      });
+      return NextResponse.json(
+        { error: "This offer has expired" },
+        { status: 409 }
+      );
     }
 
     // The offer must have a PaymentIntent — it was created when the buyer
@@ -110,7 +116,27 @@ export async function PATCH(
     // ACCEPT
     // ══════════════════════════════════════════════════════════════════════════
     if (action === "accept") {
-      // ── 3. Capture the PaymentIntent ──────────────────────────────────────
+      // ── 3. Guard: check card is not reserved by an active Buy Now checkout ──
+      // Must run BEFORE capturing the PI. The checkout flow sets reservedById +
+      // reservedUntil but leaves forSale: true until the webhook fires. If we
+      // captured the PI first and then found the card was reserved, money would
+      // have already moved with no way to roll it back cleanly.
+      const currentCard = await prisma.card.findUnique({
+        where: { id: cardId },
+        select: { reservedById: true, reservedUntil: true },
+      });
+      if (
+        currentCard?.reservedById &&
+        currentCard.reservedUntil &&
+        currentCard.reservedUntil > new Date()
+      ) {
+        return NextResponse.json(
+          { error: "Card is currently reserved by a pending checkout" },
+          { status: 409 }
+        );
+      }
+
+      // ── 4. Capture the PaymentIntent ──────────────────────────────────────
       // This is the moment money moves. Stripe will charge the buyer's card
       // for the amount that was authorised when they placed the offer.
       // If capture fails (e.g. card issuer declined at capture time), we catch
@@ -126,11 +152,11 @@ export async function PATCH(
         `[offers PATCH] PI captured: ${captured.id} → ${captured.status}`
       );
 
-      // ── 4. Atomic DB transaction ───────────────────────────────────────────
+      // ── 5. Atomic DB transaction ───────────────────────────────────────────
       // Everything below must either all succeed or all roll back.
       // We cannot have money captured but the card not transferred.
       const { order } = await prisma.$transaction(async (tx) => {
-        // 4a. Create an Order record to represent this sale.
+        // 5a. Create an Order record to represent this sale.
         //     This links the offer, buyer, seller, and amount for history/display.
         const order = await tx.order.create({
           data: {
@@ -144,7 +170,7 @@ export async function PATCH(
           },
         });
 
-        // 4b. Mark the offer as paid and link it to the Order.
+        // 5b. Mark the offer as paid and link it to the Order.
         //     "paid" is the final happy-path status — the buyer got the card.
         await tx.offer.update({
           where: { id: params.id },
@@ -154,7 +180,7 @@ export async function PATCH(
           },
         });
 
-        // 4c. Archive ALL offers on this card (pending, rejected, expired, etc.)
+        // 5c. Archive ALL offers on this card (pending, rejected, expired, etc.)
         //     The card is now sold — neither the new owner nor old buyers should
         //     see these in their active views. History is preserved via archivedAt.
         await tx.offer.updateMany({
@@ -162,7 +188,7 @@ export async function PATCH(
           data: { archivedAt: new Date() },
         });
 
-        // 4d. Transfer card ownership to the buyer.
+        // 5d. Transfer card ownership to the buyer.
         //     - ownerId changes to the buyer
         //     - forSale = false (card is sold, shouldn't appear in marketplace)
         //     - Clear any reservation fields (no longer needed)
@@ -177,7 +203,7 @@ export async function PATCH(
           },
         });
 
-        // 4e. Create a CardTransaction — permanent audit trail of who sold what,
+        // 5e. Create a CardTransaction — permanent audit trail of who sold what,
         //     for how much, and which Stripe PI was used.
         //     (stripeEventId uses the PI id since there's no webhook event here)
         await tx.cardTransaction.create({
