@@ -22,8 +22,9 @@ import { NextRequest } from "next/server";
  *
  *   "accept" — seller accepts the buyer's offer:
  *     1. Check on-demand expiry (if expiresAt passed, expire now and return 409)
- *     2. Capture the Stripe PI (charges the buyer's card)
- *     3. Inside a DB transaction:
+ *     2. Check card is not reserved by an active Buy Now checkout (return 409)
+ *     3. Capture the Stripe PI (charges the buyer's card)
+ *     4. Inside a DB transaction:
  *        a. Create a PAID order record
  *        b. Mark the offer as "paid" and link it to the order
  *        c. Archive ALL offers on the card (so other buyers' offers are closed)
@@ -55,6 +56,7 @@ const mockTx = vi.hoisted(() => ({
 }));
 
 const mockPrisma = vi.hoisted(() => ({
+  card: { findUnique: vi.fn() }, // used by the Buy Now reservation guard (step 3)
   offer: { findUnique: vi.fn(), update: vi.fn() },
   $transaction: vi.fn(),
 }));
@@ -113,6 +115,8 @@ describe("PATCH /api/offers/[id] — accept", () => {
     mockGetServerSession.mockResolvedValue({ user: { id: "seller-1" } });
     // Default: offer is pending and valid
     mockPrisma.offer.findUnique.mockResolvedValue(PENDING_OFFER);
+    // Default: card is NOT reserved (no active Buy Now checkout in progress)
+    mockPrisma.card.findUnique.mockResolvedValue({ reservedById: null, reservedUntil: null });
     // Default: Stripe PI capture succeeds
     mockStripeInstance.paymentIntents.capture.mockResolvedValue({
       id: "pi_123",
@@ -323,7 +327,35 @@ describe("PATCH /api/offers/[id] — accept", () => {
     expect(await res.json()).toMatchObject({ error: "No payment intent found for this offer" });
   });
 
-  // ── On-demand expiry guard ────────────────────────────────────────────────
+  // ── Buy Now reservation guard ─────────────────────────────────────────────
+
+  // What's being tested: the guard that prevents accepting an offer while a
+  // Buy Now checkout is in progress for the same card.
+  //
+  // The checkout flow sets reservedById + reservedUntil on the card but leaves
+  // forSale: true until the Stripe webhook fires. Without this guard, a seller
+  // could accept an offer, transfer the card to the offer buyer, and then the
+  // webhook would try to transfer it again to the Buy Now buyer — who already paid.
+  //
+  // This check runs BEFORE the PI capture so if the card is reserved, no money
+  // moves and the seller just gets a 409 telling them checkout is in progress.
+
+  it("returns 409 when card is actively reserved by a Buy Now checkout", async () => {
+    // Override default: card has an active reservation (Buy Now in progress)
+    mockPrisma.card.findUnique.mockResolvedValue({
+      reservedById: "other-buyer",
+      reservedUntil: new Date(Date.now() + 60_000), // expires 1 minute from now
+    });
+
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "Card is currently reserved by a pending checkout" });
+
+    // PI capture must NOT be called — money must not move when card is reserved
+    expect(mockStripeInstance.paymentIntents.capture).not.toHaveBeenCalled();
+  });
+
+  // ── On-demand expiry guard ─────────────────────────────────────────────────
 
   // What's being tested: the gap between offer expiry and the cron job running.
   //
