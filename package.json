@@ -11,7 +11,10 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "format": "prettier --write .",
-    "seed": "tsx prisma/seed.js"
+    "seed": "tsx prisma/seed.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "prisma": {
     "seed": "tsx prisma/seed.js"
@@ -46,6 +49,8 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.0.0",
+    "vitest": "^2.0.0",
     "@types/bcrypt": "^6.0.0",
     "@types/country-list": "^2.1.4",
     "@types/node": "^20",
