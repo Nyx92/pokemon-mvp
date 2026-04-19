@@ -1,0 +1,52 @@
+name: CI
+
+# Runs on every push to main and on every pull request targeting main.
+# Vercel will only deploy after this passes.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Run tests
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Check out the code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Set up pnpm (must come before setup-node so the cache path is known)
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      # 3. Set up Node with pnpm cache
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      # 4. Install dependencies (includes prisma generate via postinstall)
+      - name: Install dependencies
+        run: pnpm install
+
+      # 5. Run all tests
+      #    Stripe and Prisma are fully mocked — no real DB or Stripe account needed.
+      #    Env vars here match vitest.config.ts defaults; they only need to exist,
+      #    their values don't matter since everything is mocked.
+      - name: Run tests
+        run: pnpm test
+        env:
+          STRIPE_SECRET_KEY: sk_test_fake
+          STRIPE_WEBHOOK_SECRET: whsec_fake
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_fake
+          CRON_SECRET: test-cron-secret
+          NEXTAUTH_SECRET: test-secret
+          NEXTAUTH_URL: http://localhost:3000
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
