@@ -19,16 +19,16 @@ jobs:
         uses: actions/checkout@v4
 
       # 2. Set up pnpm (must come before setup-node so the cache path is known)
+      #    No version needed here — pnpm/action-setup reads it from package.json
+      #    "packageManager" field automatically (e.g. pnpm@10.12.4)
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 10
 
       # 3. Set up Node with pnpm cache
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "pnpm"
 
       # 4. Install dependencies (includes prisma generate via postinstall)
