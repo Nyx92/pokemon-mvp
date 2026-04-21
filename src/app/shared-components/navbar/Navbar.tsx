@@ -1,180 +1,203 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  AppBar,
+  Box,
+  Button,
+  Container,
+  IconButton,
+  Toolbar,
+  Typography,
+} from "@mui/material";
+import PersonIcon from "@mui/icons-material/Person";
+import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { useAuth } from "@/app/hooks/useAuth";
-import { APP_BAR_HEIGHT } from "./constants";
-import { MenuKey } from "./DropdownStoreData";
-import { useNavbarStore } from "../../store/navbarStore";
 
-import NavbarShell from "./NavbarShell";
-import NavbarLogo from "./NavbarLogo";
-import NavbarActionsRow from "./NavbarActionsRow";
-import NavbarHamburgerButton from "./NavbarHamburgerButton";
-import NavbarDropdown from "./NavbarDropdown";
-import NavbarBackdrop from "./NavbarBackdrop";
+const DARK = "#ffffff";
 
-import { useDevIconOffset } from "./hooks/useDevIconOffset";
-import { useCloseMenuOnResize } from "./hooks/useCloseMenuOnResize";
-import { useCloseOnBrowserMouseOut } from "./hooks/useCloseOnBrowserMouseOut";
-
-import "./Navbar.css";
-
-// Toggle this flag to enable or disable navbar effects
-const disableNavEffects = true;
-
-// React.FunctionComponent type is a special type provided by React for functional components.
-// It automatically includes type definitions for props, including handling children as a prop.
-const NavBar: React.FC = () => {
-  const navbarRef = useRef<HTMLElement>(null as unknown as HTMLElement);
-  // opens/closes the hamburger drop down menu
-  const [currentMenu, setCurrentMenu] = useState<MenuKey | null>(null);
-  // a timer that keeps track of the duration of mouse hover on page button
-  const [delayTimer, setDelayTimer] = useState<NodeJS.Timeout | null>(null);
-  // flag to prevent nav menu to close on load
-  const [hasInteractedNav, setHasInteractedNav] = useState(false);
-  // flag to prevent hamburger menu to close on load
-  const [hasInteractedMenu, setHasInteractedMenu] = useState(false);
-  // flag to prevent nav menu to open quickly on load
-  const [allowNavDropdown, setAllowNavDropdown] = useState(false);
-  const goToSignUp = () => (window.location.href = "/auth/signup");
-  const goToSignIn = () => (window.location.href = "/auth/login");
-  const goToProfile = () => (window.location.href = "/profile");
-
-  // Zustand: states + actions
-  const {
-    // opens/closes the drop down nav
-    anchorElNavOpen: anchorElNav,
-    anchorElMenuNavOpen: anchorElMenuNav,
-    selectedDropdownSection,
-    // opens/closes the hamburger drop down menu
-    setAnchorElNavOpen: setAnchorElNav,
-    setAnchorElMenuNavOpen: setAnchorElMenuNav,
-    setSelectedDropdownSection,
-  } = useNavbarStore();
-
+export default function Navbar() {
   const { user, isLoggedIn } = useAuth();
   const displayUser = user?.username ?? "Profile";
 
-  // allow hover dropdown only after a short delay (if enabled)
-  useEffect(() => {
-    if (disableNavEffects) return;
-    const timer = setTimeout(() => setAllowNavDropdown(true), 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // hooks for side effects
-  const devIconOffset = useDevIconOffset(navbarRef);
-  useCloseMenuOnResize({
-    breakpoint: 960,
-    onClose: () => setAnchorElMenuNav(false),
-  });
-  useCloseOnBrowserMouseOut({
-    isOpen: anchorElNav,
-    onClose: () => setAnchorElNav(false),
-  });
-
-  const dropdownAnimationNav = anchorElNav
-    ? "slideDown 1s forwards"
-    : hasInteractedNav
-      ? "slideUp .5s forwards"
-      : "none";
-
-  const dropdownAnimationMenu = anchorElMenuNav
-    ? "slideDown 1s forwards"
-    : hasInteractedMenu
-      ? "slideUp .5s forwards"
-      : "none";
-
-  const handleBackToMenu = () => setSelectedDropdownSection(null);
-
-  const handleCloseNavMenu = () => setAnchorElNav(false);
-
-  const handleMouseLeaveDropDown = () => setAnchorElNav(false);
-
-  const handleMouseLeaveNavButton = () => {
-    if (delayTimer) clearTimeout(delayTimer);
-  };
-
-  const handleMouseEnterNavButton = (page: MenuKey) => {
-    if (!allowNavDropdown) return;
-    setHasInteractedNav(true);
-
-    const timer = setTimeout(() => {
-      setCurrentMenu(page);
-      setAnchorElNav(true);
-    }, 300);
-
-    setDelayTimer(timer);
-  };
-
-  const handleNavigate = (page: MenuKey) => {
-    setAnchorElNav(false);
-    window.location.href = `/${page.toLowerCase()}`;
-  };
-
-  const handleMenuClick = () => {
-    if (anchorElMenuNav) {
-      setAnchorElMenuNav(false);
-    } else {
-      setAnchorElMenuNav(true);
-      setHasInteractedMenu(true);
-    }
-  };
-
   return (
-    <>
-      <NavbarBackdrop
-        show={anchorElNav}
-        topLg={`${APP_BAR_HEIGHT + 350}px`}
-        topXl={`${APP_BAR_HEIGHT + 500}px`}
-        onClick={handleCloseNavMenu}
-      />
+    <AppBar
+      position="fixed"
+      elevation={0}
+      sx={{
+        height: 64,
+        backgroundColor: "#000000",
+        boxShadow: "0 2px 20px rgba(0, 0, 0, 0.40)",
+        zIndex: 1300,
+      }}
+    >
+      <Container maxWidth="xl" sx={{ height: "100%" }}>
+        <Toolbar disableGutters sx={{ height: "100%" }}>
+          {/* ── Logo ──────────────────────────────────────────────────────── */}
+          <Link
+            href="/"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              textDecoration: "none",
+              flexShrink: 0,
+            }}
+          >
+            {/*
+              The logo is a JPEG (black line-art psyduck on a white background).
+              Two CSS tricks remove the white background on a black navbar:
 
-      <NavbarShell
-        navbarRef={navbarRef}
-        isDesktopDropdownOpen={anchorElNav}
-        isMobileMenuOpen={anchorElMenuNav}
-      >
-        <NavbarLogo
-          selectedDropdownSection={selectedDropdownSection}
-          onBack={handleBackToMenu}
-        />
+              1. filter: invert(1)
+                 Flips every colour: black lines → white, white background → black.
 
-        <NavbarActionsRow
-          isDesktopDropdownOpen={anchorElNav}
-          onNavigate={handleNavigate}
-          onMouseEnter={handleMouseEnterNavButton}
-          onMouseLeave={handleMouseLeaveNavButton}
-          isLoggedIn={isLoggedIn}
-          onSignUp={goToSignUp}
-          onSignIn={goToSignIn}
-          onProfile={goToProfile}
-          profileName={displayUser}
-        />
+              2. mix-blend-mode: screen
+                 Screen blends the image with whatever is behind it.
+                 On a black navbar, black pixels (0) screen black (0) = 0 → invisible.
+                 White pixels (255) screen black (0) = 255 → stay white.
+                 Result: black JPEG background disappears, white psyduck lines remain.
 
-        <NavbarHamburgerButton onClick={handleMenuClick} />
-      </NavbarShell>
+              If you ever switch to a light/white navbar, swap both tricks back to
+              mix-blend-mode: multiply (and remove the invert filter) — multiply
+              makes white pixels transparent on light backgrounds instead.
+            */}
+            <Image
+              src="/collateral/Logo.jpeg"
+              alt="PsyDex"
+              width={56}
+              height={56}
+              style={{
+                objectFit: "contain",
+                filter: "invert(1)",
+                mixBlendMode: "screen",
+              }}
+            />
+            {/* Site name — inherits Inter from the root layout font */}
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: 18,
+                color: "#ffffff",
+                letterSpacing: "0.04em",
+              }}
+            >
+              MXYYC
+            </Typography>
+          </Link>
 
-      <NavbarDropdown
-        variant="desktop"
-        open={!!currentMenu && anchorElNav}
-        top={APP_BAR_HEIGHT}
-        animation={dropdownAnimationNav}
-        onMouseLeave={handleMouseLeaveDropDown}
-        devIconOffset={devIconOffset}
-        currentMenu={currentMenu}
-      />
+          {/* ── Spacer ────────────────────────────────────────────────────── */}
+          <Box sx={{ flex: 1 }} />
 
-      <NavbarDropdown
-        variant="mobile"
-        open={hasInteractedMenu && anchorElMenuNav}
-        top={APP_BAR_HEIGHT}
-        animation={dropdownAnimationMenu}
-        onMouseLeave={handleMouseLeaveDropDown}
-        devIconOffset={devIconOffset}
-      />
-    </>
+          {/* ── Icons (kept as direct Toolbar siblings so they don't affect  ── */}
+          {/* ── the auth Box layout below)                                   ── */}
+          <IconButton
+            aria-label="Cart"
+            sx={{
+              color: "#ffffff",
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" },
+            }}
+          >
+            <ShoppingCartOutlinedIcon fontSize="small" />
+          </IconButton>
+
+          <IconButton
+            aria-label="Notifications"
+            sx={{
+              color: "#ffffff",
+              mr: 0.5,
+              "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" },
+            }}
+          >
+            <NotificationsNoneIcon fontSize="small" />
+          </IconButton>
+
+          {/* Thin divider */}
+          <Box
+            sx={{
+              width: "1px",
+              height: 20,
+              backgroundColor: "rgba(255,255,255,0.20)",
+              mx: 1,
+            }}
+          />
+
+          {/* ── Auth ──────────────────────────────────────────────────────── */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {!isLoggedIn ? (
+              <>
+                <Button
+                  href="/auth/signup"
+                  disableElevation
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 700,
+                    fontSize: 14,
+                    px: 2.5,
+                    py: 0.85,
+                    borderRadius: "10px",
+                    backgroundColor: "rgba(255,255,255,0.20)",
+                    color: "#ffffff",
+                    border: "1px solid rgba(255,255,255,0.50)",
+                    "&:hover": { backgroundColor: "rgba(255,255,255,0.30)" },
+                  }}
+                >
+                  Sign up
+                </Button>
+
+                <Button
+                  href="/auth/login"
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 500,
+                    fontSize: 14,
+                    color: "rgba(255,255,255,0.70)",
+                    "&:hover": {
+                      color: "#ffffff",
+                      backgroundColor: "transparent",
+                    },
+                  }}
+                >
+                  Login
+                </Button>
+              </>
+            ) : (
+              <Button
+                href="/profile"
+                disableElevation
+                sx={{
+                  textTransform: "none",
+                  borderRadius: "10px",
+                  px: 1.5,
+                  py: 0.75,
+                  color: DARK,
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  border: "1px solid rgba(255,255,255,0.30)",
+                  "&:hover": { backgroundColor: "rgba(255,255,255,0.25)" },
+                  gap: 1,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 26,
+                    height: 26,
+                    borderRadius: "50%",
+                    backgroundColor: "rgba(255,255,255,0.20)",
+                    display: "grid",
+                    placeItems: "center",
+                  }}
+                >
+                  <PersonIcon sx={{ fontSize: 16, color: DARK }} />
+                </Box>
+
+                <Typography sx={{ fontWeight: 600, fontSize: 14, color: DARK }}>
+                  {displayUser}
+                </Typography>
+              </Button>
+            )}
+          </Box>
+        </Toolbar>
+      </Container>
+    </AppBar>
   );
-};
-
-export default NavBar;
+}
