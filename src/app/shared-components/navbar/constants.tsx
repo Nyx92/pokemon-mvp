@@ -1,1 +1,1 @@
-export const APP_BAR_HEIGHT = "60px";
+export const APP_BAR_HEIGHT = "64px";

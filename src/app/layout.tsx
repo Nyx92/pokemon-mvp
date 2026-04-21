@@ -46,8 +46,8 @@ export default async function RootLayout({
             >
               {/* Global navigation bar */}
               <NavBar />
-              {/* Main content area with 60px padding to account for NavBar height */}
-              <main style={{ flex: 1, paddingTop: "60px" }}>{children}</main>
+              {/* Main content area with top padding to clear the fixed navbar */}
+              <main style={{ flex: 1, paddingTop: "64px" }}>{children}</main>
               {/* Global footer */}
               <Footer />
             </div>
