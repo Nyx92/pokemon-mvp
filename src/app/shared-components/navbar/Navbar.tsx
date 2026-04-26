@@ -31,6 +31,7 @@ export default function Navbar() {
         backgroundColor: "#000000",
         boxShadow: "0 2px 20px rgba(0, 0, 0, 0.40)",
         zIndex: 1300,
+        overflow: "visible",
       }}
     >
       <Container maxWidth="xl" sx={{ height: "100%" }}>
@@ -85,6 +86,26 @@ export default function Navbar() {
               MXYYC
             </Typography>
           </Link>
+
+          {/* ── Ducks decoration ──────────────────────────────────────────── */}
+          {/* <Box
+            sx={{
+              width: { xs: "70px", sm: "90px", md: "110px" },
+              flexShrink: 0,
+              alignSelf: "flex-end",
+              transform: "translateY(33%)",
+              pointerEvents: "none",
+            }}
+          >
+            <Image
+              src="/collateral/ducks_1.jpeg"
+              alt="Ducks hanging on navbar"
+              width={110}
+              height={54}
+              style={{ width: "100%", height: "auto", display: "block" }}
+              priority
+            />
+          </Box> */}
 
           {/* ── Spacer ────────────────────────────────────────────────────── */}
           <Box sx={{ flex: 1 }} />
