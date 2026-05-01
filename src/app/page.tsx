@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Box, Tabs, Tab } from "@mui/material";
 import HomeFeatured from "./home/HomeFeatured";
 import Carousell from "./home/carousell/Carousell";
+import DuckReveal from "./home/DuckReveal";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import UploadIcon from "@mui/icons-material/Upload";
@@ -85,6 +86,7 @@ export default function Home() {
           <HomeFeatured />
         </Box>
       </Box>
+      <DuckReveal />
     </main>
   );
 }
