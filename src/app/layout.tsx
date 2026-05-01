@@ -47,7 +47,17 @@ export default async function RootLayout({
               {/* Global navigation bar */}
               <NavBar />
               {/* Main content area with top padding to clear the fixed navbar */}
-              <main style={{ flex: 1, paddingTop: "64px" }}>{children}</main>
+              <main style={{ flex: 1, paddingTop: "64px" }}>
+                <div
+                  style={{
+                    maxWidth: "1700px",
+                    margin: "0 auto",
+                    width: "100%",
+                  }}
+                >
+                  {children}
+                </div>
+              </main>
               {/* Global footer */}
               <Footer />
             </div>

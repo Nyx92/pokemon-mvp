@@ -25,12 +25,12 @@ export default function DuckReveal() {
 
       const rect = containerRef.current.getBoundingClientRect();
       const scrollable = containerRef.current.offsetHeight - window.innerHeight;
-      // Begin splitting while section is still scrolling into view (before it sticks)
-      const earlyStart = window.innerHeight * 0.85;
-      const totalRange = scrollable + earlyStart;
-      const scrolled = earlyStart - rect.top;
-      const raw = Math.max(0, Math.min(1, scrolled / totalRange));
-      const progress = Math.min(1, raw * 2.5);
+      const earlyStart = 300;
+      const raw = Math.max(
+        0,
+        Math.min(1, (earlyStart - rect.top) / (scrollable + earlyStart))
+      );
+      const progress = Math.pow(raw, 1.5);
 
       const maxOffset = 380;
       duckLeftRef.current.style.transform = `translate(calc(-100% - ${progress * maxOffset}px), -50%)`;
@@ -48,12 +48,12 @@ export default function DuckReveal() {
   }, []);
 
   return (
-    <Box ref={containerRef} sx={{ height: "100vh", position: "relative" }}>
+    <Box ref={containerRef} sx={{ height: "850px", position: "relative" }}>
       <Box
         sx={{
           position: "sticky",
           top: 0,
-          height: "100vh",
+          height: "100%",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
