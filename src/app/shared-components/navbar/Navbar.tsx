@@ -65,7 +65,7 @@ export default function Navbar() {
             */}
             <Image
               src="/collateral/logo.png"
-              alt="PsyDex"
+              alt="A logo"
               width={56}
               height={56}
               style={{
