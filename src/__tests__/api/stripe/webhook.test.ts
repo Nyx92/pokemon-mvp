@@ -421,8 +421,8 @@ describe("POST /api/stripe/webhook", () => {
     // Array-form transaction: $transaction([op1, op2]) → Promise.all runs both
     mockPrisma.$transaction.mockImplementation(async (ops) => Promise.all(ops));
     // These are added directly to mockPrisma for the array form (not mockTx)
-    mockPrisma.order = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } as never;
-    mockPrisma.card = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } as never;
+    (mockPrisma as any).order = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    (mockPrisma as any).card = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);

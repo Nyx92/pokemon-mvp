@@ -24,10 +24,6 @@ import { NextRequest } from "next/server";
  *   All amounts are stored in cents in the DB and converted to dollars in
  *   the response. Each order includes card details, seller info, and buyer
  *   info for display in the transaction history UI.
- *
- *   The viaOffer flag indicates how the sale happened:
- *     viaOffer: false → direct Buy Now checkout (Stripe Checkout)
- *     viaOffer: true  → accepted offer flow (manual PI capture)
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -65,7 +61,6 @@ function makeOrder(overrides = {}) {
     amount: 5000, // S$50.00 in cents — API must convert to dollars for response
     currency: "sgd",
     createdAt: new Date("2026-01-01T00:00:00Z"),
-    offer: null, // null = Buy Now flow (not via offer)
     card: {
       id: "card-1",
       title: "Charizard",
@@ -161,7 +156,6 @@ describe("GET /api/orders", () => {
     mockPrisma.order.findMany.mockResolvedValue([makeOrder()]);
 
     const res = await GET(makeRequest({ type: "sold" }));
-    const data = await res.json();
 
     expect(res.status).toBe(200);
     // Must query by sellerId — not buyerId
@@ -177,7 +171,6 @@ describe("GET /api/orders", () => {
   // The transaction history UI depends on specific fields being present and
   // correctly named. This test verifies the full response shape in one go:
   //   - id, status, amount (dollars), currency, createdAt
-  //   - viaOffer: false (offer field is null → this was a Buy Now purchase)
   //   - card: id, title, condition
   //   - seller: id, username
   //   - buyer: id, username
@@ -194,32 +187,10 @@ describe("GET /api/orders", () => {
       status: "PAID",
       amount: 50,         // converted from 5000 cents
       currency: "sgd",
-      viaOffer: false,    // offer is null → not via offer flow
       card: { id: "card-1", title: "Charizard", condition: "NM" },
       seller: { id: "seller-1", username: "alice" },
       buyer: { id: "buyer-1", username: "bob" },
     });
-  });
-
-  // What's being tested: the viaOffer flag when the order came from an offer.
-  //
-  // Orders can be placed two ways: Buy Now (Stripe Checkout) or accepted offer
-  // (manual PI capture). The UI shows different labels for each. The route
-  // sets viaOffer = !!order.offer — true when the offer relation is present.
-  //
-  // This test uses makeOrder({ offer: { id: "offer-1", ... } }) to simulate
-  // an order that was created through the offer accept flow.
-
-  it("marks viaOffer=true when the order was placed through the offer flow", async () => {
-    mockPrisma.order.findMany.mockResolvedValue([
-      makeOrder({ offer: { id: "offer-1", price: 5000, message: "Can meet up" } }),
-    ]);
-
-    const res = await GET(makeRequest({ type: "purchases" }));
-    const { orders } = await res.json();
-
-    // offer field is present → viaOffer must be true
-    expect(orders[0].viaOffer).toBe(true);
   });
 
   // What's being tested: the empty-list response when the user has no orders.

@@ -176,7 +176,7 @@ export default function MyCollection() {
         <ToggleButtonGroup
           value={filter}
           exclusive
-          onChange={(e, val) => val && setFilter(val)}
+          onChange={(_e, val) => val && setFilter(val)}
           size="small"
           sx={{
             "& .MuiToggleButtonGroup-grouped": {

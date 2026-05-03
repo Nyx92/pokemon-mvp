@@ -53,10 +53,6 @@ export async function GET(req: NextRequest) {
         // - sold: we want to know who bought it from us (buyer)
         seller: { select: { id: true, username: true, email: true } },
         buyer:  { select: { id: true, username: true, email: true } },
-        // Include linked offer so we can show "via offer" label
-        offer: {
-          select: { id: true, price: true, message: true },
-        },
       },
       orderBy: { createdAt: "desc" },
     });
@@ -68,8 +64,6 @@ export async function GET(req: NextRequest) {
       amount: centsToDollars(o.amount),
       currency: o.currency,
       createdAt: o.createdAt.toISOString(),
-      // Was this purchase made via an offer, or direct Buy Now?
-      viaOffer: !!o.offer,
       card: {
         id: o.card.id,
         title: o.card.title,

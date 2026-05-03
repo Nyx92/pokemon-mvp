@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   const cardId = searchParams.get("cardId");
   const myOffer = searchParams.get("myOffer") === "true";
   const mine = searchParams.get("mine") === "true";
+  const received = searchParams.get("received") === "true";
 
   try {
     // ── Viewer: fetch their own offer on a specific card ──────────────────────
@@ -100,6 +101,29 @@ export async function GET(req: NextRequest) {
         orderBy: { createdAt: "desc" },
       });
 
+      return NextResponse.json({
+        offers: offers.map((o) => ({
+          ...o,
+          price: o.price != null ? centsToDollars(o.price) : null,
+        })),
+      });
+    }
+
+    // ── Seller: all active pending offers on their cards ──────────────────────
+    if (received) {
+      const offers = await prisma.offer.findMany({
+        where: {
+          card: { ownerId: userId },
+          archivedAt: null,
+          status: "pending",
+        },
+        include: {
+          card: {
+            select: { id: true, title: true, imageUrls: true, condition: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
       return NextResponse.json({
         offers: offers.map((o) => ({
           ...o,

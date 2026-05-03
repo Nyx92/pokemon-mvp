@@ -19,6 +19,10 @@
     // Enforce strict mode (better type safety but more errors).
     "strict": true,
 
+    // Catch unused imports and local variables.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
     // Do not output compiled JS files since Next.js handles that automatically.
     "noEmit": true,
 

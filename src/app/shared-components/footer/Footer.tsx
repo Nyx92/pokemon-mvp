@@ -87,13 +87,7 @@ const FooterColumn = ({ columnGroups }: FooterColumnProps) => {
   );
 };
 
-// Define the props for Footer component
-interface FooterProps {
-  ref?: React.Ref<HTMLDivElement>;
-}
-
-// Convert Footer component to TSX with forwardRef
-const Footer = forwardRef<HTMLDivElement, FooterProps>((props, ref) => {
+const Footer = forwardRef<HTMLDivElement>((_, ref) => {
   // state to track the name of the currently active modal
   const [activeModalName, setActiveModalName] = useState<FooterNames | "">("");
   const [openModal, setOpenModal] = useState<boolean>(false);
