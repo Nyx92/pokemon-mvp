@@ -64,7 +64,7 @@ export default function Navbar() {
               makes white pixels transparent on light backgrounds instead.
             */}
             <Image
-              src="/collateral/Logo.jpeg"
+              src="/collateral/logo.png"
               alt="PsyDex"
               width={56}
               height={56}
