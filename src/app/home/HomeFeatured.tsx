@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, CircularProgress } from "@mui/material";
 import { useRouter } from "next/navigation";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
+import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import type { CardItem } from "@/types/card";
 
 interface FeaturedData {
@@ -17,9 +18,10 @@ interface SectionRowProps {
   subtitle: string;
   cards: CardItem[];
   onCardClick: (card: CardItem) => void;
+  watchlistedIds: Set<string>;
 }
 
-function SectionRow({ title, subtitle, cards, onCardClick }: SectionRowProps) {
+function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: SectionRowProps) {
   return (
     <Box sx={{ mb: 3 }}>
       <Typography
@@ -59,7 +61,12 @@ function SectionRow({ title, subtitle, cards, onCardClick }: SectionRowProps) {
           }}
         >
           {cards.map((card) => (
-            <CardListItem key={card.id} card={card} onClick={onCardClick} />
+            <CardListItem
+              key={card.id}
+              card={card}
+              watchlisted={watchlistedIds.has(card.id)}
+              onClick={onCardClick}
+            />
           ))}
         </Box>
       )}
@@ -71,6 +78,7 @@ export default function HomeFeatured() {
   const router = useRouter();
   const [data, setData] = useState<FeaturedData | null>(null);
   const [loading, setLoading] = useState(true);
+  const watchlistedIds = useWatchlistIds();
 
   useEffect(() => {
     fetch("/api/home/featured")
@@ -99,18 +107,21 @@ export default function HomeFeatured() {
         subtitle="Trending products."
         cards={data?.bestSellers ?? []}
         onCardClick={handleCardClick}
+        watchlistedIds={watchlistedIds}
       />
       <SectionRow
         title="Highest Transacted."
         subtitle="Popular cards."
         cards={data?.highestTransacted ?? []}
         onCardClick={handleCardClick}
+        watchlistedIds={watchlistedIds}
       />
       <SectionRow
         title="Newly Listed."
         subtitle="Our newest products."
         cards={data?.newlyListed ?? []}
         onCardClick={handleCardClick}
+        watchlistedIds={watchlistedIds}
       />
     </Box>
   );

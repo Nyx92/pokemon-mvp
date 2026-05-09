@@ -22,7 +22,7 @@ const card = await prisma.card.findUnique({
       include: {
         binder: true,
         owner: { select: { id: true, username: true, email: true } },
-        _count: { select: { likes: true } },
+        _count: { select: { watchlist: true } },
       },
     });
 
@@ -30,8 +30,9 @@ const card = await prisma.card.findUnique({
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
-    const likedByUser = session?.user?.id
-      ? !!(await prisma.cardLike.findUnique({
+    // Check if the requesting user has this card watchlisted
+    const watchlistedByUser = session?.user?.id
+      ? !!(await prisma.cardWatchlist.findUnique({
           where: {
             cardId_userId: { cardId: params.id, userId: session.user.id },
           },
@@ -43,8 +44,8 @@ const card = await prisma.card.findUnique({
       card: {
         ...rest,
         price: card.price != null ? centsToDollars(card.price) : null,
-        likesCount: _count.likes,
-        likedByUser,
+        watchlistCount: _count.watchlist,
+        watchlistedByUser,
       },
     });
   } catch (error) {

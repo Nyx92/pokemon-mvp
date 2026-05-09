@@ -19,7 +19,7 @@ datasource db {
 model User {
   id            String   @id @default(cuid())
   firstName     String?  
-  lastName      String?
+  lastName      String? 
   username      String?  @unique
   email         String   @unique
   password      String
@@ -45,7 +45,7 @@ model User {
   reservedCards Card[] @relation("CardReservations")
   sellerTransactions CardTransaction[] @relation("SellerTransactions")
   buyerTransactions  CardTransaction[] @relation("BuyerTransactions")
-  likes         CardLike[]
+  watchlist     CardWatchlist[]
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -143,7 +143,7 @@ model Card {
   offers       Offer[]
   transactions CardTransaction[]
   orders       Order[]
-  likes        CardLike[]
+  watchlist    CardWatchlist[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -224,8 +224,8 @@ model BestSeller {
   createdAt   DateTime @default(now())
 }
 
-// ❤️ CardLike — tracks which users liked which cards
-model CardLike {
+// 🔖 CardWatchlist — tracks which users have watchlisted which cards
+model CardWatchlist {
   id        String   @id @default(uuid())
   card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   cardId    String

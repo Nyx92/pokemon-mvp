@@ -12,12 +12,14 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 import { useAuth } from "@/app/hooks/useAuth";
+import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import CardListItem from "../shared-components/cards/CardListItem";
 import type { CardItem } from "@/types/card";
 
 export default function Marketplace() {
   const { userId } = useAuth();
   const router = useRouter();
+  const watchlistedIds = useWatchlistIds();
   const [cards, setCards] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -105,6 +107,7 @@ export default function Marketplace() {
               <CardListItem
                 key={product.id}
                 card={product}
+                watchlisted={watchlistedIds.has(product.id)}
                 onClick={(card) => router.push(`/cards/${card.id}`)}
               />
             ))

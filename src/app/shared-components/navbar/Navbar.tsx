@@ -10,13 +10,13 @@
  * If you add a new account page, update NAV_ITEMS in ProfileSidebar.tsx too.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
-  AppBar, Box, Button, Container, Divider, IconButton,
+  AppBar, Badge, Box, Button, Container, Divider, IconButton,
   ListItemIcon, Menu, MenuItem, Toolbar, Typography,
 } from "@mui/material";
 import PersonIcon from "@mui/icons-material/Person";
@@ -29,6 +29,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { useAuth } from "@/app/hooks/useAuth";
+import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 
 // ── Dropdown nav items ────────────────────────────────────────────────────────
 // Mirrors the NAV_ITEMS list in ProfileSidebar.tsx — keep them in sync.
@@ -46,6 +47,20 @@ export default function Navbar() {
   const { user, isLoggedIn } = useAuth();
   const router = useRouter();
   const displayUser = user?.username ?? "Profile";
+  const { navbarIconRef, count } = useWatchlistAnimation();
+
+  // Bounce the watchlist icon each time the count increases
+  const prevCountRef = useRef(count);
+  useEffect(() => {
+    if (count > prevCountRef.current && navbarIconRef.current) {
+      const el = navbarIconRef.current;
+      el.style.animation = "none";
+      void el.offsetHeight; // force reflow to restart animation
+      el.style.animation =
+        "watchlist-badge-pop 0.38s cubic-bezier(0.36, 0.07, 0.19, 0.97) both";
+    }
+    prevCountRef.current = count;
+  }, [count, navbarIconRef]);
 
   // ── Dropdown state ────────────────────────────────────────────────────────────
   // anchorEl is the DOM element the Menu positions itself against.
@@ -116,6 +131,31 @@ export default function Navbar() {
           {/* ── Icon buttons ──────────────────────────────────────────────── */}
           <IconButton aria-label="Cart" sx={{ color: "#ffffff", "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}>
             <ShoppingCartOutlinedIcon fontSize="small" />
+          </IconButton>
+
+          <IconButton
+            ref={navbarIconRef as React.Ref<HTMLButtonElement>}
+            aria-label="Watchlist"
+            onClick={() => router.push("/watchlist")}
+            sx={{ color: "#ffffff", "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
+          >
+            <Badge
+              badgeContent={count > 0 ? count : undefined}
+              sx={{
+                "& .MuiBadge-badge": {
+                  backgroundColor: "#0053ff",
+                  color: "#fff",
+                  fontSize: 10,
+                  minWidth: 16,
+                  height: 16,
+                  padding: "0 3px",
+                  top: 2,
+                  right: 2,
+                },
+              }}
+            >
+              <BookmarkBorderIcon fontSize="small" />
+            </Badge>
           </IconButton>
 
           <IconButton aria-label="Notifications" sx={{ color: "#ffffff", mr: 0.5, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}>

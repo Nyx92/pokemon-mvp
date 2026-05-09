@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Box, Typography, IconButton, CircularProgress } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import FavoriteIcon from "@mui/icons-material/Favorite";
-import FavoriteBorderIcon from "@mui/icons-material/FavoriteBorder";
+import BookmarkIcon from "@mui/icons-material/Bookmark";
+import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import { useAuth } from "@/app/hooks/useAuth";
+import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import BuyBox, { type ActiveOffer } from "@/app/shared-components/cards/BuyBox";
 import CardMarketChart from "@/app/shared-components/cards/CardMarketChart";
 import EditPriceDialog from "@/app/shared-components/cards/EditPriceDialog";
@@ -22,12 +23,14 @@ export default function CardDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { userId, isAdmin } = useAuth();
+  const { triggerFly, adjustCount } = useWatchlistAnimation();
+  const watchlistBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const [card, setCard] = useState<CardItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [liked, setLiked] = useState(false);
-  const [likesCount, setLikesCount] = useState(0);
+  const [watchlisted, setWatchlisted] = useState(false);
+  const [watchlistCount, setWatchlistCount] = useState(0);
   const [editPriceOpen, setEditPriceOpen] = useState(false);
   const [placeOfferOpen, setPlaceOfferOpen] = useState(false);
   const [sellerOffersOpen, setSellerOffersOpen] = useState(false);
@@ -45,8 +48,8 @@ export default function CardDetailPage() {
         const data = await res.json();
         if (res.ok) {
           setCard(data.card);
-          setLiked(data.card.likedByUser ?? false);
-          setLikesCount(data.card.likesCount ?? 0);
+          setWatchlisted(data.card.watchlistedByUser ?? false);
+          setWatchlistCount(data.card.watchlistCount ?? 0);
         } else console.error("Error loading card:", data.error);
       } catch (err) {
         console.error("Failed to fetch card:", err);
@@ -121,13 +124,20 @@ export default function CardDetailPage() {
     action();
   };
 
-  const handleLike = () => {
+  const handleWatchlist = () => {
     requireLogin(async () => {
-      const res = await fetch(`/api/cards/${id}/like`, { method: "POST" });
+      const adding = !watchlisted;
+      const res = await fetch(`/api/cards/${id}/watchlist`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        setLiked(data.liked);
-        setLikesCount(data.count);
+        setWatchlisted(data.watchlisted);
+        setWatchlistCount(data.count);
+        if (adding && data.watchlisted) {
+          const rect = watchlistBtnRef.current?.getBoundingClientRect();
+          if (rect) triggerFly(rect, card?.imageUrls?.[0] || "/placeholder.png");
+        } else if (!adding && !data.watchlisted) {
+          adjustCount(-1);
+        }
       }
     });
   };
@@ -229,7 +239,7 @@ export default function CardDetailPage() {
               priority
             />
 
-            {/* Like button — top-right, visible to non-owners */}
+            {/* Watchlist button — top-right, visible to non-owners */}
             {!isOwner && (
               <Box
                 sx={{
@@ -243,23 +253,22 @@ export default function CardDetailPage() {
                 }}
               >
                 <IconButton
-                  onClick={handleLike}
+                  ref={watchlistBtnRef}
+                  onClick={handleWatchlist}
+                  aria-label={watchlisted ? "Remove from watchlist" : "Add to watchlist"}
                   sx={{
                     backgroundColor: "rgba(255,255,255,0.95)",
                     "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
                     p: 0.8,
                   }}
                 >
-                  {liked ? (
-                    <FavoriteIcon color="error" sx={{ fontSize: 20 }} />
-                  ) : (
-                    <FavoriteBorderIcon sx={{ fontSize: 20, color: "#555" }} />
-                  )}
+                  {watchlisted
+                    ? <BookmarkIcon sx={{ fontSize: 20, color: "#0053ff" }} />
+                    : <BookmarkBorderIcon sx={{ fontSize: 20, color: "#555" }} />
+                  }
                 </IconButton>
-                <Typography
-                  sx={{ fontSize: 11, fontWeight: 600, color: "#555" }}
-                >
-                  {likesCount}
+                <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#555" }}>
+                  {watchlistCount}
                 </Typography>
               </Box>
             )}

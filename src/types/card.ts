@@ -15,8 +15,9 @@ export interface CardItem {
   language: string;
   cardNumber: string | null;
 
-  // Optional purely-frontend or future fields
-  likesCount?: number;
+  // Optional fields populated by specific API endpoints
+  watchlistCount?: number;
+  watchlistedByUser?: boolean;
 
   createdAt: string;
   updatedAt: string;

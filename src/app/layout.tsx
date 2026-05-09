@@ -7,6 +7,7 @@ import SessionProviderWrapper from "@/providers/SessionProviderWrapper";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import ThemeRegistry from "@/providers/ThemeRegistry";
+import { WatchlistAnimationProvider } from "@/app/context/WatchlistAnimationContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,30 +38,32 @@ export default async function RootLayout({
         {/* Wrap with SessionProvider so NextAuth session is available throughout */}
         <SessionProviderWrapper session={session}>
           <ThemeRegistry>
-            <div
-              style={{
-                minHeight: "100vh",
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              {/* Global navigation bar */}
-              <NavBar />
-              {/* Main content area with top padding to clear the fixed navbar */}
-              <main style={{ flex: 1, paddingTop: "64px" }}>
-                <div
-                  style={{
-                    maxWidth: "1700px",
-                    margin: "0 auto",
-                    width: "100%",
-                  }}
-                >
-                  {children}
-                </div>
-              </main>
-              {/* Global footer */}
-              <Footer />
-            </div>
+            <WatchlistAnimationProvider>
+              <div
+                style={{
+                  minHeight: "100vh",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {/* Global navigation bar */}
+                <NavBar />
+                {/* Main content area with top padding to clear the fixed navbar */}
+                <main style={{ flex: 1, paddingTop: "64px" }}>
+                  <div
+                    style={{
+                      maxWidth: "1700px",
+                      margin: "0 auto",
+                      width: "100%",
+                    }}
+                  >
+                    {children}
+                  </div>
+                </main>
+                {/* Global footer */}
+                <Footer />
+              </div>
+            </WatchlistAnimationProvider>
           </ThemeRegistry>
         </SessionProviderWrapper>
       </body>
