@@ -8,6 +8,7 @@ A Pokemon card marketplace built with Next.js 14. Users can list cards for sale,
 
 - [Node.js](https://nodejs.org/) **v22+** (use [nvm](https://github.com/nvm-sh/nvm) to manage versions)
 - [pnpm](https://pnpm.io/) — this project enforces pnpm only. Running `npm install` or `yarn install` will fail.
+- [Stripe CLI](https://stripe.com/docs/stripe-cli) — required for local webhook forwarding (`pnpm dev` starts it automatically)
 - A [Supabase](https://supabase.com/) project (Postgres database + image storage)
 - A [Stripe](https://stripe.com/) account (test mode keys are fine for local dev)
 
@@ -49,7 +50,22 @@ NEXT_PUBLIC_USD_TO_SGD_RATE="1.29"
 
 ```bash
 pnpm install    # installs dependencies and runs prisma generate
-pnpm dev        # starts the dev server at http://localhost:3000
+pnpm dev        # starts Next.js (port 3000) AND the Stripe webhook listener in parallel
+```
+
+`pnpm dev` uses [`concurrently`](https://github.com/open-cli-tools/concurrently) to run two processes at the same time:
+
+| Label | Command | What it does |
+|---|---|---|
+| `next` (cyan) | `next dev -p 3000` | Next.js dev server |
+| `stripe` (yellow) | `stripe listen --forward-to localhost:3000/api/stripe/webhook` | Forwards Stripe events to your local server |
+
+Both processes are killed together when you press Ctrl+C — no orphaned processes left running.
+
+If you want to start Next.js **without** the Stripe listener (e.g. UI-only work):
+
+```bash
+pnpm dev:next
 ```
 
 ---
@@ -102,13 +118,17 @@ pnpm prisma generate
 
 ### Webhook (local dev)
 
-The Stripe webhook at `POST /api/stripe/webhook` handles `checkout.session.completed` and `checkout.session.expired` events. To test it locally you need the Stripe CLI:
+The Stripe webhook at `POST /api/stripe/webhook` handles `checkout.session.completed` and `checkout.session.expired` events.
 
-```bash
-stripe listen --forward-to localhost:3000/api/stripe/webhook
+`pnpm dev` automatically starts the Stripe CLI listener alongside Next.js — you don't need to run it manually. When it starts you'll see something like:
+
+```
+[stripe] Ready! Your webhook signing secret is whsec_...
 ```
 
-Copy the webhook signing secret it prints and set it as `STRIPE_WEBHOOK_SECRET` in your `.env`.
+Copy that `whsec_...` value and set it as `STRIPE_WEBHOOK_SECRET` in your `.env`. You only need to do this once — the secret doesn't change between runs.
+
+> **Requires the Stripe CLI** to be installed and authenticated (`stripe login`). See [Prerequisites](#prerequisites).
 
 ### Webhook (production)
 
@@ -171,7 +191,8 @@ open coverage/index.html
 src/__tests__/
 ├── lib/
 │   ├── money.test.ts              # dollarsToCents / centsToDollars utils
-│   └── offerExpiry.test.ts        # expireOffer — PI cancel + DB update logic
+│   ├── offerExpiry.test.ts        # expireOffer — PI cancel + DB update logic
+│   └── formatTimeRemaining.test.ts # offer countdown string formatting
 └── api/
     ├── checkout/
     │   └── route.test.ts          # POST /api/checkout (Buy Now flow)

@@ -205,6 +205,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
         data: expect.objectContaining({
           ownerId: "buyer-1",
           forSale: false,
+          price: null,
           reservedById: null,
           reservedUntil: null,
           reservedCheckoutSessionId: null,

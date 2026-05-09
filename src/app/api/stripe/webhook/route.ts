@@ -208,11 +208,12 @@ export async function POST(req: NextRequest) {
             },
             data: {
               ownerId: buyerId,
-              forSale: false, // card no longer listed after purchase
+              forSale: false,
+              price: null,
               reservedById: null,
               reservedUntil: null,
               reservedCheckoutSessionId: null,
-              binderId: null, // remove from seller binder
+              binderId: null,
             },
           });
 

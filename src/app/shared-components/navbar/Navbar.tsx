@@ -79,7 +79,7 @@ export default function Navbar() {
           {/* ── Logo ──────────────────────────────────────────────────────── */}
           <Link
             href="/"
-            style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0 }}
+            style={{ display: "flex", alignItems: "center", textDecoration: "none", flexShrink: 0, gap: 8 }}
           >
             {/*
               The logo is a JPEG (black line-art psyduck on a white background).
@@ -101,8 +101,8 @@ export default function Navbar() {
             <Image
               src="/collateral/logo.png"
               alt="A logo"
-              width={56}
-              height={56}
+              width={40}
+              height={40}
               style={{ objectFit: "contain", filter: "invert(1)", mixBlendMode: "screen" }}
             />
             <Typography sx={{ fontWeight: 700, fontSize: 18, color: "#ffffff", letterSpacing: "0.04em" }}>

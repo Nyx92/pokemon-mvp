@@ -191,12 +191,14 @@ export async function PATCH(
         // 5d. Transfer card ownership to the buyer.
         //     - ownerId changes to the buyer
         //     - forSale = false (card is sold, shouldn't appear in marketplace)
+        //     - price = null (listing price is cleared — card has a new owner)
         //     - Clear any reservation fields (no longer needed)
         await tx.card.update({
           where: { id: cardId },
           data: {
             ownerId: offer.buyerId,
             forSale: false,
+            price: null,
             reservedById: null,
             reservedUntil: null,
             reservedCheckoutSessionId: null,

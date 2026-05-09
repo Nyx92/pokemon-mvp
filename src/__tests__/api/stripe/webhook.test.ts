@@ -231,7 +231,7 @@ describe("POST /api/stripe/webhook", () => {
     expect(mockTx.card.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ id: "card-1", reservedById: "buyer-1" }),
-        data: expect.objectContaining({ ownerId: "buyer-1", forSale: false }),
+        data: expect.objectContaining({ ownerId: "buyer-1", forSale: false, price: null }),
       })
     );
 

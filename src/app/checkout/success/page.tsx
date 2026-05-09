@@ -12,7 +12,7 @@ export default async function CheckoutSuccessPage({
 }) {
   const sessionId = searchParams.session_id;
   // No session id — redirect to transactions page with success banner
-  if (!sessionId) redirect("/profile/transactions?tab=purchases&success=1");
+  if (!sessionId) redirect("/purchases?success=1");
 
   // Verify the Stripe session exists (server-side guard against spoofed IDs)
   const session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -21,6 +21,6 @@ export default async function CheckoutSuccessPage({
   //   - success=1 → shows the success banner
   //   - session_id → available for future use (e.g. highlighting the specific order)
   redirect(
-    `/profile/transactions?tab=purchases&success=1&session_id=${encodeURIComponent(session.id)}`
+    `/purchases?success=1&session_id=${encodeURIComponent(session.id)}`
   );
 }

@@ -475,7 +475,7 @@ export default function CardDetailPage() {
             // (which would show a confusing state), send the seller to their
             // Transaction History → Sold tab so they can see the completed sale.
             setSellerOffersOpen(false);
-            window.location.href = "/profile/transactions?tab=sold&success=1";
+            window.location.href = "/sold";
           }}
         />
       )}
