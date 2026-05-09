@@ -2,24 +2,15 @@
 
 import { useState, useMemo } from "react";
 import {
-  Box,
-  Button,
-  Grid,
-  TextField,
-  Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
+  Box, Button, Grid, TextField, Typography,
+  FormControl, InputLabel, Select, MenuItem,
+  CircularProgress, Snackbar, Alert,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { getNames } from "country-list";
 import { useAuth } from "@/app/hooks/useAuth";
-import Snackbar from "@mui/material/Snackbar";
-import Alert from "@mui/material/Alert";
+import AccountLayout from "@/app/shared-components/AccountLayout";
 
-// ✅ Utility: convert ISO → YYYY-MM-DD
 const toInputDate = (isoDate: string) => {
   if (!isoDate) return "";
   const parts = isoDate.split("/");
@@ -31,28 +22,36 @@ const toInputDate = (isoDate: string) => {
   return isNaN(d.getTime()) ? "" : d.toISOString().split("T")[0];
 };
 
+const FIELD_SX = {
+  "& .MuiInputBase-root:before": { borderBottomColor: "#ccc" },
+  "& .MuiInputBase-root:hover:not(.Mui-disabled):before": { borderBottomColor: "#999" },
+  "& .MuiInputBase-root:after": { borderBottomColor: "black" },
+};
+
+const SELECT_SX = {
+  "&::before": { borderBottomColor: "#ccc" },
+  "&:hover:not(.Mui-disabled, .Mui-error):before": { borderBottomColor: "#999" },
+  "&::after": { borderBottomColor: "black" },
+};
+
 export default function EditProfilePage() {
   const router = useRouter();
   const countryOptions = useMemo(() => getNames().sort(), []);
-  const { user: displayUser, status, update } = useAuth();
+  const { user, status, update } = useAuth();
 
   const [saving, setSaving] = useState(false);
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: "success" | "error";
-  }>({ open: false, message: "", severity: "success" });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>
+    ({ open: false, message: "", severity: "success" });
 
-  // ✅ Initialize form immediately (no post-hydration update)
   const [form, setForm] = useState(() => ({
-    firstName: displayUser?.firstName || "",
-    lastName: displayUser?.lastName || "",
-    username: displayUser?.username || "",
-    email: displayUser?.email || "",
-    country: displayUser?.country || "Singapore",
-    sex: displayUser?.sex || "",
-    dob: displayUser?.dob ? toInputDate(displayUser.dob) : "",
-    address: displayUser?.address || "",
+    firstName: user?.firstName || "",
+    lastName:  user?.lastName  || "",
+    username:  user?.username  || "",
+    email:     user?.email     || "",
+    country:   user?.country   || "Singapore",
+    sex:       user?.sex       || "",
+    dob:       user?.dob ? toInputDate(user.dob) : "",
+    address:   user?.address   || "",
   }));
 
   const handleChange = (field: string, value: string) =>
@@ -61,170 +60,89 @@ export default function EditProfilePage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const formattedDob = form.dob ? form.dob.split("T")[0] : null;
-
       const res = await fetch("/api/user", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, dob: formattedDob }),
+        body: JSON.stringify({ ...form, dob: form.dob ? form.dob.split("T")[0] : null }),
       });
-
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Update failed");
-
-      // ✅ Refresh session immediately so SSR + client see latest data
       await update();
-
-      setSnackbar({
-        open: true,
-        message: "✅ Profile updated successfully!",
-        severity: "success",
-      });
-
+      setSnackbar({ open: true, message: "Profile updated successfully!", severity: "success" });
       setTimeout(() => router.replace("/profile"), 1000);
     } catch (err) {
-      console.error("❌ Update failed:", err);
-      setSnackbar({
-        open: true,
-        message: "❌ Failed to update profile. Please try again.",
-        severity: "error",
-      });
+      console.error(err);
+      setSnackbar({ open: true, message: "Failed to update profile. Please try again.", severity: "error" });
     } finally {
       setSaving(false);
     }
   };
 
-  // loading
   if (status === "loading") {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "60vh",
-        }}
-      >
-        <CircularProgress size={40} />
-      </Box>
+      <AccountLayout>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
+          <CircularProgress />
+        </Box>
+      </AccountLayout>
     );
   }
 
-  // Guard
-  if (!displayUser) {
+  if (!user) {
     return (
-      <Box sx={{ py: 6 }}>
-        <Typography textAlign="center" color="text.secondary">
-          Please sign in to edit your profile.
-        </Typography>
-      </Box>
+      <AccountLayout>
+        <Box sx={{ py: 6 }}>
+          <Typography textAlign="center" color="text.secondary">Please sign in to edit your profile.</Typography>
+        </Box>
+      </AccountLayout>
     );
   }
 
   return (
-    <Box
-      sx={{
-        height: "75vh",
-        maxWidth: 700,
-        mx: "auto",
-        mt: 5,
-        px: 2,
-        pb: 10,
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      {/* Keep title fixed at the top */}
-      <Typography
-        variant="h5"
-        sx={{
-          fontWeight: "bold",
-          textAlign: "left",
-        }}
-      >
+    <AccountLayout>
+      <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
         Edit Profile
       </Typography>
 
-      {/* Wrap the form in a flex box that centers vertically */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
-          pt: 7, // space between edit and form
-        }}
-      >
-        <Box sx={{ width: "100%" }}>
-          <Grid container spacing={4}>
-            {[
+      <Box sx={{ bgcolor: "#fff", borderRadius: 2.5, border: "1px solid #e5e7eb", overflow: "hidden" }}>
+        <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #f3f4f6" }}>
+          <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Personal Information</Typography>
+        </Box>
+
+        <Box sx={{ px: 3, py: 3 }}>
+          <Grid container spacing={3}>
+            {([
               { label: "First Name", field: "firstName" },
-              { label: "Last Name", field: "lastName" },
-              { label: "Username", field: "username" },
-              { label: "Email", field: "email" },
-            ].map(({ label, field }) => (
-              <Grid size={{ xs: 12 }} key={field}>
+              { label: "Last Name",  field: "lastName"  },
+              { label: "Username",   field: "username"  },
+              { label: "Email",      field: "email"     },
+            ] as const).map(({ label, field }) => (
+              <Grid size={{ xs: 12, sm: 6 }} key={field}>
                 <TextField
                   fullWidth
                   label={label}
                   variant="standard"
-                  value={form[field as keyof typeof form]}
+                  value={form[field]}
                   onChange={(e) => handleChange(field, e.target.value)}
                   slotProps={{ inputLabel: { shrink: true } }}
-                  sx={{
-                    "& .MuiInputBase-root:before": {
-                      borderBottomColor: "#ccc",
-                    },
-                    "& .MuiInputBase-root:hover:not(.Mui-disabled):before": {
-                      borderBottomColor: "#999",
-                    },
-                    "& .MuiInputBase-root:after": {
-                      borderBottomColor: "black",
-                    },
-                  }}
+                  sx={FIELD_SX}
                 />
               </Grid>
             ))}
 
-            {/* Country */}
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth variant="standard">
                 <InputLabel shrink>Country</InputLabel>
-                <Select
-                  value={form.country}
-                  onChange={(e) => handleChange("country", e.target.value)}
-                  sx={{
-                    "&::before": { borderBottomColor: "#ccc" },
-                    "&:hover:not(.Mui-disabled, .Mui-error):before": {
-                      borderBottomColor: "#999",
-                    },
-                    "&::after": { borderBottomColor: "black" },
-                  }}
-                >
-                  {countryOptions.map((country) => (
-                    <MenuItem key={country} value={country}>
-                      {country}
-                    </MenuItem>
-                  ))}
+                <Select value={form.country} onChange={(e) => handleChange("country", e.target.value)} sx={SELECT_SX}>
+                  {countryOptions.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                 </Select>
               </FormControl>
             </Grid>
 
-            {/* Sex */}
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <FormControl fullWidth variant="standard">
                 <InputLabel shrink>Sex</InputLabel>
-                <Select
-                  value={form.sex}
-                  onChange={(e) => handleChange("sex", e.target.value)}
-                  sx={{
-                    "&::before": { borderBottomColor: "#ccc" },
-                    "&:hover:not(.Mui-disabled, .Mui-error):before": {
-                      borderBottomColor: "#999",
-                    },
-                    "&::after": { borderBottomColor: "black" },
-                  }}
-                >
+                <Select value={form.sex} onChange={(e) => handleChange("sex", e.target.value)} sx={SELECT_SX}>
                   <MenuItem value="Male">Male</MenuItem>
                   <MenuItem value="Female">Female</MenuItem>
                   <MenuItem value="Other">Other</MenuItem>
@@ -232,64 +150,44 @@ export default function EditProfilePage() {
               </FormControl>
             </Grid>
 
-            {/* DOB */}
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                fullWidth
-                variant="standard"
-                label="Date of Birth"
-                type="date"
+                fullWidth variant="standard" label="Date of Birth" type="date"
                 value={form.dob}
                 onChange={(e) => handleChange("dob", e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
-                sx={{
-                  "& .MuiInputBase-root:before": { borderBottomColor: "#ccc" },
-                  "& .MuiInputBase-root:hover:not(.Mui-disabled):before": {
-                    borderBottomColor: "#999",
-                  },
-                  "& .MuiInputBase-root:after": { borderBottomColor: "black" },
-                }}
+                sx={FIELD_SX}
               />
             </Grid>
 
-            {/* Address */}
-            <Grid size={{ xs: 12 }}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                fullWidth
-                label="Address"
-                variant="standard"
+                fullWidth variant="standard" label="Address"
                 value={form.address}
                 onChange={(e) => handleChange("address", e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
-                sx={{
-                  "& .MuiInputBase-root:before": { borderBottomColor: "#ccc" },
-                  "& .MuiInputBase-root:hover:not(.Mui-disabled):before": {
-                    borderBottomColor: "#999",
-                  },
-                  "& .MuiInputBase-root:after": { borderBottomColor: "black" },
-                }}
+                sx={FIELD_SX}
               />
             </Grid>
           </Grid>
 
-          <Button
-            variant="contained"
-            fullWidth
-            disabled={saving}
-            sx={{
-              mt: 5,
-              backgroundColor: "black",
-              color: "white",
-              textTransform: "none",
-              fontWeight: "bold",
-              py: 1.4,
-              "&:hover": { backgroundColor: "#333" },
-              "&.Mui-disabled": { backgroundColor: "#111", opacity: 0.5 },
-            }}
-            onClick={handleSave}
-          >
-            {saving ? "Saving..." : "Save"}
-          </Button>
+          <Box sx={{ display: "flex", gap: 1.5, mt: 4, justifyContent: "flex-end" }}>
+            <Button
+              variant="outlined"
+              onClick={() => router.back()}
+              sx={{ textTransform: "none", fontWeight: 600, borderRadius: 1.5, borderColor: "#d1d5db", color: "#374151", "&:hover": { borderColor: "#9ca3af", bgcolor: "#f9fafb" } }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              disabled={saving}
+              onClick={handleSave}
+              sx={{ textTransform: "none", fontWeight: 700, borderRadius: 1.5, bgcolor: "#111827", "&:hover": { bgcolor: "#1f2937" }, "&.Mui-disabled": { bgcolor: "#111", opacity: 0.5 } }}
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
+          </Box>
         </Box>
       </Box>
 
@@ -299,15 +197,10 @@ export default function EditProfilePage() {
         onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       >
-        <Alert
-          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: "100%" }}
-        >
+        <Alert onClose={() => setSnackbar((s) => ({ ...s, open: false }))} severity={snackbar.severity} variant="filled" sx={{ width: "100%" }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </AccountLayout>
   );
 }
