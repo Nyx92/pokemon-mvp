@@ -109,13 +109,32 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // ── Seller: all active pending offers on their cards ──────────────────────
+    // ── Seller: all incoming offers across all four lifecycle states ──────────
+    // Returns pending (active), rejected, expired, and paid/accepted (history)
+    // so the /offers page can split them into Active / Accepted / Declined / Expired
+    // tabs on the frontend without a second request.
+    //
+    // Why the OR clause:
+    //   - archivedAt: null  catches pending, rejected, and expired offers (the card
+    //     is still owned by the seller or the offer just ended).
+    //   - status paid/accepted catches accepted offers, which the accept flow also
+    //     archives (step 5c archives ALL offers on the card, including the one just
+    //     marked "paid" in step 5b). Without this second branch, accepted offers
+    //     would be invisible to the seller entirely.
+    //
+    // Offers archived for other reasons (e.g. card sold via checkout before the
+    // seller responded) stay out — they have archivedAt set and status "pending",
+    // which matches neither branch.
     if (received) {
       const offers = await prisma.offer.findMany({
         where: {
-          card: { ownerId: userId },
-          archivedAt: null,
-          status: "pending",
+          // Filter by the snapshotted seller id, not card.ownerId.
+          // After a sale, card.ownerId flips to the buyer — sellerId stays fixed.
+          sellerId: userId,
+          OR: [
+            { archivedAt: null },                              // pending, rejected, expired
+            { status: { in: ["paid", "accepted"] } },         // accepted (archived by step 5c)
+          ],
         },
         include: {
           card: {
@@ -305,6 +324,9 @@ export async function POST(req: NextRequest) {
       data: {
         cardId,
         buyerId,
+        // Snapshot the current card owner as the seller. We can't rely on
+        // card.ownerId later because it changes when the card is transferred.
+        sellerId: card.ownerId,
         price: priceInCents,
         message: cleanMessage,
         status: "pending",

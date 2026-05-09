@@ -70,6 +70,9 @@ export interface ReceivedOfferRow {
 export const OFFER_STATUS_LABEL: Record<string, string> = {
   pending:  "Pending",
   accepted: "Accepted",
+  // "paid" is the terminal accepted state — funds captured, card transferred.
+  // Both "accepted" and "paid" render as "Accepted" to the user.
+  paid:     "Accepted",
   rejected: "Declined",
   expired:  "Expired",
 };
@@ -164,21 +167,37 @@ export function OrderCard({ order }: { order: OrderRow }) {
 
 /**
  * Renders an offer I placed on someone else's card (buyer POV).
- * Used in /offers → "Offers Placed" view.
+ * Used in /offers → "Offers Placed" → Active and Expired tabs.
  *
  * Layout:
- *   Dark header: Status · Offer validity (if pending) · Offer date
- *   Body grid:   [image] [title + condition] [offer amount]
+ *   Header: Status · Offer validity (pending only) · Offer date
+ *   Body:   [image] [title + condition] [offer amount]
  *
- * Pending status shows "Awaiting seller's response".
- * Non-pending shows the canonical label from OFFER_STATUS_LABEL.
+ * Status label priority:
+ *   archivedAt set  → "Card no longer available" (card sold to someone else via checkout)
+ *   status pending  → "Awaiting seller's response"
+ *   anything else   → canonical label from OFFER_STATUS_LABEL (Declined, Expired…)
  */
 export function PlacedOfferCard({ offer }: { offer: OfferRow }) {
   const router = useRouter();
-  const statusLabel = offer.status === "pending"
-    ? "Awaiting seller's response"
-    : (OFFER_STATUS_LABEL[offer.status] ?? offer.status);
-  const timeLeft = offer.status === "pending" ? formatTimeRemaining(offer.expiresAt) : null;
+
+  // "Card no longer available" only applies when archivedAt is set AND status is
+  // still "pending" — meaning the card was sold to another buyer via direct checkout
+  // before the seller responded to this offer. The offer was never acted on.
+  //
+  // Paid/accepted offers also have archivedAt set (step 5c of the accept flow
+  // archives everything on the card), but those should show "Accepted" — not this.
+  const statusLabel = (offer.archivedAt && offer.status === "pending")
+    ? "Card no longer available"
+    : offer.status === "pending"
+      ? "Awaiting seller's response"
+      : (OFFER_STATUS_LABEL[offer.status] ?? offer.status);
+
+  // Only show the countdown for live pending offers — not for archived or ended ones.
+  const timeLeft = (!offer.archivedAt && offer.status === "pending")
+    ? formatTimeRemaining(offer.expiresAt)
+    : null;
+
   const dateStr = new Date(offer.createdAt).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
   return (
@@ -211,22 +230,42 @@ export function PlacedOfferCard({ offer }: { offer: OfferRow }) {
 
 /**
  * Renders an offer received on one of my listings (seller POV).
- * Used in /offers → "Incoming Offers" view.
+ * Used in /offers → "Incoming Offers" → Active and Expired tabs.
  *
  * Layout:
- *   Dark header: Status "Action required" · Offer validity · Received date
- *   Body grid:   [image] [title + condition] [offered amount + Accept/Decline buttons]
+ *   Header: Status · Offer validity (pending only) · Received date
+ *   Body:   [image] [title + condition] [offered amount + Accept/Decline (pending only)]
  *
- * Accept/Decline:
- *   Calls PATCH /api/offers/[id] { action: "accept" | "reject" }.
- *   See: src/app/api/offers/[id]/route.ts for the full accept/reject flow
- *   (captures Stripe PaymentIntent, transfers card ownership, archives other offers).
- *   On success, calls onRespond(id) → parent removes the card from the list.
+ * Pending offers:  "Action required" status + Accept/Decline buttons
+ * Ended offers:    canonical status label (Declined / Expired) + no action buttons
+ *
+ * onRespond(id, action):
+ *   Called on successful API response. The parent uses the action to decide
+ *   whether to remove the offer (accept → card is gone) or update its status
+ *   in-place (reject → moves to Expired tab without requiring a page refresh).
+ *   See: src/app/api/offers/[id]/route.ts for the full accept/reject flow.
  */
-export function ReceivedOfferCard({ offer, onRespond }: { offer: ReceivedOfferRow; onRespond: (id: string) => void }) {
+export function ReceivedOfferCard({
+  offer,
+  onRespond,
+}: {
+  offer: ReceivedOfferRow;
+  onRespond: (id: string, action: "accept" | "reject") => void;
+}) {
   const router = useRouter();
   const [actioning, setActioning] = useState<"accept" | "reject" | null>(null);
-  const timeLeft = formatTimeRemaining(offer.expiresAt);
+
+  // Determines which display mode to use — actionable vs history-only.
+  const isPending = offer.status === "pending";
+
+  // "Action required" for pending offers; canonical label for ended ones.
+  const statusLabel = isPending
+    ? "Action required"
+    : (OFFER_STATUS_LABEL[offer.status] ?? offer.status);
+
+  // Only show the countdown while the offer is still live.
+  const timeLeft = isPending ? formatTimeRemaining(offer.expiresAt) : null;
+
   const dateStr = new Date(offer.createdAt).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
   const handleAction = async (action: "accept" | "reject") => {
@@ -237,7 +276,10 @@ export function ReceivedOfferCard({ offer, onRespond }: { offer: ReceivedOfferRo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
       });
-      if (res.ok) onRespond(offer.id);
+      // Pass the action to the parent so it can decide how to update local state:
+      //   accept → remove the card entirely (card is now sold to the buyer)
+      //   reject → update status in-place so the offer moves to the Expired tab
+      if (res.ok) onRespond(offer.id, action);
     } catch {
       // silently fail — user can retry
     } finally {
@@ -249,7 +291,7 @@ export function ReceivedOfferCard({ offer, onRespond }: { offer: ReceivedOfferRo
     <Box sx={{ border: "1px solid #e5e7eb", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
       <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #f3f4f6" }}>
         <Box sx={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          <HeaderMeta label="Status" value="Action required" />
+          <HeaderMeta label="Status" value={statusLabel} />
           {timeLeft && <HeaderMeta label="Offer validity" value={timeLeft} />}
         </Box>
         <HeaderMeta label="Received on" value={dateStr} />
@@ -264,17 +306,20 @@ export function ReceivedOfferCard({ offer, onRespond }: { offer: ReceivedOfferRo
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
           <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Offered</Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: { xs: 17, md: 20 }, color: "#111", mb: 1.5 }}>
+          <Typography sx={{ fontWeight: 800, fontSize: { xs: 17, md: 20 }, color: "#111", mb: isPending ? 1.5 : 0 }}>
             {offer.price != null ? `S$${offer.price.toFixed(2)}` : "—"}
           </Typography>
-          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
-            <Button size="small" variant="contained" onClick={() => handleAction("accept")} disabled={!!actioning} sx={{ bgcolor: "#065f46", "&:hover": { bgcolor: "#047857" }, textTransform: "none", fontWeight: 700, fontSize: 12, px: 1.5, minWidth: 64 }}>
-              {actioning === "accept" ? <CircularProgress size={12} sx={{ color: "#fff" }} /> : "Accept"}
-            </Button>
-            <Button size="small" variant="outlined" onClick={() => handleAction("reject")} disabled={!!actioning} sx={{ borderColor: "#dc2626", color: "#dc2626", "&:hover": { bgcolor: "rgba(220,38,38,0.06)", borderColor: "#dc2626" }, textTransform: "none", fontWeight: 700, fontSize: 12, px: 1.5, minWidth: 64 }}>
-              {actioning === "reject" ? <CircularProgress size={12} sx={{ color: "#dc2626" }} /> : "Decline"}
-            </Button>
-          </Box>
+          {/* Accept / Decline buttons — only shown for pending (actionable) offers */}
+          {isPending && (
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+              <Button size="small" variant="contained" onClick={() => handleAction("accept")} disabled={!!actioning} sx={{ bgcolor: "#065f46", "&:hover": { bgcolor: "#047857" }, textTransform: "none", fontWeight: 700, fontSize: 12, px: 1.5, minWidth: 64 }}>
+                {actioning === "accept" ? <CircularProgress size={12} sx={{ color: "#fff" }} /> : "Accept"}
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => handleAction("reject")} disabled={!!actioning} sx={{ borderColor: "#dc2626", color: "#dc2626", "&:hover": { bgcolor: "rgba(220,38,38,0.06)", borderColor: "#dc2626" }, textTransform: "none", fontWeight: 700, fontSize: 12, px: 1.5, minWidth: 64 }}>
+                {actioning === "reject" ? <CircularProgress size={12} sx={{ color: "#dc2626" }} /> : "Decline"}
+              </Button>
+            </Box>
+          )}
         </Box>
       </Box>
     </Box>

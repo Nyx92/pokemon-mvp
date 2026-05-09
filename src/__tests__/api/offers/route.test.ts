@@ -25,6 +25,7 @@ import { NextRequest } from "next/server";
  *     a) ?cardId=&myOffer=true → buyer's own offer on a specific card
  *     b) ?cardId=              → all offers on a card (seller only)
  *     c) ?mine=true            → all of the buyer's offers across all cards
+ *     d) ?received=true        → all offers received on the seller's cards (all lifecycle states)
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -238,6 +239,7 @@ describe("POST /api/offers", () => {
       id: "offer-1",
       cardId: "card-1",
       buyerId: "buyer-1",
+      sellerId: "seller-1", // snapshotted from card.ownerId at creation time
       price: 5000, // stored in cents
       message: null,
       status: "pending",
@@ -257,12 +259,14 @@ describe("POST /api/offers", () => {
     expect(data.offer.price).toBe(50);
     expect(data.offer.status).toBe("pending");
 
-    // Verify the offer was saved with the correct fields
+    // Verify the offer was saved with the correct fields, including the
+    // snapshotted sellerId (card.ownerId at creation time, before any transfer)
     expect(mockPrisma.offer.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           cardId: "card-1",
           buyerId: "buyer-1",
+          sellerId: "seller-1", // snapshotted from card.ownerId
           status: "pending",
           paymentIntentId: "pi_1",
           expiresAt: expect.any(Date), // 24h from now
@@ -342,6 +346,11 @@ describe("POST /api/offers", () => {
         }),
       })
     );
+
+    // sellerId must NOT be in the update — it was snapshotted at creation and
+    // is immutable. Changing it on amend would break the seller's offer history.
+    const updateCall = mockPrisma.offer.update.mock.calls[0][0];
+    expect(updateCall.data).not.toHaveProperty("sellerId");
   });
 
   // What's being tested: resilience when the old PI cancel fails during an amend.
@@ -530,5 +539,74 @@ describe("GET /api/offers", () => {
     // Prices converted from cents to dollars
     expect(data.offers[0].price).toBe(50);  // 5000 → 50
     expect(data.offers[1].price).toBe(30);  // 3000 → 30
+  });
+
+  // ── Seller: received offers across all lifecycle states ──────────────────
+
+  // What's being tested: the seller fetching incoming offers for the /offers page.
+  //
+  // The frontend splits results into 4 tabs: Active (pending), Accepted (paid),
+  // Declined (rejected), and Expired. The API must return all four statuses so the
+  // UI can populate every tab without a second request.
+  //
+  // Key edge case: accepted/paid offers have BOTH status "paid" AND archivedAt set
+  // (step 5c of the accept flow archives ALL offers on the card, including the one
+  // just accepted). An archivedAt: null filter would make them invisible entirely.
+  //
+  // The route handles this with a Prisma OR clause:
+  //   OR: [{ archivedAt: null }, { status: { in: ["paid", "accepted"] } }]
+  //
+  // This test verifies that accepted/paid offers are returned alongside the other
+  // lifecycle states, and that the query uses the OR clause (not a bare archivedAt filter).
+
+  it("returns all lifecycle states (pending, expired, rejected, paid) for received=true", async () => {
+    mockGetServerSession.mockResolvedValue({ user: { id: "seller-1" } });
+    mockPrisma.offer.findMany.mockResolvedValue([
+      {
+        id: "offer-1", price: 5000, status: "pending", archivedAt: null,
+        card: { id: "card-1", title: "Charizard", imageUrls: [], condition: "NM" },
+      },
+      {
+        id: "offer-2", price: 3000, status: "expired", archivedAt: null,
+        card: { id: "card-1", title: "Charizard", imageUrls: [], condition: "NM" },
+      },
+      {
+        id: "offer-3", price: 4000, status: "rejected", archivedAt: null,
+        card: { id: "card-1", title: "Charizard", imageUrls: [], condition: "NM" },
+      },
+      {
+        // Accepted/paid offers are archived by step 5c of the accept flow —
+        // archivedAt is set even though the offer succeeded.
+        id: "offer-4", price: 6000, status: "paid", archivedAt: new Date(),
+        card: { id: "card-2", title: "Blastoise", imageUrls: [], condition: "LP" },
+      },
+    ]);
+
+    const res = await GET(getRequest({ received: "true" }));
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    // All four statuses are returned — pending, expired, rejected, and paid
+    expect(data.offers).toHaveLength(4);
+    // Prices converted from cents to dollars
+    expect(data.offers[0].price).toBe(50);  // 5000 → 50
+    expect(data.offers[1].price).toBe(30);  // 3000 → 30
+    expect(data.offers[2].price).toBe(40);  // 4000 → 40
+    expect(data.offers[3].price).toBe(60);  // 6000 → 60
+
+    // The query must use sellerId (not card.ownerId) so that accepted offers
+    // remain visible after the card transfers to the buyer.
+    // It also needs the OR clause to capture archived accepted/paid offers.
+    expect(mockPrisma.offer.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sellerId: "seller-1",
+          OR: expect.arrayContaining([
+            { archivedAt: null },
+            { status: { in: expect.arrayContaining(["paid", "accepted"]) } },
+          ]),
+        }),
+      }),
+    );
   });
 });

@@ -624,7 +624,7 @@ async function main() {
 
   console.log("✅ Cards created for Ash and Misty");
 
-  // Offer (updated to priceCents)
+  // Offer — Misty (buyer) offers on Ash's Charizard (seller)
   const offer = await prisma.offer.create({
     data: {
       price: dollarsToCents(100),
@@ -632,6 +632,7 @@ async function main() {
       status: "pending",
       cardId: charizard.id,
       buyerId: misty.id,
+      sellerId: ash.id,
     },
   });
 

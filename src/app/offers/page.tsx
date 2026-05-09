@@ -1,13 +1,18 @@
 "use client";
 /**
- * /offers — shows the current user's offer activity, split into two views:
+ * /offers — the current user's offer activity, split into two views:
  *
  *   "Offers Placed"   — offers I made on other sellers' cards
  *                       Data: GET /api/offers?mine=true
  *   "Incoming Offers" — offers other buyers made on my listings
  *                       Data: GET /api/offers?received=true
  *
- * Both fetches run in parallel on mount. A dropdown lets the user switch views.
+ * Within each view, offers are split into two tabs:
+ *   "Active"  — pending offers (still waiting for a response)
+ *   "Expired" — ended offers (rejected, expired, or card sold to someone else)
+ *
+ * Both fetches run in parallel on mount.
+ * Switching views resets the active tab.
  *
  * Auth:   client-side via useAuth; redirects to /auth/login if unauthenticated.
  * Layout: AccountLayout (sidebar + content panel)
@@ -16,12 +21,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Box, Typography, TextField, InputAdornment, IconButton,
-  CircularProgress, Alert, Select, MenuItem, Divider,
+  Box, Typography, CircularProgress, Alert, Button,
 } from "@mui/material";
 import GavelIcon from "@mui/icons-material/Gavel";
-import SearchIcon from "@mui/icons-material/Search";
-import CloseIcon from "@mui/icons-material/Close";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
@@ -29,6 +31,38 @@ import {
   PlacedOfferCard, ReceivedOfferCard,
   type OfferRow, type ReceivedOfferRow,
 } from "@/app/shared-components/transaction-cards";
+
+// ── Internal sub-components ───────────────────────────────────────────────────
+
+/**
+ * A tab button styled with a bottom underline when active — like a browser tab.
+ */
+function TabButton({
+  label, active, onClick,
+}: {
+  label: string; active: boolean; onClick: () => void;
+}) {
+  return (
+    <Box
+      component="button"
+      onClick={onClick}
+      sx={{
+        background: "none", border: "none", cursor: "pointer",
+        pb: 1.5, px: 0.5, mr: 3,
+        borderBottom: active ? "2px solid #111827" : "2px solid transparent",
+        color: active ? "#111827" : "#6b7280",
+        fontWeight: active ? 700 : 500,
+        fontSize: 14,
+        transition: "color 0.15s",
+        "&:hover": { color: "#111827" },
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function OffersPage() {
   const { isLoggedIn, status } = useAuth();
@@ -44,13 +78,14 @@ export default function OffersPage() {
   const [receivedOffers, setReceivedOffers] = useState<ReceivedOfferRow[]>([]);
   const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState<string | null>(null);
-  const [q, setQ]                           = useState("");
 
-  // Controls which view is shown — "placed" | "received"
+  // Top-level view: which side of the marketplace the user is looking at
   const [offerView, setOfferView] = useState<"placed" | "received">("placed");
+  // Secondary tab: lifecycle stage — Active → Accepted → Declined → Expired
+  const [offerTab, setOfferTab]   = useState<"active" | "accepted" | "declined" | "expired">("active");
 
   // ── Fetch (parallel) ─────────────────────────────────────────────────────────
-  // Both endpoints are called simultaneously to avoid sequential waterfalls.
+  // Both endpoints called simultaneously to avoid sequential loading waterfalls.
   useEffect(() => {
     if (!isLoggedIn) return;
     setLoading(true);
@@ -59,31 +94,56 @@ export default function OffersPage() {
       fetch("/api/offers?received=true").then((r) => r.json()),
     ])
       .then(([placed, received]) => {
-        if (placed.offers)   setPlacedOffers(placed.offers);   else setError(placed.error);
+        if (placed.offers)   setPlacedOffers(placed.offers);
+        else                 setError(placed.error);
         if (received.offers) setReceivedOffers(received.offers);
       })
       .catch(() => setError("Failed to load offers."))
       .finally(() => setLoading(false));
   }, [isLoggedIn]);
 
-  // ── Filter ───────────────────────────────────────────────────────────────────
-  // Exclude "paid" status from placed offers — those show in /purchases instead.
-  const filteredPlaced = useMemo(() => {
-    const active = placedOffers.filter((o) => o.status !== "paid");
-    if (!q.trim()) return active;
-    const lq = q.toLowerCase();
-    return active.filter((o) =>
-      [o.card.title, o.status, `S$${o.price}`].join(" ").toLowerCase().includes(lq)
-    );
-  }, [placedOffers, q]);
+  // ── View switch ───────────────────────────────────────────────────────────────
+  // Reset tab to Active so the user always lands on the actionable view first.
+  const handleViewChange = (view: "placed" | "received") => {
+    setOfferView(view);
+    setOfferTab("active");
+  };
 
-  const filteredReceived = useMemo(() => {
-    if (!q.trim()) return receivedOffers;
-    const lq = q.toLowerCase();
-    return receivedOffers.filter((o) =>
-      [o.card.title, `S$${o.price}`].join(" ").toLowerCase().includes(lq)
-    );
-  }, [receivedOffers, q]);
+  // ── Split placed offers into 4 lifecycle buckets ─────────────────────────────
+  // Active:   pending and not archived (seller hasn't responded yet)
+  // Accepted: paid/accepted — seller said yes and the card was transferred
+  // Declined: seller explicitly rejected the offer
+  // Expired:  offer timed out (cron set status "expired") OR card was sold to
+  //           someone else via direct checkout before the seller responded
+  //           (archivedAt set, status still "pending")
+  const placedActive   = useMemo(() => placedOffers.filter((o) => o.status === "pending" && !o.archivedAt),            [placedOffers]);
+  const placedAccepted = useMemo(() => placedOffers.filter((o) => o.status === "paid" || o.status === "accepted"),     [placedOffers]);
+  const placedDeclined = useMemo(() => placedOffers.filter((o) => o.status === "rejected"),                            [placedOffers]);
+  const placedExpired  = useMemo(() => placedOffers.filter((o) => o.status === "expired" || (o.status === "pending" && !!o.archivedAt)), [placedOffers]);
+
+  // ── Split received offers into 4 lifecycle buckets ────────────────────────────
+  // Active:   pending (seller can still accept or decline)
+  // Accepted: paid/accepted — seller accepted the offer, card was transferred
+  // Declined: seller explicitly rejected the offer
+  // Expired:  offer timed out without a response
+  const receivedActive   = useMemo(() => receivedOffers.filter((o) => o.status === "pending"),                          [receivedOffers]);
+  const receivedAccepted = useMemo(() => receivedOffers.filter((o) => o.status === "paid" || o.status === "accepted"),  [receivedOffers]);
+  const receivedDeclined = useMemo(() => receivedOffers.filter((o) => o.status === "rejected"),                         [receivedOffers]);
+  const receivedExpired  = useMemo(() => receivedOffers.filter((o) => o.status === "expired"),                          [receivedOffers]);
+
+  const visiblePlaced = {
+    active:   placedActive,
+    accepted: placedAccepted,
+    declined: placedDeclined,
+    expired:  placedExpired,
+  }[offerTab];
+
+  const visibleReceived = {
+    active:   receivedActive,
+    accepted: receivedAccepted,
+    declined: receivedDeclined,
+    expired:  receivedExpired,
+  }[offerTab];
 
   // ── Loading / auth wait ──────────────────────────────────────────────────────
   if (status === "loading" || !isLoggedIn) {
@@ -96,106 +156,106 @@ export default function OffersPage() {
     );
   }
 
+  // ── Shared button style factory ───────────────────────────────────────────────
+  // Selected view button: dark fill. Unselected: outlined/ghost.
+  const viewBtnSx = (isActive: boolean) => ({
+    textTransform: "none" as const,
+    fontWeight: 700,
+    fontSize: 14,
+    borderRadius: "10px",
+    px: 2.5,
+    py: 1,
+    border: "1px solid",
+    ...(isActive
+      ? { bgcolor: "#111827", color: "#fff", borderColor: "#111827", "&:hover": { bgcolor: "#1f2937" } }
+      : { bgcolor: "#fff", color: "#374151", borderColor: "#d1d5db", "&:hover": { bgcolor: "#f9fafb", borderColor: "#9ca3af" } }),
+  });
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <AccountLayout>
-      {/* Page header */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 3 }}>
-        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px" }}>
-          My Offers
-        </Typography>
-        <TextField
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by card name, amount…"
-          size="small"
-          sx={{ width: { xs: "100%", md: 340 }, "& .MuiOutlinedInput-root": { borderRadius: 2, backgroundColor: "#fff" } }}
-          slotProps={{
-            input: {
-              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: "#9ca3af" }} /></InputAdornment>,
-              endAdornment: q ? (
-                <InputAdornment position="end">
-                  <IconButton onClick={() => setQ("")} size="small"><CloseIcon fontSize="small" /></IconButton>
-                </InputAdornment>
-              ) : null,
-            },
-          }}
-        />
-      </Box>
+      <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+        My Offers
+      </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {loading ? (
-        <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><CircularProgress /></Box>
+        <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
+          <CircularProgress />
+        </Box>
       ) : (
         <>
-          {/* View selector dropdown */}
-          <Box sx={{ mb: 3 }}>
-            <Select
-              value={offerView}
-              onChange={(e) => setOfferView(e.target.value as "placed" | "received")}
-              size="small"
-              sx={{ minWidth: 220, backgroundColor: "#fff", borderRadius: 1.5, fontWeight: 600, fontSize: 14 }}
-            >
-              <MenuItem value="placed">Offers Placed</MenuItem>
-              <MenuItem value="received">Incoming Offers</MenuItem>
-            </Select>
+          {/* ── View toggle: Offers Placed | Incoming Offers ─────────────────── */}
+          <Box sx={{ display: "flex", gap: 1.5, mb: 3, flexWrap: "wrap" }}>
+            <Button disableElevation onClick={() => handleViewChange("placed")}   sx={viewBtnSx(offerView === "placed")}>
+              Offers Placed
+            </Button>
+            <Button disableElevation onClick={() => handleViewChange("received")} sx={viewBtnSx(offerView === "received")}>
+              Incoming Offers
+            </Button>
           </Box>
 
-          {/* Section title mirrors the dropdown selection */}
-          <Typography sx={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.3px", mb: 2.5 }}>
-            {offerView === "placed" ? "Offers Placed" : "Incoming Offers"}
-          </Typography>
+          {/* ── Lifecycle tabs: Active → Accepted → Declined → Expired ──────── */}
+          <Box sx={{ display: "flex", borderBottom: "1px solid #e5e7eb", mb: 3 }}>
+            <TabButton label="Active"   active={offerTab === "active"}   onClick={() => setOfferTab("active")}   />
+            <TabButton label="Accepted" active={offerTab === "accepted"} onClick={() => setOfferTab("accepted")} />
+            <TabButton label="Declined" active={offerTab === "declined"} onClick={() => setOfferTab("declined")} />
+            <TabButton label="Expired"  active={offerTab === "expired"}  onClick={() => setOfferTab("expired")}  />
+          </Box>
 
-          {/* ── Offers Placed ── */}
+          {/* ── Offers Placed ─────────────────────────────────────────────────── */}
           {offerView === "placed" && (
-            filteredPlaced.length === 0 ? (
+            visiblePlaced.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 10 }}>
                 <GavelIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
                 <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
-                  {q ? "No offers match your search." : "You haven't placed any offers yet."}
+                  {{
+                    active:   "No active offers. Place an offer on a card listing to get started.",
+                    accepted: "No accepted offers yet.",
+                    declined: "No declined offers.",
+                    expired:  "No expired offers.",
+                  }[offerTab]}
                 </Typography>
               </Box>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {/* Active offers (not archived) */}
-                {filteredPlaced.filter((o) => !o.archivedAt).map((o) => (
-                  <PlacedOfferCard key={o.id} offer={o} />
-                ))}
-                {/* Archived offers — card was sold to someone else */}
-                {filteredPlaced.filter((o) => !!o.archivedAt).length > 0 && (
-                  <>
-                    <Divider sx={{ my: 1 }} />
-                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.8px", mb: 0.5 }}>
-                      Past — card no longer available
-                    </Typography>
-                    {filteredPlaced.filter((o) => !!o.archivedAt).map((o) => (
-                      <PlacedOfferCard key={o.id} offer={o} />
-                    ))}
-                  </>
-                )}
+                {visiblePlaced.map((o) => <PlacedOfferCard key={o.id} offer={o} />)}
               </Box>
             )
           )}
 
-          {/* ── Incoming Offers ── */}
+          {/* ── Incoming Offers ───────────────────────────────────────────────── */}
           {offerView === "received" && (
-            filteredReceived.length === 0 ? (
+            visibleReceived.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 10 }}>
                 <GavelIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
                 <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
-                  {q ? "No offers match your search." : "No incoming offers on your listings."}
+                  {{
+                    active:   "No pending offers on your listings.",
+                    accepted: "No accepted offers yet.",
+                    declined: "No declined offers.",
+                    expired:  "No expired offers.",
+                  }[offerTab]}
                 </Typography>
               </Box>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {filteredReceived.map((o) => (
+                {visibleReceived.map((o) => (
                   <ReceivedOfferCard
                     key={o.id}
                     offer={o}
-                    // Remove from the list immediately after accept/reject
-                    // (the offer is no longer pending so the API won't return it anyway)
-                    onRespond={(id) => setReceivedOffers((prev) => prev.filter((r) => r.id !== id))}
+                    onRespond={(id, action) =>
+                      // Both accept and reject update status in-place so the offer
+                      // moves to the correct tab immediately without a page refresh.
+                      setReceivedOffers((prev) =>
+                        prev.map((r) =>
+                          r.id === id
+                            ? { ...r, status: action === "accept" ? "paid" : "rejected" }
+                            : r
+                        )
+                      )
+                    }
                   />
                 ))}
               </Box>

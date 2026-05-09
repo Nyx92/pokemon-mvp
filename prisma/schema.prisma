@@ -39,6 +39,7 @@ model User {
   cards         Card[]
   binders       Binder[]
   offers        Offer[]          @relation("UserOffers")
+  receivedOffers Offer[]         @relation("OffersReceived")
   sellerOrders  Order[] @relation("SellerOrders")
   buyerOrders   Order[] @relation("BuyerOrders")
   reservedCards Card[] @relation("CardReservations")
@@ -201,6 +202,11 @@ model Offer {
   cardId      String
   buyer       User      @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
   buyerId     String
+  // Snapshot of who the seller was at offer-creation time.
+  // card.ownerId changes when the card is transferred, so we can't rely on it
+  // to look up a seller's offer history after an accepted sale.
+  seller      User      @relation("OffersReceived", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId    String
 
   // Linked to an Order when the accepted offer is paid
   order       Order?    @relation(fields: [orderId], references: [id])
