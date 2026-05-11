@@ -127,7 +127,8 @@ model Card {
   reservedBy                User?     @relation("CardReservations", fields: [reservedById], references: [id], onDelete: SetNull)
   reservedById              String?
   reservedUntil             DateTime?
-  reservedCheckoutSessionId String?   @unique
+  // Multiple cards can share the same session ID (cart checkout).
+  reservedCheckoutSessionId String?
 
   // Optional enrichment fields (future-proof)
   tcgPlayerId  String
@@ -165,14 +166,18 @@ model Order {
   currency           String   @default("sgd")
   status             String   @default("PENDING") // PENDING | PAID | EXPIRED | CANCELED | REFUNDED
 
-  stripeCheckoutSessionId String? @unique
-  stripePaymentIntentId   String? @unique
+  // Multiple orders can share the same session ID (cart checkout).
+  stripeCheckoutSessionId String?
+  // Multiple orders in a cart share one payment intent; uniqueness enforced by Stripe itself.
+  stripePaymentIntentId   String?
 
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
   transactions       CardTransaction[]
   offer              Offer?
+
+  @@index([stripeCheckoutSessionId])
 }
 
 
@@ -279,9 +284,13 @@ model CardTransaction {
 
   amount        Int
   currency      String
-  stripeEventId String @unique
+  // One Stripe event can cover multiple orders (cart checkout).
+  stripeEventId String
   tcgPlayerId   String?
 
   createdAt     DateTime @default(now())
+
+  // Composite: one stripe event may produce multiple transactions (one per order in cart checkout).
+  @@unique([stripeEventId, orderId])
 }
 

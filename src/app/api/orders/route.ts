@@ -28,16 +28,24 @@ export async function GET(req: NextRequest) {
   }
   const userId = session.user.id;
 
-  // ── 2. Read query param ────────────────────────────────────────────────────
+  // ── 2. Read query params ──────────────────────────────────────────────────
   const { searchParams } = new URL(req.url);
-  const type = searchParams.get("type") ?? "purchases";
+  const type      = searchParams.get("type") ?? "purchases";
+  const sessionId = searchParams.get("sessionId");
 
   try {
     // ── 3. Query DB ────────────────────────────────────────────────────────────
+    // When sessionId is provided, return all orders for that Stripe session
+    // (any status — caller needs REFUNDED too). buyerId guard prevents
+    // one user from peeking at another user's session.
+    const where = sessionId
+      ? { stripeCheckoutSessionId: sessionId, buyerId: userId }
+      : type === "sold"
+        ? { sellerId: userId }
+        : { buyerId: userId };
+
     const orders = await prisma.order.findMany({
-      where: type === "sold"
-        ? { sellerId: userId }   // sold tab: user was the seller
-        : { buyerId: userId },   // purchases tab: user was the buyer
+      where,
       include: {
         card: {
           select: {

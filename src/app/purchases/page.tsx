@@ -40,10 +40,16 @@ export default function PurchasesPage() {
   const [error, setError]         = useState<string | null>(null);
   const [q, setQ]                 = useState("");
 
-  // Success banner — shown when Stripe redirects back with ?success=1
-  const [showSuccess, setShowSuccess] = useState(params.get("success") === "1");
+  // Checkout outcome banner — "checking" while we poll the webhook result,
+  // then "paid" / "refunded" / "timeout" once the status is known.
+  const isCheckoutReturn = params.get("success") === "1";
+  const sessionId        = params.get("session_id");
+  type CheckoutState = "idle" | "checking" | "paid" | "refunded" | "timeout";
+  const [checkoutState, setCheckoutState] = useState<CheckoutState>(
+    isCheckoutReturn ? "checking" : "idle"
+  );
 
-  // ── Fetch ────────────────────────────────────────────────────────────────────
+  // ── Fetch all purchases ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
     setLoading(true);
@@ -53,6 +59,54 @@ export default function PurchasesPage() {
       .catch(() => setError("Failed to load purchases."))
       .finally(() => setLoading(false));
   }, [isLoggedIn]);
+
+  // ── Poll session outcome after Stripe redirect ───────────────────────────────
+  // The webhook runs asynchronously — orders may still be PENDING when the page
+  // loads. Poll until all are in a terminal state (PAID / REFUNDED) or we time out.
+  useEffect(() => {
+    if (!isLoggedIn || !isCheckoutReturn || !sessionId) {
+      // No session to poll — if it's a generic ?success=1 treat as paid
+      if (isCheckoutReturn && !sessionId) setCheckoutState("paid");
+      return;
+    }
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 8;   // 8 × 2 s = 16 s max
+    const INTERVAL_MS  = 2000;
+
+    const check = async () => {
+      attempts++;
+      try {
+        const res  = await fetch(`/api/orders?sessionId=${sessionId}`);
+        const data = await res.json();
+        const sessionOrders: OrderRow[] = data.orders ?? [];
+
+        const allTerminal = sessionOrders.length > 0 &&
+          sessionOrders.every((o) => o.status === "PAID" || o.status === "REFUNDED");
+
+        if (allTerminal) {
+          const anyRefunded = sessionOrders.some((o) => o.status === "REFUNDED");
+          setCheckoutState(anyRefunded ? "refunded" : "paid");
+          // Refresh the full list so newly PAID orders appear
+          const full = await fetch("/api/orders?type=purchases").then((r) => r.json());
+          if (full.orders) setPurchases(full.orders);
+          return;
+        }
+      } catch {
+        // Network hiccup — keep trying
+      }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        setCheckoutState("timeout");
+      } else {
+        setTimeout(check, INTERVAL_MS);
+      }
+    };
+
+    // Small initial delay — give the webhook a head start
+    setTimeout(check, 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, sessionId]);
 
   // ── Filter ───────────────────────────────────────────────────────────────────
   // Only show PAID orders — PENDING = abandoned checkout, EXPIRED = timed out
@@ -104,8 +158,17 @@ export default function PurchasesPage() {
         />
       </Box>
 
-      {/* Payment success banner — shown after Stripe checkout redirect */}
-      {showSuccess && (
+      {/* Checkout outcome banner — shown after Stripe redirect */}
+      {checkoutState === "checking" && (
+        <Box sx={{ mb: 3, border: "1px solid rgba(99,102,241,0.3)", backgroundColor: "rgba(99,102,241,0.06)", borderRadius: 2, px: 2.5, py: 1.4, display: "flex", alignItems: "center", gap: 1.5 }}>
+          <CircularProgress size={18} sx={{ color: "#4f46e5" }} />
+          <Typography sx={{ fontSize: 14, color: "#4338ca", fontWeight: 600 }}>
+            Confirming your payment…
+          </Typography>
+        </Box>
+      )}
+
+      {checkoutState === "paid" && (
         <Box sx={{ mb: 3, border: "1px solid rgba(16,185,129,0.3)", backgroundColor: "rgba(16,185,129,0.07)", borderRadius: 2, px: 2.5, py: 1.4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
           <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
             <ShoppingBagIcon sx={{ color: "#065f46" }} />
@@ -114,9 +177,32 @@ export default function PurchasesPage() {
               <Typography sx={{ fontSize: 13, color: "#047857" }}>Your transaction has been recorded below.</Typography>
             </Box>
           </Box>
-          <Button variant="text" sx={{ textTransform: "none", fontWeight: 700, color: "#047857" }} onClick={() => setShowSuccess(false)}>
+          <Button variant="text" sx={{ textTransform: "none", fontWeight: 700, color: "#047857" }} onClick={() => setCheckoutState("idle")}>
             Dismiss
           </Button>
+        </Box>
+      )}
+
+      {checkoutState === "refunded" && (
+        <Box sx={{ mb: 3, border: "1px solid rgba(239,68,68,0.35)", backgroundColor: "rgba(239,68,68,0.06)", borderRadius: 2, px: 2.5, py: 1.4, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+          <Box>
+            <Typography sx={{ fontWeight: 800, color: "#b91c1c" }}>Payment refunded</Typography>
+            <Typography sx={{ fontSize: 13, color: "#dc2626" }}>
+              Your payment could not be completed and has been refunded. Funds will appear within 5–10 business days.
+            </Typography>
+          </Box>
+          <Button variant="text" sx={{ textTransform: "none", fontWeight: 700, color: "#b91c1c" }} onClick={() => setCheckoutState("idle")}>
+            Dismiss
+          </Button>
+        </Box>
+      )}
+
+      {checkoutState === "timeout" && (
+        <Box sx={{ mb: 3, border: "1px solid rgba(234,179,8,0.4)", backgroundColor: "rgba(234,179,8,0.07)", borderRadius: 2, px: 2.5, py: 1.4 }}>
+          <Typography sx={{ fontWeight: 800, color: "#854d0e" }}>Payment processing</Typography>
+          <Typography sx={{ fontSize: 13, color: "#a16207" }}>
+            Your payment is being processed. Your order will appear below shortly — if it doesn&apos;t show up in a few minutes, please contact support.
+          </Typography>
         </Box>
       )}
 

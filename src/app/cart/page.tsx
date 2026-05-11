@@ -278,6 +278,8 @@ export default function CartPage() {
 
   const [cartData, setCartData] = useState<CartResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   // Cart item whose "Make Offer" was clicked — drives the offer dialog
   const [offerTarget, setOfferTarget] = useState<CartItemData | null>(null);
 
@@ -365,6 +367,23 @@ export default function CartPage() {
     },
     [decrementCount]
   );
+
+  // ── Checkout ───────────────────────────────────────────────────────────────
+
+  const handleCheckout = useCallback(async () => {
+    setCheckoutError(null);
+    setCheckoutLoading(true);
+    try {
+      const res = await fetch("/api/checkout/cart", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Checkout failed");
+      window.location.href = data.url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Checkout failed. Please try again.");
+      setCheckoutLoading(false);
+    }
+    // No finally setCheckoutLoading(false) — on success we navigate away
+  }, []);
 
   // ── Clear entire cart ──────────────────────────────────────────────────────
 
@@ -562,7 +581,8 @@ export default function CartPage() {
               <Button
                 fullWidth
                 variant="contained"
-                disabled={summary.selectedCount === 0}
+                disabled={summary.selectedCount === 0 || checkoutLoading}
+                onClick={handleCheckout}
                 sx={{
                   textTransform: "uppercase",
                   fontWeight: 700,
@@ -573,13 +593,19 @@ export default function CartPage() {
                   backgroundColor: "#0053ff",
                   "&:hover": { backgroundColor: "#0041cc" },
                   "&.Mui-disabled": { backgroundColor: "#c9cdd4", color: "#9ca3af" },
-                  boxShadow: summary.selectedCount > 0 ? "0 4px 14px rgba(0,83,255,0.3)" : "none",
+                  boxShadow: summary.selectedCount > 0 && !checkoutLoading ? "0 4px 14px rgba(0,83,255,0.3)" : "none",
                 }}
               >
-                Checkout
+                {checkoutLoading ? "Redirecting…" : "Checkout"}
               </Button>
 
-              {summary.selectedCount === 0 && (
+              {checkoutError && (
+                <Typography sx={{ fontSize: 12, color: "#ef4444", textAlign: "center", mt: 1 }}>
+                  {checkoutError}
+                </Typography>
+              )}
+
+              {summary.selectedCount === 0 && !checkoutError && (
                 <Typography sx={{ fontSize: 12, color: "#9ca3af", textAlign: "center", mt: 1 }}>
                   Select at least one item to checkout
                 </Typography>
