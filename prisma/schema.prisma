@@ -47,6 +47,7 @@ model User {
   buyerTransactions  CardTransaction[] @relation("BuyerTransactions")
   watchlist     CardWatchlist[]
   cart          Cart?
+  notifications Notification[]
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -265,6 +266,31 @@ model CartItem {
   createdAt DateTime @default(now())
 
   @@unique([cartId, cardId])
+}
+
+// 🔔 Notification — in-app + email alerts for offer and sale events
+model Notification {
+  id        String   @id @default(uuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  // Notification category — drives the icon and email copy.
+  // Values: "offer_received" | "offer_accepted" | "offer_rejected" | "card_sold"
+  type      String
+  title     String
+  body      String
+
+  // Optional IDs for deep-linking into the relevant page.
+  // Stored as plain strings (no FK) so the notification survives if the
+  // linked record is later deleted.
+  offerId   String?
+  cardId    String?
+  orderId   String?
+
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 model CardTransaction {

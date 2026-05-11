@@ -21,16 +21,18 @@ import ShoppingBagOutlinedIcon from "@mui/icons-material/ShoppingBagOutlined";
 import GavelIcon from "@mui/icons-material/Gavel";
 import SellOutlinedIcon from "@mui/icons-material/SellOutlined";
 import LogoutIcon from "@mui/icons-material/Logout";
+import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 // Add new account-section pages here — they will appear in the sidebar
 // automatically without touching any page file.
 const NAV_ITEMS = [
-  { label: "Profile",    href: "/profile",    Icon: PersonOutlineIcon },
-  { label: "Watchlist",  href: "/watchlist",  Icon: BookmarkBorderIcon },
-  { label: "Purchases",  href: "/purchases",  Icon: ShoppingBagOutlinedIcon },
-  { label: "Offers",     href: "/offers",     Icon: GavelIcon },
-  { label: "Sold",       href: "/sold",       Icon: SellOutlinedIcon },
+  { label: "Profile",       href: "/profile",       Icon: PersonOutlineIcon },
+  { label: "Watchlist",     href: "/watchlist",     Icon: BookmarkBorderIcon },
+  { label: "Purchases",     href: "/purchases",     Icon: ShoppingBagOutlinedIcon },
+  { label: "Offers",        href: "/offers",        Icon: GavelIcon },
+  { label: "Sold",          href: "/sold",          Icon: SellOutlinedIcon },
+  { label: "Notifications", href: "/notifications", Icon: NotificationsNoneOutlinedIcon },
 ] as const;
 
 const ACTIVE_BLUE = "#0053ff";

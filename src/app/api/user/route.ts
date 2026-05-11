@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-
-const prisma = new PrismaClient();
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 // This function is to store user details on successful sign up
 export async function POST(req: Request) {
@@ -46,6 +46,11 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const data = await req.json();
 
     if (!data.email) {
@@ -53,11 +58,12 @@ export async function PUT(req: Request) {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { email: data.email },
+      where: { id: session.user.id },
       data: {
         firstName: data.firstName,
         lastName: data.lastName,
         username: data.username,
+        email: data.email,
         country: data.country,
         sex: data.sex,
         dob: data.dob ? new Date(data.dob) : null,
@@ -71,6 +77,9 @@ export async function PUT(req: Request) {
     );
   } catch (err: any) {
     console.error("❌ Error updating user:", err);
+    if (err.code === "P2002") {
+      return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
+    }
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

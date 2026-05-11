@@ -138,7 +138,7 @@ export default function DuckReveal() {
             startIcon={<ShoppingCartIcon />}
             onClick={() => router.push("/marketplace")}
             sx={{
-              bgcolor: "#5b7fe8",
+              bgcolor: "black",
               borderRadius: "10px",
               px: 4,
               py: 1.4,

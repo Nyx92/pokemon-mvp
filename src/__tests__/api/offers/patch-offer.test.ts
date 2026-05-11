@@ -76,6 +76,8 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 // expireOffer is mocked separately — it's the function the PATCH handler calls
 // when it detects the offer is expired and the cron hasn't cleaned it up yet.
 vi.mock("@/lib/offerExpiry", () => ({ expireOffer: mockExpireOffer }));
+// Silence the Resend SDK — notification side-effects are tested separately.
+vi.mock("@/lib/notifications", () => ({ notifyAsync: vi.fn(), createNotification: vi.fn() }));
 
 // ── STEP 3: Import the code under test ───────────────────────────────────────
 

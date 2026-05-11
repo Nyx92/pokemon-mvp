@@ -50,6 +50,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { notifyAsync } from "@/lib/notifications";
 
 // Webhooks must run on Node runtime (Stripe SDK + raw-body signature verification)
 export const runtime = "nodejs";
@@ -276,8 +277,10 @@ async function handleCartSessionCompleted(
 ) {
   console.log(`[webhook] 🛒 Cart checkout for buyer ${buyerId}`);
 
+  let soldItems: { sellerId: string; cardId: string; orderId: string }[] = [];
+
   try {
-    await prisma.$transaction(async (tx) => {
+    soldItems = await prisma.$transaction(async (tx) => {
       // Step 1: Load all orders tied to this Stripe session.
       // Each order was created by the cart checkout route (one per card).
       const orders = await tx.order.findMany({
@@ -292,6 +295,8 @@ async function handleCartSessionCompleted(
       }
 
       const purchasedCardIds: string[] = [];
+      // Accumulates sold order info so we can notify sellers after the transaction.
+      const soldOrders: { sellerId: string; cardId: string; orderId: string }[] = [];
 
       for (const order of orders) {
         // Step 2: Idempotency check (per order)
@@ -380,6 +385,7 @@ async function handleCartSessionCompleted(
         });
 
         purchasedCardIds.push(order.cardId);
+        soldOrders.push({ sellerId: order.sellerId, cardId: order.cardId, orderId: order.id });
         console.log(`[webhook] ✅ Transferred card ${order.cardId}`);
       }
 
@@ -394,6 +400,8 @@ async function handleCartSessionCompleted(
           });
         }
       }
+
+      return soldOrders;
     });
   } catch (err) {
     // The DB transaction rolled back — no orders were marked PAID, no cards
@@ -401,6 +409,23 @@ async function handleCartSessionCompleted(
     // → Hand off to the refund safeguard (see issueRefundOnTransferFailure above).
     await issueRefundOnTransferFailure(session, paymentIntentId, err);
     return;
+  }
+
+  // Step 8: Notify each seller — fire-and-forget, one notification per card sold.
+  for (const { sellerId, cardId, orderId } of soldItems) {
+    prisma.card
+      .findUnique({ where: { id: cardId }, select: { title: true } })
+      .then((card) =>
+        notifyAsync({
+          userId:  sellerId,
+          type:    "card_sold",
+          title:   "Your card was sold",
+          body:    `Your card "${card?.title ?? "a card"}" was purchased via Buy Now.`,
+          cardId,
+          orderId,
+        })
+      )
+      .catch(() => {});
   }
 
   console.log(`[webhook] 🎉 Cart checkout complete for session ${session.id}`);
@@ -514,6 +539,21 @@ async function handleSingleSessionCompleted(
     await issueRefundOnTransferFailure(session, paymentIntentId, err);
     return;
   }
+
+  // Notify the seller — fire-and-forget.
+  prisma.card
+    .findUnique({ where: { id: cardId }, select: { title: true } })
+    .then((card) =>
+      notifyAsync({
+        userId:  sellerId,
+        type:    "card_sold",
+        title:   "Your card was sold",
+        body:    `Your card "${card?.title ?? "a card"}" was purchased via Buy Now.`,
+        cardId,
+        orderId,
+      })
+    )
+    .catch(() => {});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

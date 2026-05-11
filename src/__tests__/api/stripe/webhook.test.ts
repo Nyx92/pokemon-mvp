@@ -41,12 +41,17 @@ const mockTx = vi.hoisted(() => ({
 const mockPrisma = vi.hoisted(() => ({
   $transaction: vi.fn(),
   order:        { findFirst: vi.fn(), updateMany: vi.fn() },
+  // findUnique: post-transaction card title lookup for seller notifications.
+  // updateMany: used by handleSessionExpired (array-form $transaction).
+  card:         { findUnique: vi.fn(), updateMany: vi.fn() },
 }));
 
 // ── STEP 2: Register fakes ────────────────────────────────────────────────────
 
 vi.mock("stripe", () => ({ default: vi.fn(() => mockStripeInstance) }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
+// Silence the Resend SDK — notification side-effects are tested separately.
+vi.mock("@/lib/notifications", () => ({ notifyAsync: vi.fn(), createNotification: vi.fn() }));
 
 // ── STEP 3: Import code under test ────────────────────────────────────────────
 
@@ -109,6 +114,9 @@ describe("POST /api/stripe/webhook", () => {
     // Default: no existing REFUNDED orders (session not yet refunded)
     mockPrisma.order.findFirst.mockResolvedValue(null);
     mockPrisma.order.updateMany.mockResolvedValue({ count: 1 });
+    // Default: card title lookup (seller notification) and session-expiry release.
+    mockPrisma.card.findUnique.mockResolvedValue({ title: "Charizard" });
+    mockPrisma.card.updateMany.mockResolvedValue({ count: 1 });
 
     // Default: $transaction runs the callback with the mock tx client,
     // with all tx methods pre-set to succeed
@@ -311,8 +319,8 @@ describe("POST /api/stripe/webhook", () => {
   it("marks order EXPIRED and clears card reservation on session expiry", async () => {
     mockStripeInstance.webhooks.constructEvent.mockReturnValue(SESSION_EXPIRED_EVENT);
 
+    // The expired-session path uses the array form of $transaction — resolve all promises directly.
     mockPrisma.$transaction.mockImplementation(async (ops) => Promise.all(ops));
-    (mockPrisma as any).card = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(200);

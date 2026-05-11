@@ -9,6 +9,7 @@ import { authOptions } from "@/lib/auth";
 import ThemeRegistry from "@/providers/ThemeRegistry";
 import { WatchlistAnimationProvider } from "@/app/context/WatchlistAnimationContext";
 import { CartProvider } from "@/app/context/CartContext";
+import { NotificationProvider } from "@/app/context/NotificationContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -40,6 +41,7 @@ export default async function RootLayout({
         <SessionProviderWrapper session={session}>
           <ThemeRegistry>
             <CartProvider>
+            <NotificationProvider>
             <WatchlistAnimationProvider>
               <div
                 style={{
@@ -66,6 +68,7 @@ export default async function RootLayout({
                 <Footer />
               </div>
             </WatchlistAnimationProvider>
+            </NotificationProvider>
             </CartProvider>
           </ThemeRegistry>
         </SessionProviderWrapper>

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expireOffer } from "@/lib/offerExpiry";
+import { notifyAsync } from "@/lib/notifications";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -235,6 +236,18 @@ export async function PATCH(
       console.log(
         `[offers PATCH] Card ${cardId} transferred to buyer ${offer.buyerId}. Order: ${order.id}`
       );
+
+      // Notify the buyer — fire-and-forget.
+      notifyAsync({
+        userId:  offer.buyerId,
+        type:    "offer_accepted",
+        title:   `Your offer on "${offer.card.title}" was accepted`,
+        body:    `Great news! The seller accepted your offer. "${offer.card.title}" is now yours.`,
+        offerId: params.id,
+        cardId:  offer.card.id,
+        orderId: order.id,
+      });
+
       return NextResponse.json({ success: true });
     }
 
@@ -263,6 +276,16 @@ export async function PATCH(
     await prisma.offer.update({
       where: { id: params.id },
       data: { status: "rejected" },
+    });
+
+    // Notify the buyer — fire-and-forget.
+    notifyAsync({
+      userId:  offer.buyerId,
+      type:    "offer_rejected",
+      title:   `Your offer on "${offer.card.title}" was declined`,
+      body:    `The seller declined your offer on "${offer.card.title}". Your payment hold has been released.`,
+      offerId: params.id,
+      cardId:  offer.card.id,
     });
 
     return NextResponse.json({ success: true });

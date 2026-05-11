@@ -11,7 +11,8 @@ type Group = (typeof GROUPS)[number];
 
 function getGroup(condition: string): Group {
   if (condition.startsWith("PSA")) return "PSA";
-  if (condition.startsWith("Beckett") || condition.startsWith("BGS")) return "Beckett";
+  if (condition.startsWith("Beckett") || condition.startsWith("BGS"))
+    return "Beckett";
   if (condition.startsWith("CGC")) return "CGC";
   if (condition.startsWith("SGC")) return "SGC";
   return "Raw";
@@ -22,7 +23,10 @@ interface AllListingsProps {
   currentCardId: string;
 }
 
-export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsProps) {
+export default function AllListings({
+  tcgPlayerId,
+  currentCardId,
+}: AllListingsProps) {
   const router = useRouter();
   const [listings, setListings] = useState<CardItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,20 +34,32 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
 
   useEffect(() => {
     if (!tcgPlayerId) return;
-    fetch(`/api/cards?tcgPlayerId=${encodeURIComponent(tcgPlayerId)}&forSale=true`)
+    fetch(
+      `/api/cards?tcgPlayerId=${encodeURIComponent(tcgPlayerId)}&forSale=true`
+    )
       .then((r) => r.json())
-      .then((data) => { if (data.cards) setListings(data.cards); })
+      .then((data) => {
+        if (data.cards) setListings(data.cards);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [tcgPlayerId]);
 
   const counts = GROUPS.reduce<Record<string, number>>((acc, g) => {
-    acc[g] = g === "All" ? listings.length : listings.filter((l) => getGroup(l.condition) === g).length;
+    acc[g] =
+      g === "All"
+        ? listings.length
+        : listings.filter((l) => getGroup(l.condition) === g).length;
     return acc;
   }, {});
 
-  const filtered = filter === "All" ? listings : listings.filter((l) => getGroup(l.condition) === filter);
-  const sorted = [...filtered].sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+  const filtered =
+    filter === "All"
+      ? listings
+      : listings.filter((l) => getGroup(l.condition) === filter);
+  const sorted = [...filtered].sort(
+    (a, b) => (a.price ?? Infinity) - (b.price ?? Infinity)
+  );
 
   return (
     <Box
@@ -58,7 +74,9 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
       {/* Header */}
       <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #e5e7eb" }}>
         <Typography sx={{ fontWeight: 700, fontSize: 17, color: "#111" }}>
-          {loading ? "Loading…" : `${listings.length} Listing${listings.length !== 1 ? "s" : ""}`}
+          {loading
+            ? "Loading…"
+            : `${listings.length} Listing${listings.length !== 1 ? "s" : ""}`}
         </Typography>
         <Typography sx={{ fontSize: 12, color: "#9ca3af", mt: 0.3 }}>
           All available listings for this card
@@ -89,7 +107,9 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
                 py: 0.5,
                 borderRadius: 999,
                 cursor: "pointer",
-                border: isSelected ? `1.5px solid ${primaryBlue}` : "1px solid #e5e7eb",
+                border: isSelected
+                  ? `1.5px solid ${primaryBlue}`
+                  : "1px solid #e5e7eb",
                 backgroundColor: isSelected ? "#eff4ff" : "#fff",
                 display: "flex",
                 alignItems: "center",
@@ -98,7 +118,11 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
               }}
             >
               <Typography
-                sx={{ fontSize: 13, fontWeight: isSelected ? 700 : 500, color: isSelected ? primaryBlue : "#374151" }}
+                sx={{
+                  fontSize: 13,
+                  fontWeight: isSelected ? 700 : 500,
+                  color: isSelected ? primaryBlue : "#374151",
+                }}
               >
                 {g}
               </Typography>
@@ -112,7 +136,13 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
                   textAlign: "center",
                 }}
               >
-                <Typography sx={{ fontSize: 10, fontWeight: 700, color: isSelected ? "#fff" : "#6b7280" }}>
+                <Typography
+                  sx={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: isSelected ? "#fff" : "#6b7280",
+                  }}
+                >
                   {count}
                 </Typography>
               </Box>
@@ -133,7 +163,16 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
         }}
       >
         {["Condition", "Price", ""].map((h) => (
-          <Typography key={h} sx={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.4px" }}>
+          <Typography
+            key={h}
+            sx={{
+              fontSize: 11,
+              fontWeight: 600,
+              color: "#9ca3af",
+              textTransform: "uppercase",
+              letterSpacing: "0.4px",
+            }}
+          >
             {h}
           </Typography>
         ))}
@@ -141,7 +180,14 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
 
       {/* Rows */}
       {sorted.length === 0 ? (
-        <Typography sx={{ p: 3, color: "text.secondary", textAlign: "center", fontSize: 14 }}>
+        <Typography
+          sx={{
+            p: 3,
+            color: "text.secondary",
+            textAlign: "center",
+            fontSize: 14,
+          }}
+        >
           No listings found.
         </Typography>
       ) : (
@@ -156,14 +202,17 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
                 alignItems: "center",
                 px: 3,
                 py: 1.4,
-                borderBottom: i < sorted.length - 1 ? "1px solid #f3f4f6" : "none",
+                borderBottom:
+                  i < sorted.length - 1 ? "1px solid #f3f4f6" : "none",
                 backgroundColor: isCurrent ? "#f5f8ff" : "#fff",
                 "&:hover": !isCurrent ? { backgroundColor: "#fafafa" } : {},
               }}
             >
               {/* Condition */}
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, color: "#111" }}>
+                <Typography
+                  sx={{ fontSize: 13, fontWeight: 700, color: "#111" }}
+                >
                   {listing.condition}
                 </Typography>
                 {isCurrent && (
@@ -176,7 +225,9 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
                       borderRadius: 1,
                     }}
                   >
-                    <Typography sx={{ fontSize: 10, fontWeight: 700, color: primaryBlue }}>
+                    <Typography
+                      sx={{ fontSize: 10, fontWeight: 700, color: primaryBlue }}
+                    >
                       Viewing
                     </Typography>
                   </Box>
@@ -199,7 +250,7 @@ export default function AllListings({ tcgPlayerId, currentCardId }: AllListingsP
                       textTransform: "none",
                       fontSize: 12,
                       fontWeight: 600,
-                      backgroundColor: primaryBlue,
+                      backgroundColor: "#5b7fe8",
                       "&:hover": { backgroundColor: "#0041cc" },
                       borderRadius: 1.5,
                       px: 2,

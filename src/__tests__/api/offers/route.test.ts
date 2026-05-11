@@ -55,6 +55,8 @@ vi.mock("stripe", () => ({ default: vi.fn(() => mockStripeInstance) }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("next-auth", () => ({ getServerSession: mockGetServerSession }));
 vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+// Silence the Resend SDK — notification side-effects are tested separately.
+vi.mock("@/lib/notifications", () => ({ notifyAsync: vi.fn(), createNotification: vi.fn() }));
 
 // ── STEP 3: Import the code under test ───────────────────────────────────────
 

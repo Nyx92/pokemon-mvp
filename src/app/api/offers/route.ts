@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars, dollarsToCents } from "@/lib/money";
+import { notifyAsync } from "@/lib/notifications";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -336,6 +337,16 @@ export async function POST(req: NextRequest) {
         //   2. Mark this offer status → "expired"
         expiresAt: new Date(Date.now() + OFFER_EXPIRY_HOURS * 60 * 60 * 1000),
       },
+    });
+
+    // Notify the seller — fire-and-forget, never blocks the response.
+    notifyAsync({
+      userId:  card.ownerId,
+      type:    "offer_received",
+      title:   `New offer on "${card.title}"`,
+      body:    `You received an offer of S$${price} on your card "${card.title}". Head to your Offers page to respond.`,
+      offerId: offer.id,
+      cardId:  card.id,
     });
 
     return NextResponse.json(

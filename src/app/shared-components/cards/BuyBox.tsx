@@ -23,7 +23,8 @@ const GRADE_COMPANIES: GradeCompany[] = ["Raw", "PSA", "Beckett", "CGC", "SGC"];
 
 function getCompany(condition: string): GradeCompany {
   if ((PSA_GRADES as readonly string[]).includes(condition)) return "PSA";
-  if ((BECKETT_GRADES as readonly string[]).includes(condition)) return "Beckett";
+  if ((BECKETT_GRADES as readonly string[]).includes(condition))
+    return "Beckett";
   if ((CGC_GRADES as readonly string[]).includes(condition)) return "CGC";
   if ((SGC_GRADES as readonly string[]).includes(condition)) return "SGC";
   return "Raw";
@@ -31,11 +32,16 @@ function getCompany(condition: string): GradeCompany {
 
 function getGradesForCompany(company: GradeCompany): string[] {
   switch (company) {
-    case "PSA":     return [...PSA_GRADES];
-    case "Beckett": return [...BECKETT_GRADES];
-    case "CGC":     return [...CGC_GRADES];
-    case "SGC":     return [...SGC_GRADES];
-    default:        return [...RAW_GRADES];
+    case "PSA":
+      return [...PSA_GRADES];
+    case "Beckett":
+      return [...BECKETT_GRADES];
+    case "CGC":
+      return [...CGC_GRADES];
+    case "SGC":
+      return [...SGC_GRADES];
+    default:
+      return [...RAW_GRADES];
   }
 }
 
@@ -108,11 +114,14 @@ export default function BuyBox({
 
   const [listings, setListings] = useState<ListingSummary[]>([]);
   const currentCompany = getCompany(currentCondition);
-  const [selectedCompany, setSelectedCompany] = useState<GradeCompany>(currentCompany);
+  const [selectedCompany, setSelectedCompany] =
+    useState<GradeCompany>(currentCompany);
 
   useEffect(() => {
     if (!tcgPlayerId) return;
-    fetch(`/api/cards?tcgPlayerId=${encodeURIComponent(tcgPlayerId)}&forSale=true`)
+    fetch(
+      `/api/cards?tcgPlayerId=${encodeURIComponent(tcgPlayerId)}&forSale=true`
+    )
       .then((r) => r.json())
       .then((data) => {
         if (data.cards) {
@@ -134,7 +143,8 @@ export default function BuyBox({
     const existing = cheapestByCondition.get(l.condition);
     if (
       !existing ||
-      (l.price !== null && (existing.price === null || l.price < existing.price))
+      (l.price !== null &&
+        (existing.price === null || l.price < existing.price))
     ) {
       cheapestByCondition.set(l.condition, l);
     }
@@ -163,33 +173,50 @@ export default function BuyBox({
     currentPrice <= lowestForCondition;
 
   // Companies that have at least one listing
-  const companiesWithListings = new Set(listings.map((l) => getCompany(l.condition)));
+  const companiesWithListings = new Set(
+    listings.map((l) => getCompany(l.condition))
+  );
 
   // Condition pill renderer (shared for raw and graded)
-  const renderPill = (grade: string, listing: ListingSummary | undefined, isCurrent: boolean) => {
+  const renderPill = (
+    grade: string,
+    listing: ListingSummary | undefined,
+    isCurrent: boolean
+  ) => {
     const isCurrentCard = listing?.id === currentCardId;
     const hasListing = !!listing;
     const clickable = hasListing && !isCurrentCard;
 
     // Strip company prefix for graded display (show just "10", "9.5 Gem Mint", etc.)
     const prefixes = ["PSA ", "Beckett ", "CGC ", "SGC "];
-    const displayLabel = prefixes.reduce((label, p) => label.startsWith(p) ? label.slice(p.length) : label, grade);
+    const displayLabel = prefixes.reduce(
+      (label, p) => (label.startsWith(p) ? label.slice(p.length) : label),
+      grade
+    );
 
     return (
       <Box
         key={grade}
-        onClick={() => { if (clickable) router.push(`/cards/${listing!.id}`); }}
+        onClick={() => {
+          if (clickable) router.push(`/cards/${listing!.id}`);
+        }}
         sx={{
           px: 1.2,
           py: 0.7,
           borderRadius: 1.5,
           border: isCurrent ? `2px solid ${primaryBlue}` : "1px solid #e5e7eb",
-          backgroundColor: isCurrent ? "#eff4ff" : hasListing ? "#fff" : "#f9fafb",
+          backgroundColor: isCurrent
+            ? "#eff4ff"
+            : hasListing
+              ? "#fff"
+              : "#f9fafb",
           cursor: clickable ? "pointer" : "default",
           transition: "all 0.12s",
           minWidth: selectedCompany === "Raw" ? 76 : 56,
           textAlign: "center",
-          "&:hover": clickable ? { borderColor: primaryBlue, backgroundColor: "#f5f8ff" } : {},
+          "&:hover": clickable
+            ? { borderColor: primaryBlue, backgroundColor: "#f5f8ff" }
+            : {},
         }}
       >
         <Typography
@@ -217,21 +244,21 @@ export default function BuyBox({
   };
 
   // ── Derived viewer offer state ─────────────────────────────────────────────
-  const offerIsPending  = activeOffer?.status === "pending";
+  const offerIsPending = activeOffer?.status === "pending";
   // "accepted" is now a very brief transient state — the PATCH endpoint captures
   // the PI and transfers the card immediately. The buyer rarely sees this; they
   // are more likely to see "paid" on next page load. We still handle it for safety.
   const offerIsAccepted = activeOffer?.status === "accepted";
   const offerIsRejected = activeOffer?.status === "rejected";
-  const offerIsExpired  = activeOffer?.status === "expired";
+  const offerIsExpired = activeOffer?.status === "expired";
 
   // Left button — "See Offers (N)" for the seller, "Place Offer" for the buyer.
   // Label flips to "Amend Offer" when the buyer has a pending offer (they can
   // update the price/message, which will cancel the old PI and create a new one).
-  const leftBtnLabel = isOwnerMode ? `See Offers (${offersCount})` : "Place Offer";
-  const leftBtnDisabled = isOwnerMode
-    ? false
-    : !isForSale || offerIsAccepted; // can't amend while offer is mid-capture
+  const leftBtnLabel = isOwnerMode
+    ? `See Offers (${offersCount})`
+    : "Place Offer";
+  const leftBtnDisabled = isOwnerMode ? false : !isForSale || offerIsAccepted; // can't amend while offer is mid-capture
 
   // Right button — always "Buy Now" or "Edit" (no "Pay Now" button in the
   // new flow since payment is captured automatically on seller accept).
@@ -249,7 +276,6 @@ export default function BuyBox({
       }}
     >
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-
         {/* ── CONDITION / GRADE SECTION ── */}
         <Box sx={{ mb: 1.5 }}>
           <Typography
@@ -269,7 +295,8 @@ export default function BuyBox({
           <Box sx={{ display: "flex", gap: 0.8, mb: 1.2, flexWrap: "wrap" }}>
             {GRADE_COMPANIES.map((company) => {
               const hasData =
-                companiesWithListings.has(company) || company === currentCompany;
+                companiesWithListings.has(company) ||
+                company === currentCompany;
               const isSelected = company === selectedCompany;
               return (
                 <Box
@@ -291,7 +318,11 @@ export default function BuyBox({
                     sx={{
                       fontSize: 12,
                       fontWeight: isSelected ? 700 : 500,
-                      color: isSelected ? primaryBlue : hasData ? "#374151" : "#9ca3af",
+                      color: isSelected
+                        ? primaryBlue
+                        : hasData
+                          ? "#374151"
+                          : "#9ca3af",
                     }}
                   >
                     {company}
@@ -330,8 +361,8 @@ export default function BuyBox({
                 severity="success"
                 sx={{ py: 0.5, fontSize: 12 }}
               >
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was
-                accepted and payment is being processed.
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong>{" "}
+                was accepted and payment is being processed.
               </Alert>
             )}
             {/* Pending: waiting for seller to accept or reject */}
@@ -341,8 +372,8 @@ export default function BuyBox({
                 severity="info"
                 sx={{ py: 0.5, fontSize: 12 }}
               >
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> is
-                pending — funds are authorised and held.
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong>{" "}
+                is pending — funds are authorised and held.
                 {activeOffer.expiresAt && (
                   <Box sx={{ mt: 0.4 }}>
                     <OfferCountdown expiresAt={activeOffer.expiresAt} />
@@ -353,14 +384,15 @@ export default function BuyBox({
             {/* Rejected: seller declined; PI was cancelled, no charge */}
             {offerIsRejected && (
               <Alert severity="error" sx={{ py: 0.5, fontSize: 12 }}>
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong> was
-                declined. No charge was made.
+                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong>{" "}
+                was declined. No charge was made.
               </Alert>
             )}
             {/* Expired: seller didn't respond within 24h; PI was cancelled by cron */}
             {offerIsExpired && (
               <Alert severity="warning" sx={{ py: 0.5, fontSize: 12 }}>
-                Your offer expired (seller didn&apos;t respond in time). No charge was made.
+                Your offer expired (seller didn&apos;t respond in time). No
+                charge was made.
               </Alert>
             )}
           </Box>
@@ -407,7 +439,9 @@ export default function BuyBox({
               }}
             >
               <CheckCircleOutlineIcon sx={{ fontSize: 14, color: "#16a34a" }} />
-              <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#16a34a" }}>
+              <Typography
+                sx={{ fontSize: 11, fontWeight: 600, color: "#16a34a" }}
+              >
                 Lowest price
               </Typography>
             </Box>
@@ -415,7 +449,14 @@ export default function BuyBox({
         </Box>
 
         {/* ── ACTION BUTTONS ── */}
-        <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1.2 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: 1,
+            mb: 1.2,
+          }}
+        >
           <Button
             fullWidth
             variant="outlined"
@@ -444,7 +485,7 @@ export default function BuyBox({
             disabled={rightBtnDisabled}
             sx={{
               textTransform: "none",
-              backgroundColor: primaryBlue,
+              backgroundColor: "#5b7fe8",
               "&:hover": { backgroundColor: "#0041cc" },
               boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
               fontWeight: 500,
@@ -463,11 +504,21 @@ export default function BuyBox({
             variant="outlined"
             startIcon={<ShoppingCartIcon />}
             onClick={onAddToCart}
-            disabled={cartStatus === "adding" || cartStatus === "added" || cartStatus === "already"}
+            disabled={
+              cartStatus === "adding" ||
+              cartStatus === "added" ||
+              cartStatus === "already"
+            }
             sx={{
               textTransform: "none",
-              borderColor: cartStatus === "added" || cartStatus === "already" ? "#16a34a" : "#e5e7eb",
-              color: cartStatus === "added" || cartStatus === "already" ? "#16a34a" : "#111",
+              borderColor:
+                cartStatus === "added" || cartStatus === "already"
+                  ? "#16a34a"
+                  : "#e5e7eb",
+              color:
+                cartStatus === "added" || cartStatus === "already"
+                  ? "#16a34a"
+                  : "#111",
               backgroundColor: "#fff",
               boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
               "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
@@ -479,10 +530,10 @@ export default function BuyBox({
             {cartStatus === "added"
               ? "Added to cart ✓"
               : cartStatus === "already"
-              ? "Already in cart ✓"
-              : cartStatus === "adding"
-              ? "Adding…"
-              : "Add to Cart"}
+                ? "Already in cart ✓"
+                : cartStatus === "adding"
+                  ? "Adding…"
+                  : "Add to Cart"}
           </Button>
         )}
 
@@ -503,7 +554,9 @@ export default function BuyBox({
           >
             {otherCount > 0 ? (
               <>
-                <Typography sx={{ fontSize: 12, color: primaryBlue, fontWeight: 500 }}>
+                <Typography
+                  sx={{ fontSize: 12, color: primaryBlue, fontWeight: 500 }}
+                >
                   {otherCount} other {currentCondition} listing
                   {otherCount !== 1 ? "s" : ""}
                 </Typography>
@@ -514,7 +567,9 @@ export default function BuyBox({
                 )}
               </>
             ) : (
-              <Typography sx={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}>
+              <Typography
+                sx={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}
+              >
                 Only listing for this condition
               </Typography>
             )}

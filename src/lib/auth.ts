@@ -177,6 +177,7 @@ export const authOptions: NextAuthOptions = {
             where: { id: token.id as string },
           });
           if (dbUser) {
+            token.email = dbUser.email;
             token.firstName = dbUser.firstName;
             token.lastName = dbUser.lastName;
             token.username = dbUser.username;

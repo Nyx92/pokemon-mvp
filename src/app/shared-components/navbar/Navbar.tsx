@@ -28,18 +28,21 @@ import SellOutlinedIcon from "@mui/icons-material/SellOutlined";
 import LogoutIcon from "@mui/icons-material/Logout";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import { useCart } from "@/app/context/CartContext";
+import { useNotifications } from "@/app/context/NotificationContext";
 
 // ── Dropdown nav items ────────────────────────────────────────────────────────
 // Mirrors the NAV_ITEMS list in ProfileSidebar.tsx — keep them in sync.
 const ACCOUNT_ITEMS = [
-  { label: "Profile",   href: "/profile",   Icon: PersonOutlineIcon },
-  { label: "Watchlist", href: "/watchlist", Icon: BookmarkBorderIcon },
-  { label: "Purchases", href: "/purchases", Icon: ShoppingBagOutlinedIcon },
-  { label: "Offers",    href: "/offers",    Icon: GavelIcon },
-  { label: "Sold",      href: "/sold",      Icon: SellOutlinedIcon },
+  { label: "Profile",       href: "/profile",       Icon: PersonOutlineIcon },
+  { label: "Watchlist",     href: "/watchlist",     Icon: BookmarkBorderIcon },
+  { label: "Purchases",     href: "/purchases",     Icon: ShoppingBagOutlinedIcon },
+  { label: "Offers",        href: "/offers",        Icon: GavelIcon },
+  { label: "Sold",          href: "/sold",          Icon: SellOutlinedIcon },
+  { label: "Notifications", href: "/notifications", Icon: NotificationsNoneOutlinedIcon },
 ] as const;
 
 const DARK = "#ffffff";
@@ -50,6 +53,7 @@ export default function Navbar() {
   const displayUser = user?.username ?? "Profile";
   const { navbarIconRef, count } = useWatchlistAnimation();
   const { count: cartCount } = useCart();
+  const { unreadCount: notifCount } = useNotifications();
 
   // Bounce the watchlist icon each time the count increases
   const prevCountRef = useRef(count);
@@ -180,8 +184,28 @@ export default function Navbar() {
             </Badge>
           </IconButton>
 
-          <IconButton aria-label="Notifications" sx={{ color: "#ffffff", mr: 0.5, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}>
-            <NotificationsNoneIcon fontSize="small" />
+          <IconButton
+            aria-label="Notifications"
+            onClick={() => router.push("/notifications")}
+            sx={{ color: "#ffffff", mr: 0.5, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
+          >
+            <Badge
+              badgeContent={notifCount > 0 ? notifCount : undefined}
+              sx={{
+                "& .MuiBadge-badge": {
+                  backgroundColor: "#f59e0b",
+                  color: "#fff",
+                  fontSize: 10,
+                  minWidth: 16,
+                  height: 16,
+                  padding: "0 3px",
+                  top: 2,
+                  right: 2,
+                },
+              }}
+            >
+              <NotificationsNoneIcon fontSize="small" />
+            </Badge>
           </IconButton>
 
           {/* Thin divider */}
