@@ -43,9 +43,12 @@ interface CardListItemProps {
   // Initial watchlist state — passed by parents that already know it (e.g. card detail).
   // Defaults to false in list views where per-card watchlist status isn't pre-fetched.
   watchlisted?: boolean;
+  // Called after a successful toggle — useful for pages (e.g. /watchlist) that need to
+  // react when a card is removed from the watchlist.
+  onWatchlistToggle?: (cardId: string, nowWatchlisted: boolean) => void;
 }
 
-export default function CardListItem({ card, onClick, watchlisted: initialWatchlisted = false }: CardListItemProps) {
+export default function CardListItem({ card, onClick, watchlisted: initialWatchlisted = false, onWatchlistToggle }: CardListItemProps) {
   const { userId, isLoggedIn } = useAuth();
   const { triggerFly, adjustCount } = useWatchlistAnimation();
   const router = useRouter();
@@ -88,6 +91,8 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
         setWatchlisted(!adding);
         if (adding) cancelFly?.();
         else adjustCount(+1);
+      } else {
+        onWatchlistToggle?.(card.id, adding);
       }
     } catch {
       setWatchlisted(!adding);
