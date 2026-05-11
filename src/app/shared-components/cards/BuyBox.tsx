@@ -78,6 +78,11 @@ interface BuyBoxProps {
   // funds are captured instantly when the seller accepts. So this is used only
   // to show the offer status callout (pending / rejected / expired).
   activeOffer?: ActiveOffer | null;
+
+  // "Add to Cart" — viewer-mode only, shown when the card is for sale.
+  // cartStatus reflects the last add attempt so we can show feedback text.
+  onAddToCart?: () => void;
+  cartStatus?: "idle" | "adding" | "added" | "already";
 }
 
 export default function BuyBox({
@@ -95,6 +100,8 @@ export default function BuyBox({
   onEdit,
   onViewListings,
   activeOffer = null,
+  onAddToCart,
+  cartStatus = "idle",
 }: BuyBoxProps) {
   const router = useRouter();
   const isOwnerMode = mode === "owner";
@@ -448,6 +455,36 @@ export default function BuyBox({
             {rightBtnLabel}
           </Button>
         </Box>
+
+        {/* ── ADD TO CART (viewer only, when for sale) ── */}
+        {!isOwnerMode && isForSale && onAddToCart && (
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<ShoppingCartIcon />}
+            onClick={onAddToCart}
+            disabled={cartStatus === "adding" || cartStatus === "added" || cartStatus === "already"}
+            sx={{
+              textTransform: "none",
+              borderColor: cartStatus === "added" || cartStatus === "already" ? "#16a34a" : "#e5e7eb",
+              color: cartStatus === "added" || cartStatus === "already" ? "#16a34a" : "#111",
+              backgroundColor: "#fff",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+              "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
+              fontWeight: 500,
+              borderRadius: 1.5,
+              mb: 1.2,
+            }}
+          >
+            {cartStatus === "added"
+              ? "Added to cart ✓"
+              : cartStatus === "already"
+              ? "Already in cart ✓"
+              : cartStatus === "adding"
+              ? "Adding…"
+              : "Add to Cart"}
+          </Button>
+        )}
 
         {/* ── OTHER LISTINGS (same condition) — always visible ── */}
         {!isOwnerMode && (

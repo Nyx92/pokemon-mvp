@@ -30,6 +30,7 @@ import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
+import { useCart } from "@/app/context/CartContext";
 
 // ── Dropdown nav items ────────────────────────────────────────────────────────
 // Mirrors the NAV_ITEMS list in ProfileSidebar.tsx — keep them in sync.
@@ -48,6 +49,7 @@ export default function Navbar() {
   const router = useRouter();
   const displayUser = user?.username ?? "Profile";
   const { navbarIconRef, count } = useWatchlistAnimation();
+  const { count: cartCount } = useCart();
 
   // Bounce the watchlist icon each time the count increases
   const prevCountRef = useRef(count);
@@ -129,8 +131,28 @@ export default function Navbar() {
           <Box sx={{ flex: 1 }} />
 
           {/* ── Icon buttons ──────────────────────────────────────────────── */}
-          <IconButton aria-label="Cart" sx={{ color: "#ffffff", "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}>
-            <ShoppingCartOutlinedIcon fontSize="small" />
+          <IconButton
+            aria-label="Cart"
+            onClick={() => router.push("/cart")}
+            sx={{ color: "#ffffff", "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
+          >
+            <Badge
+              badgeContent={cartCount > 0 ? cartCount : undefined}
+              sx={{
+                "& .MuiBadge-badge": {
+                  backgroundColor: "#e53935",
+                  color: "#fff",
+                  fontSize: 10,
+                  minWidth: 16,
+                  height: 16,
+                  padding: "0 3px",
+                  top: 2,
+                  right: 2,
+                },
+              }}
+            >
+              <ShoppingCartOutlinedIcon fontSize="small" />
+            </Badge>
           </IconButton>
 
           <IconButton

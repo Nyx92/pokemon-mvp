@@ -46,6 +46,7 @@ model User {
   sellerTransactions CardTransaction[] @relation("SellerTransactions")
   buyerTransactions  CardTransaction[] @relation("BuyerTransactions")
   watchlist     CardWatchlist[]
+  cart          Cart?
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -144,6 +145,7 @@ model Card {
   transactions CardTransaction[]
   orders       Order[]
   watchlist    CardWatchlist[]
+  cartItems    CartItem[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -234,6 +236,30 @@ model CardWatchlist {
   createdAt DateTime @default(now())
 
   @@unique([cardId, userId])
+}
+
+// 🛒 Cart — one persistent cart per user; created lazily on first add
+model Cart {
+  id        String     @id @default(uuid())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String     @unique
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// 🛒 CartItem — a single card added to a user's cart
+model CartItem {
+  id        String   @id @default(uuid())
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId    String
+  // Whether this item is checked for checkout (user can uncheck individual items)
+  selected  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@unique([cartId, cardId])
 }
 
 model CardTransaction {

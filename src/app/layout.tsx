@@ -8,6 +8,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import ThemeRegistry from "@/providers/ThemeRegistry";
 import { WatchlistAnimationProvider } from "@/app/context/WatchlistAnimationContext";
+import { CartProvider } from "@/app/context/CartContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -38,6 +39,7 @@ export default async function RootLayout({
         {/* Wrap with SessionProvider so NextAuth session is available throughout */}
         <SessionProviderWrapper session={session}>
           <ThemeRegistry>
+            <CartProvider>
             <WatchlistAnimationProvider>
               <div
                 style={{
@@ -64,6 +66,7 @@ export default async function RootLayout({
                 <Footer />
               </div>
             </WatchlistAnimationProvider>
+            </CartProvider>
           </ThemeRegistry>
         </SessionProviderWrapper>
       </body>

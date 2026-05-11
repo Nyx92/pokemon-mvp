@@ -168,7 +168,7 @@ export default function OffersPage() {
     border: "1px solid",
     ...(isActive
       ? { bgcolor: "#111827", color: "#fff", borderColor: "#111827", "&:hover": { bgcolor: "#1f2937" } }
-      : { bgcolor: "#fff", color: "#374151", borderColor: "#d1d5db", "&:hover": { bgcolor: "#f9fafb", borderColor: "#9ca3af" } }),
+      : { bgcolor: "#fff", color: "#374151", borderColor: "#c9cdd4", "&:hover": { bgcolor: "#f9fafb", borderColor: "#9ca3af" } }),
   });
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ export default function OffersPage() {
           </Box>
 
           {/* ── Lifecycle tabs: Active → Accepted → Declined → Expired ──────── */}
-          <Box sx={{ display: "flex", borderBottom: "1px solid #e5e7eb", mb: 3 }}>
+          <Box sx={{ display: "flex", borderBottom: "1px solid #c9cdd4", mb: 3 }}>
             <TabButton label="Active"   active={offerTab === "active"}   onClick={() => setOfferTab("active")}   />
             <TabButton label="Accepted" active={offerTab === "accepted"} onClick={() => setOfferTab("accepted")} />
             <TabButton label="Declined" active={offerTab === "declined"} onClick={() => setOfferTab("declined")} />

@@ -147,7 +147,7 @@ const Footer = forwardRef<HTMLDivElement>((_, ref) => {
       component="footer"
       ref={ref}
       id="footer"
-      sx={{ backgroundColor: "#f5f5f7", py: 4 }}
+      sx={{ backgroundColor: "#e8e8ea", py: 4 }}
     >
       <Container maxWidth="lg">
         {/* <Divider sx={{ my: 4 }} /> */}

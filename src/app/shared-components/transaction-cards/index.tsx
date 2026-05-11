@@ -121,7 +121,7 @@ function CardThumb({ src, alt, onClick }: { src: string; alt: string; onClick: (
   return (
     <Box
       onClick={onClick}
-      sx={{ width: { xs: 72, md: 100 }, height: { xs: 100, md: 140 }, borderRadius: 1.5, overflow: "hidden", backgroundColor: "#f3f4f6", position: "relative", border: "1px solid #e5e7eb", cursor: "pointer", p: "4px", flexShrink: 0 }}
+      sx={{ width: { xs: 72, md: 100 }, height: { xs: 100, md: 140 }, borderRadius: 1.5, overflow: "hidden", backgroundColor: "#f3f4f6", position: "relative", border: "1px solid #c9cdd4", cursor: "pointer", p: "4px", flexShrink: 0 }}
     >
       <Image src={src} alt={alt} fill style={{ objectFit: "contain" }} />
     </Box>
@@ -143,8 +143,8 @@ export function OrderCard({ order }: { order: OrderRow }) {
   const dateStr = new Date(order.createdAt).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <Box sx={{ border: "1px solid #e5e7eb", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
-      <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #f3f4f6" }}>
+    <Box sx={{ border: "1px solid #c9cdd4", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
+      <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #c9cdd4" }}>
         <HeaderMeta label="Order ID" value={`#${order.id.slice(0, 8).toUpperCase()}`} />
         <HeaderMeta label="Transaction date" value={dateStr} />
       </Box>
@@ -201,8 +201,8 @@ export function PlacedOfferCard({ offer }: { offer: OfferRow }) {
   const dateStr = new Date(offer.createdAt).toLocaleDateString("en-SG", { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <Box sx={{ border: "1px solid #e5e7eb", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
-      <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #f3f4f6" }}>
+    <Box sx={{ border: "1px solid #c9cdd4", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
+      <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #c9cdd4" }}>
         <Box sx={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           <HeaderMeta label="Status" value={statusLabel} />
           {timeLeft && <HeaderMeta label="Offer validity" value={timeLeft} />}
@@ -288,8 +288,8 @@ export function ReceivedOfferCard({
   };
 
   return (
-    <Box sx={{ border: "1px solid #e5e7eb", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
-      <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #f3f4f6" }}>
+    <Box sx={{ border: "1px solid #c9cdd4", borderRadius: 2.5, overflow: "hidden", backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.04)", transition: "box-shadow 0.15s", "&:hover": { boxShadow: "0 2px 8px rgba(0,0,0,0.08)" } }}>
+      <Box sx={{ backgroundColor: HEADER_BG, px: 2.5, py: 1.6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #c9cdd4" }}>
         <Box sx={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           <HeaderMeta label="Status" value={statusLabel} />
           {timeLeft && <HeaderMeta label="Offer validity" value={timeLeft} />}

@@ -51,9 +51,9 @@ function InfoField({ label, value }: { label: string; value: string }) {
 /** Wrapper for each settings card section (white rounded card). */
 function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <Box sx={{ bgcolor: "#fff", borderRadius: 2.5, border: "1px solid #e5e7eb", mb: 3, overflow: "hidden" }}>
+    <Box sx={{ bgcolor: "#fff", borderRadius: 2.5, border: "1px solid #c9cdd4", mb: 3, overflow: "hidden" }}>
       {/* Section header row */}
-      <Box sx={{ px: 3, py: 2, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #f3f4f6" }}>
+      <Box sx={{ px: 3, py: 2, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #c9cdd4" }}>
         <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>{title}</Typography>
         {action}
       </Box>
@@ -98,7 +98,7 @@ export default function ProfileContent() {
             variant="outlined"
             startIcon={<EditIcon sx={{ fontSize: 15 }} />}
             onClick={() => router.push("/profile/edit/general")}
-            sx={{ textTransform: "none", fontWeight: 600, fontSize: 13, borderRadius: 1.5, borderColor: "#d1d5db", color: "#374151", "&:hover": { borderColor: "#9ca3af", bgcolor: "#f9fafb" } }}
+            sx={{ textTransform: "none", fontWeight: 600, fontSize: 13, borderRadius: 1.5, borderColor: "#c9cdd4", color: "#374151", "&:hover": { borderColor: "#9ca3af", bgcolor: "#f9fafb" } }}
           >
             Edit
           </Button>
@@ -178,8 +178,8 @@ export default function ProfileContent() {
       </Section>
 
       {/* ── Advanced ── */}
-      <Box sx={{ bgcolor: "#fff", borderRadius: 2.5, border: "1px solid #e5e7eb", overflow: "hidden" }}>
-        <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #f3f4f6" }}>
+      <Box sx={{ bgcolor: "#fff", borderRadius: 2.5, border: "1px solid #c9cdd4", overflow: "hidden" }}>
+        <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #c9cdd4" }}>
           <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Advanced</Typography>
         </Box>
         <Box sx={{ px: 3, py: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>

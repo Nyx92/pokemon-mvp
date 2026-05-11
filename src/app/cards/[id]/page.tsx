@@ -9,6 +9,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
+import { useCart } from "@/app/context/CartContext";
 import BuyBox, { type ActiveOffer } from "@/app/shared-components/cards/BuyBox";
 import CardMarketChart from "@/app/shared-components/cards/CardMarketChart";
 import EditPriceDialog from "@/app/shared-components/cards/EditPriceDialog";
@@ -24,6 +25,7 @@ export default function CardDetailPage() {
   const router = useRouter();
   const { userId, isAdmin } = useAuth();
   const { triggerFly, adjustCount } = useWatchlistAnimation();
+  const { addToCart } = useCart();
   const watchlistBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const [card, setCard] = useState<CardItem | null>(null);
@@ -38,6 +40,7 @@ export default function CardDetailPage() {
   // The viewer's own offer on this card (pending/accepted/rejected/expired/paid).
   // Shown in the BuyBox as a status callout so the buyer knows what's happening.
   const [activeOffer, setActiveOffer] = useState<ActiveOffer | null>(null);
+  const [cartStatus, setCartStatus] = useState<"idle" | "adding" | "added" | "already">("idle");
 
   useEffect(() => {
     if (!id) return;
@@ -162,6 +165,19 @@ export default function CardDetailPage() {
     } catch (err) {
       console.error("Error calling /api/checkout:", err);
     }
+  };
+
+  const handleAddToCart = () => {
+    requireLogin(async () => {
+      if (!card) return;
+      setCartStatus("adding");
+      const result = await addToCart(card.id);
+      if (result.success) {
+        setCartStatus(result.alreadyInCart ? "already" : "added");
+      } else {
+        setCartStatus("idle");
+      }
+    });
   };
 
 
@@ -410,6 +426,8 @@ export default function CardDetailPage() {
               })
             }
             onBuyNow={() => requireLogin(handleBuyNow)}
+            onAddToCart={!canManageListing ? handleAddToCart : undefined}
+            cartStatus={cartStatus}
           />
 
           <CardMarketChart card={card} />
