@@ -163,17 +163,27 @@ const Footer = forwardRef<HTMLDivElement>((_, ref) => {
             <FooterColumn key={index} columnGroups={column.columnGroups} />
           ))}
         </Box>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          align="left"
-          sx={{ mt: 2 }}
-        >
-          Need to contact us?{" "}
-          <Link href="#" color="inherit" underline="hover">
-            Click here to Email us!
-          </Link>{" "}
-        </Typography>
+        <Box sx={{ mt: 2, mb: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            22 Midview City #08-87, S73969
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Phone:{" "}
+            <Link href="tel:+6592954911" color="inherit" underline="hover">
+              +65 9295 4911
+            </Link>
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Need to contact us?{" "}
+            <Link
+              href="mailto:mxyychua@mxyyc.community"
+              color="inherit"
+              underline="hover"
+            >
+              Click here to Email us!
+            </Link>
+          </Typography>
+        </Box>
         <Divider sx={{ my: 1 }} />
         <Box
           display="flex"
@@ -182,7 +192,7 @@ const Footer = forwardRef<HTMLDivElement>((_, ref) => {
           flexWrap="wrap"
         >
           <Typography variant="body2" color="text.secondary" align="left">
-            Copyright © 2025 PLACEHOLDER Inc. All rights reserved.
+            Copyright © 2026 MXYYC. All rights reserved.
           </Typography>
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
           <Link
