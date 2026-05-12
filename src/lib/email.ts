@@ -33,6 +33,9 @@ interface SendEmailOptions {
 export function sendEmailAsync(opts: SendEmailOptions): void {
   resend.emails
     .send({ from: FROM, to: opts.to, subject: opts.subject, html: opts.html })
+    .then(({ error }) => {
+      if (error) console.error("[email] Resend API error sending to", opts.to, error);
+    })
     .catch((err) => {
       console.error("[email] Failed to send to", opts.to, err);
     });
