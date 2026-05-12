@@ -61,6 +61,7 @@ vi.mock("@/lib/notifications", () => ({ notifyAsync: vi.fn(), createNotification
 // ── STEP 3: Import the code under test ───────────────────────────────────────
 
 import { GET, POST } from "@/app/api/offers/route";
+import { notifyAsync } from "@/lib/notifications";
 
 // ── Test helpers + shared data ────────────────────────────────────────────────
 
@@ -353,6 +354,49 @@ describe("POST /api/offers", () => {
     // is immutable. Changing it on amend would break the seller's offer history.
     const updateCall = mockPrisma.offer.update.mock.calls[0][0];
     expect(updateCall.data).not.toHaveProperty("sellerId");
+  });
+
+  // What's being tested: seller receives a notification when the buyer amends their offer.
+  //
+  // Before this fix, the amend path only updated the DB — no notifyAsync call.
+  // The seller's notification bell still showed the original price from the
+  // first "offer received" notification and they got no alert about the change.
+  //
+  // The fix adds notifyAsync in the amend path so the seller is notified with
+  // the new price. This test verifies:
+  //   - notifyAsync is called once with the seller's userId (card.ownerId)
+  //   - The body contains the updated price ("S$60")
+  //   - The offerId is the existing offer's id (not a new one)
+
+  it("notifies the seller with the updated price when an offer is amended", async () => {
+    mockPrisma.offer.findFirst.mockResolvedValue({
+      id: "offer-old",
+      status: "pending",
+      paymentIntentId: "pi_old",
+    });
+    mockPrisma.offer.update.mockResolvedValue({
+      id: "offer-old",
+      price: 6000,
+      message: null,
+      status: "pending",
+      paymentIntentId: "pi_new",
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    });
+
+    await POST(
+      postRequest({ cardId: "card-1", price: 60, paymentIntentId: "pi_new" })
+    );
+
+    expect(vi.mocked(notifyAsync)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(notifyAsync)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId:  "seller-1",    // card.ownerId — the seller is notified, not the buyer
+        type:    "offer_received",
+        offerId: "offer-old",   // existing offer id, not a newly created one
+        cardId:  "card-1",
+        body:    expect.stringContaining("S$60"), // new price reflected in the notification
+      })
+    );
   });
 
   // What's being tested: resilience when the old PI cancel fails during an amend.

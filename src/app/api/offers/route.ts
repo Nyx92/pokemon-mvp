@@ -314,6 +314,17 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      // Notify the seller that the buyer revised their offer with a new price.
+      // Fire-and-forget — never blocks the response.
+      notifyAsync({
+        userId:  card.ownerId,
+        type:    "offer_received",
+        title:   `Offer updated on "${card.title}"`,
+        body:    `A buyer updated their offer to S$${price} on "${card.title}". Head to your Offers page to respond.`,
+        offerId: existing.id,
+        cardId:  card.id,
+      });
+
       return NextResponse.json({
         offer: { ...updated, price: centsToDollars(updated.price!) },
         amended: true,
