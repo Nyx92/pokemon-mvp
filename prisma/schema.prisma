@@ -18,11 +18,14 @@ datasource db {
 // Relations: a user can have multiple accounts (e.g., Google, GitHub) and sessions.
 model User {
   id            String   @id @default(cuid())
-  firstName     String?  
-  lastName      String? 
+  // Standard NextAuth fields — required by PrismaAdapter for OAuth providers.
+  name          String?
+  image         String?
+  firstName     String?
+  lastName      String?
   username      String?  @unique
   email         String   @unique
-  password      String
+  password      String?
   role          String   @default("user")
   emailVerified DateTime?
   verified      Boolean  @default(false)
