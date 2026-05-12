@@ -48,7 +48,12 @@ interface CardListItemProps {
   onWatchlistToggle?: (cardId: string, nowWatchlisted: boolean) => void;
 }
 
-export default function CardListItem({ card, onClick, watchlisted: initialWatchlisted = false, onWatchlistToggle }: CardListItemProps) {
+export default function CardListItem({
+  card,
+  onClick,
+  watchlisted: initialWatchlisted = false,
+  onWatchlistToggle,
+}: CardListItemProps) {
   const { userId, isLoggedIn } = useAuth();
   const { triggerFly, adjustCount } = useWatchlistAnimation();
   const router = useRouter();
@@ -69,7 +74,9 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
     e.stopPropagation();
 
     if (!isLoggedIn) {
-      router.push(`/auth/login?callbackUrl=${encodeURIComponent(`/cards/${card.id}`)}`);
+      router.push(
+        `/auth/login?callbackUrl=${encodeURIComponent(`/cards/${card.id}`)}`
+      );
       return;
     }
 
@@ -80,13 +87,16 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
     let cancelFly: (() => void) | null = null;
     if (adding) {
       const rect = bookmarkBtnRef.current?.getBoundingClientRect();
-      if (rect) cancelFly = triggerFly(rect, card.imageUrls?.[0] || "/placeholder.png");
+      if (rect)
+        cancelFly = triggerFly(rect, card.imageUrls?.[0] || "/placeholder.png");
     } else {
       adjustCount(-1);
     }
 
     try {
-      const res = await fetch(`/api/cards/${card.id}/watchlist`, { method: "POST" });
+      const res = await fetch(`/api/cards/${card.id}/watchlist`, {
+        method: "POST",
+      });
       if (!res.ok) {
         setWatchlisted(!adding);
         if (adding) cancelFly?.();
@@ -102,13 +112,13 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
   };
 
   return (
-    <Box sx={{ width: 310, flexShrink: 0 }}>
+    <Box sx={{ width: 280, flexShrink: 0 }}>
       <Card
         onClick={() => onClick(card)}
         sx={{
           position: "relative",
           width: "100%",
-          maxWidth: 310,
+          maxWidth: 280,
           minHeight: 220,
           display: "flex",
           flexDirection: "row",
@@ -127,9 +137,9 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
         {/* Left image */}
         <Box
           sx={{
-            width: 150,
-            minWidth: 170,
-            maxWidth: 150,
+            width: 130,
+            minWidth: 150,
+            maxWidth: 130,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -174,16 +184,35 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
                 mb: 0.5,
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.75,
+                  flexWrap: "wrap",
+                }}
+              >
                 {languageChip && (
                   <Chip
                     label={languageChip.label}
                     size="small"
-                    sx={{ height: 24, fontWeight: 700, fontSize: "0.72rem", ...languageChip.sx }}
+                    sx={{
+                      height: 24,
+                      fontWeight: 700,
+                      fontSize: "0.72rem",
+                      ...languageChip.sx,
+                    }}
                   />
                 )}
                 {card.cardNumber && (
-                  <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, fontSize: "0.8rem" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      fontWeight: 600,
+                      fontSize: "0.8rem",
+                    }}
+                  >
                     {card.cardNumber}
                   </Typography>
                 )}
@@ -226,11 +255,20 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
             {/* Price */}
             <Box sx={{ mt: 1 }}>
               {card.forSale && card.price != null ? (
-                <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ lineHeight: 1 }}>
+                <Typography
+                  variant="h6"
+                  fontWeight={700}
+                  color="text.primary"
+                  sx={{ lineHeight: 1 }}
+                >
                   S${card.price.toFixed(2)}
                 </Typography>
               ) : (
-                <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={700}
+                  color="text.secondary"
+                >
                   Not for sale
                 </Typography>
               )}
@@ -245,17 +283,20 @@ export default function CardListItem({ card, onClick, watchlisted: initialWatchl
               ref={bookmarkBtnRef}
               size="small"
               onClick={handleWatchlistToggle}
-              aria-label={watchlisted ? "Remove from watchlist" : "Add to watchlist"}
+              aria-label={
+                watchlisted ? "Remove from watchlist" : "Add to watchlist"
+              }
               sx={{
                 backgroundColor: "rgba(255,255,255,0.90)",
                 "&:hover": { backgroundColor: "rgba(255,255,255,1)" },
                 p: 0.6,
               }}
             >
-              {watchlisted
-                ? <BookmarkIcon sx={{ fontSize: 17, color: "#0053ff" }} />
-                : <BookmarkBorderIcon sx={{ fontSize: 17, color: "#555" }} />
-              }
+              {watchlisted ? (
+                <BookmarkIcon sx={{ fontSize: 17, color: "#0053ff" }} />
+              ) : (
+                <BookmarkBorderIcon sx={{ fontSize: 17, color: "#555" }} />
+              )}
             </IconButton>
           </Box>
         )}
