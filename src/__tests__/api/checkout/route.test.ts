@@ -209,6 +209,26 @@ describe("POST /api/checkout", () => {
     expect(await res.json()).toMatchObject({ error: "Card is not for sale" });
   });
 
+  // What's being tested: the self-purchase guard added to the checkout route.
+  //
+  // If the logged-in user's ID matches the card's ownerId, they must not be
+  // able to buy their own card. The route returns 403 before touching Stripe.
+  //
+  // Why this matters: without this guard, a seller could trigger a checkout
+  // session for their own card, paying themselves minus Stripe fees — effectively
+  // laundering a transaction through the platform.
+
+  it("returns 403 when buyer tries to buy their own card", async () => {
+    // Override default: the logged-in user IS the card owner
+    mockGetServerSession.mockResolvedValue({ user: { id: CARD.ownerId } });
+
+    const res = await POST(makeRequest({ cardId: "card-1" }));
+    expect(res.status).toBe(403);
+    expect(await res.json()).toMatchObject({ error: "You cannot buy your own card" });
+    // Stripe must never be called
+    expect(mockStripeInstance.checkout.sessions.create).not.toHaveBeenCalled();
+  });
+
   // What's being tested: the price validation guard — Stripe requires a
   // positive integer amount. A null price would crash Stripe's API call.
   //

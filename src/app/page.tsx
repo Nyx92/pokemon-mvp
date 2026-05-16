@@ -9,6 +9,7 @@ import Carousell from "./home/carousell/Carousell";
 import DuckReveal from "./home/DuckReveal";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import StorefrontIcon from "@mui/icons-material/Storefront";
+import GavelIcon from "@mui/icons-material/Gavel";
 import UploadIcon from "@mui/icons-material/Upload";
 import { useAuth } from "@/app/hooks/useAuth";
 
@@ -67,6 +68,14 @@ export default function Home() {
               label="Marketplace"
               iconPosition="start"
               value="/marketplace"
+            />
+            <Tab
+              component={Link}
+              href="/auctions"
+              icon={<GavelIcon />}
+              label="Auctions"
+              iconPosition="start"
+              value="/auctions"
             />
             {isAdmin && (
               <Tab

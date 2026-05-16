@@ -12,10 +12,16 @@
  * (order creation, card transfer, etc.).
  *
  * Notification types:
- *   offer_received  — seller: someone placed an offer on your card
- *   offer_accepted  — buyer:  your offer was accepted
- *   offer_rejected  — buyer:  your offer was declined
- *   card_sold       — seller: your card was purchased via Buy Now
+ *   offer_received          — seller: someone placed an offer on your card
+ *   offer_accepted          — buyer:  your offer was accepted
+ *   offer_rejected          — buyer:  your offer was declined
+ *   card_sold               — seller: your card was purchased via Buy Now
+ *   bid_received            — seller: someone placed a bid in your auction
+ *   outbid                  — bidder: you have been outbid
+ *   auction_won             — winner: you won the auction
+ *   auction_sold            — seller: your card sold via auction
+ *   auction_decision_needed — seller: auction ended below reserve; you have 1 day to decide
+ *   auction_expired         — bidder/seller: auction ended without a sale
  */
 
 import { prisma } from "@/lib/prisma";
@@ -25,7 +31,13 @@ export type NotificationType =
   | "offer_received"
   | "offer_accepted"
   | "offer_rejected"
-  | "card_sold";
+  | "card_sold"
+  | "bid_received"
+  | "outbid"
+  | "auction_won"
+  | "auction_sold"
+  | "auction_decision_needed"
+  | "auction_expired";
 
 export interface CreateNotificationInput {
   userId: string;

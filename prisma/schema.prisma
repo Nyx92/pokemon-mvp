@@ -5,11 +5,24 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Datasource tells Prisma what DB you’re connecting to.
-// In this case: PostgreSQL, connection string in .env
+// Datasource — two URLs are required because Supabase exposes two endpoints:
+//
+//   DATABASE_URL  → transaction-mode pooler (port 6543, pgbouncer=true)
+//     Used at runtime by the Next.js app. Connections are released back to the
+//     pool the moment a query finishes, so many API routes can share a small
+//     number of real DB connections without hitting Supabase’s 15-connection
+//     session-mode ceiling.  Prepared statements are disabled (pgbouncer=true)
+//     because PgBouncer in transaction mode does not support them.
+//
+//   DIRECT_URL    → direct Postgres connection (port 5432, no pooler)
+//     Used only by Prisma CLI commands (prisma migrate, prisma db push,
+//     prisma studio).  These commands need a persistent session — something
+//     transaction-mode pooling cannot provide — so they bypass the pooler
+//     entirely and talk to Postgres directly.
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // Main user table.
@@ -51,6 +64,9 @@ model User {
   watchlist     CardWatchlist[]
   cart          Cart?
   notifications Notification[]
+  auctions           Auction[]  @relation("SellerAuctions")
+  bids               Bid[]      @relation("UserBids")
+  highestBidAuctions Auction[]  @relation("AuctionHighestBidder")
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -151,6 +167,10 @@ model Card {
   orders       Order[]
   watchlist    CardWatchlist[]
   cartItems    CartItem[]
+  // Auction listings for this card (multiple allowed over time — one active at a time,
+  // enforced at the application layer via Card.inAuction).
+  inAuction    Boolean  @default(false)
+  auctions     Auction[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -321,5 +341,78 @@ model CardTransaction {
 
   // Composite: one stripe event may produce multiple transactions (one per order in cart checkout).
   @@unique([stripeEventId, orderId])
+}
+
+// 🔨 Auction — a timed listing where buyers compete with binding bids.
+//
+// Lifecycle:
+//   active → sold                  (a bid hits RP/BO, or cron auto-settles when endsAt passes with bid >= RP)
+//   active → pending_seller_decision  (endsAt passed, bid exists but below RP — seller gets 1 day)
+//   active → expired               (endsAt passed, no bids placed)
+//   pending_seller_decision → sold    (seller accepts within the deadline)
+//   pending_seller_decision → expired (seller declines or deadline passes)
+//
+// One active auction per card is enforced at the application layer (Card.inAuction flag).
+// Historical auction rows are kept for audit/display after the card is sold.
+model Auction {
+  id        String @id @default(uuid())
+  card      Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId    String
+  seller    User   @relation("SellerAuctions", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId  String
+
+  startingBid  Int   // minimum first bid (cents)
+  reservePrice Int?  // auto-accept floor checked at endsAt: if final bid >= RP the cron settles without seller action; does NOT end the auction early during bidding
+  buyOutPrice  Int?  // instant-purchase price: bid >= BO ends the auction immediately during bidding
+
+  currentBid      Int?    // current highest bid amount (cents); null = no bids yet
+  highestBidder   User?   @relation("AuctionHighestBidder", fields: [highestBidderId], references: [id], onDelete: SetNull)
+  highestBidderId String?
+
+  // active | pending_seller_decision | sold | expired
+  status String @default("active")
+
+  endsAt                 DateTime  // when the auction closes (1–6 days from creation)
+  sellerDecisionDeadline DateTime? // set when → pending_seller_decision (+24h); null otherwise
+
+  // Optimistic lock counter: every bid increments this.
+  // Concurrent bid requests use updateMany WHERE version = snapshot to ensure
+  // only one bid wins the write; the loser gets a 409 and retries.
+  version Int @default(0)
+
+  bids Bid[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, endsAt])
+}
+
+// 💵 Bid — a single binding bid placed by a buyer in an auction.
+//
+// Each bid holds a Stripe PaymentIntent (capture_method: "manual").
+// Funds are authorised (held) on the buyer's card but not charged until
+// the auction settles.
+//
+// Status values:
+//   active    — current highest bid; PI hold is live
+//   won       — this bid won the auction; PI was captured
+//   cancelled — outbid or auction ended without a win; PI was cancelled
+model Bid {
+  id        String  @id @default(uuid())
+  auction   Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  auctionId String
+  bidder    User    @relation("UserBids", fields: [bidderId], references: [id], onDelete: Cascade)
+  bidderId  String
+
+  amount          Int    // bid amount in cents
+  paymentIntentId String // Stripe PI with capture_method: "manual"
+
+  // active | won | cancelled
+  status String @default("active")
+
+  createdAt DateTime @default(now())
+
+  @@index([auctionId, status])
 }
 

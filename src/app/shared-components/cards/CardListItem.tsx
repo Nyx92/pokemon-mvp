@@ -5,6 +5,12 @@
  * Renders a fixed-width card with the card image on the left and metadata on the right.
  * A watchlist toggle button sits in the top-right corner of the tile; clicking it does not
  * navigate to the card detail page (stopPropagation). Owners cannot watchlist their own cards.
+ *
+ * When `auctionOverride` is supplied the price section is replaced with:
+ *   - "Current bid" / "Starting bid" label + bold price
+ *   - Live countdown timer (spinning hourglass)
+ *   - Bid count
+ * This lets the homepage "Ending Soon" row reuse the exact same tile without a separate component.
  */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -20,21 +26,19 @@ import {
 } from "@mui/material";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
+import GavelIcon from "@mui/icons-material/Gavel";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
+import { getTimeLeft, pad, getLanguageChip } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { CardItem } from "@/types/card";
 
-function getLanguageChip(language?: string | null) {
-  const normalized = language?.trim().toLowerCase();
-
-  if (normalized === "english") {
-    return { label: "EN", sx: { backgroundColor: "#0D2D75", color: "#fff" } };
-  }
-  if (normalized === "japanese") {
-    return { label: "JP", sx: { backgroundColor: "#D32F2F", color: "#fff" } };
-  }
-  return null;
+interface AuctionOverride {
+  currentBid:  number | null;
+  startingBid: number;
+  endsAt:      string;
+  bidCount:    number;
 }
 
 interface CardListItemProps {
@@ -46,6 +50,8 @@ interface CardListItemProps {
   // Called after a successful toggle — useful for pages (e.g. /watchlist) that need to
   // react when a card is removed from the watchlist.
   onWatchlistToggle?: (cardId: string, nowWatchlisted: boolean) => void;
+  // When provided, replaces the price section with live auction data (bid, timer, count).
+  auctionOverride?: AuctionOverride;
 }
 
 export default function CardListItem({
@@ -53,6 +59,7 @@ export default function CardListItem({
   onClick,
   watchlisted: initialWatchlisted = false,
   onWatchlistToggle,
+  auctionOverride,
 }: CardListItemProps) {
   const { userId, isLoggedIn } = useAuth();
   const { triggerFly, adjustCount } = useWatchlistAnimation();
@@ -66,6 +73,29 @@ export default function CardListItem({
   useEffect(() => {
     setWatchlisted(initialWatchlisted);
   }, [initialWatchlisted]);
+
+  // ── Auction countdown — only active when auctionOverride is provided ─────────
+  const [timeLeft, setTimeLeft] = useState(() =>
+    auctionOverride ? getTimeLeft(auctionOverride.endsAt) : { h: 0, m: 0, s: 0, done: true }
+  );
+  const [spin, setSpin] = useState(false);
+
+  useEffect(() => {
+    if (!auctionOverride) return;
+    const tick = () => setTimeLeft(getTimeLeft(auctionOverride.endsAt));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [auctionOverride?.endsAt]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!auctionOverride || timeLeft.done) return;
+    const id = setInterval(() => {
+      setSpin(true);
+      setTimeout(() => setSpin(false), 600);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [auctionOverride, timeLeft.done]);
 
   // Owners cannot watchlist their own cards
   const isOwner = !!userId && card.owner?.id === userId;
@@ -138,7 +168,7 @@ export default function CardListItem({
         <Box
           sx={{
             width: 130,
-            minWidth: 150,
+            minWidth: 130,
             maxWidth: 130,
             display: "flex",
             alignItems: "center",
@@ -252,23 +282,53 @@ export default function CardListItem({
 
             <ConditionBadge condition={card.condition} />
 
-            {/* Price */}
+            {/* Price section — three mutually exclusive states:
+                1. auctionOverride: live auction tile (homepage "Ending Soon" row)
+                2. card.inAuction:  owner's card is currently in an auction
+                3. card.forSale:    fixed-price listing
+                4. default:         not listed */}
             <Box sx={{ mt: 1 }}>
-              {card.forSale && card.price != null ? (
-                <Typography
-                  variant="h6"
-                  fontWeight={700}
-                  color="text.primary"
-                  sx={{ lineHeight: 1 }}
-                >
+              {auctionOverride ? (
+                <>
+                  {/* 1. Bid price */}
+                  <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ lineHeight: 1 }}>
+                    S${(auctionOverride.currentBid ?? auctionOverride.startingBid).toFixed(2)}
+                  </Typography>
+                  {/* Bid count directly under the price */}
+                  <Typography sx={{ fontSize: "0.7rem", color: "text.secondary", mt: 0.5, lineHeight: 1 }}>
+                    {auctionOverride.bidCount} {auctionOverride.bidCount === 1 ? "Bid" : "Bids"}
+                  </Typography>
+                  {/* Timer on its own row */}
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.4, mt: 1 }}>
+                    <HourglassEmptyIcon
+                      sx={{
+                        fontSize: 15,
+                        color: timeLeft.done ? "#9ca3af" : "#e53935",
+                        animation: spin && !timeLeft.done ? "spin 0.6s linear" : "none",
+                        "@keyframes spin": { "0%": { transform: "rotate(0deg)" }, "100%": { transform: "rotate(180deg)" } },
+                      }}
+                    />
+                    <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: timeLeft.done ? "#9ca3af" : "#e53935", whiteSpace: "nowrap" }}>
+                      {timeLeft.done ? "Ended" : `${timeLeft.h}h ${pad(timeLeft.m)}m ${pad(timeLeft.s)}s`}
+                    </Typography>
+                  </Box>
+                </>
+              ) : card.inAuction ? (
+                // 2. Card is listed in an auction — show gavel badge instead of price
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  <GavelIcon sx={{ fontSize: 14, color: "#f97316" }} />
+                  <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: "#f97316" }}>
+                    In Auction
+                  </Typography>
+                </Box>
+              ) : card.forSale && card.price != null ? (
+                // 3. Fixed-price listing
+                <Typography variant="h6" fontWeight={700} color="text.primary" sx={{ lineHeight: 1 }}>
                   S${card.price.toFixed(2)}
                 </Typography>
               ) : (
-                <Typography
-                  variant="subtitle2"
-                  fontWeight={700}
-                  color="text.secondary"
-                >
+                // 4. Not listed
+                <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
                   Not for sale
                 </Typography>
               )}

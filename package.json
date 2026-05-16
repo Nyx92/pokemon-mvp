@@ -12,13 +12,13 @@
     "start": "next start -p 3001",
     "lint": "next lint",
     "format": "prettier --write .",
-    "seed": "tsx prisma/seed.js",
+    "seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.js"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.10.0",

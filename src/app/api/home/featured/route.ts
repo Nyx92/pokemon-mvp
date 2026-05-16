@@ -13,7 +13,9 @@ const cardInclude = {
 
 export async function GET() {
   try {
-    // Best Sellers: admin-curated, ordered by position
+    // Best Sellers: admin-curated, ordered by position.
+    // Fetch all rows then slice to 5 *after* filtering out any tcgPlayerIds that
+    // have no forSale listing — prevents a null hole from shrinking the visible row.
     const bestSellerRows = await prisma.bestSeller.findMany({
       orderBy: { position: "asc" },
     });
@@ -29,6 +31,7 @@ export async function GET() {
       )
     )
       .filter(Boolean)
+      .slice(0, 5)
       .map(mapCard);
 
     // Highest Transacted: group transactions by tcgPlayerId (via card join),

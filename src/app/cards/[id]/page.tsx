@@ -16,7 +16,10 @@ import EditPriceDialog from "@/app/shared-components/cards/EditPriceDialog";
 import AllListings from "@/app/shared-components/cards/AllListings";
 import PlaceOfferDialog from "@/app/shared-components/cards/PlaceOfferDialog";
 import SellerOffersDialog from "@/app/shared-components/cards/SellerOffersDialog";
+import AuctionDialog from "./components/AuctionDialog";
+import PlaceBidDialog from "./components/PlaceBidDialog";
 import type { CardItem } from "@/types/card";
+import type { AuctionItem } from "@/types/auction";
 
 const primaryBlue = "#0053ff";
 
@@ -41,6 +44,11 @@ export default function CardDetailPage() {
   // Shown in the BuyBox as a status callout so the buyer knows what's happening.
   const [activeOffer, setActiveOffer] = useState<ActiveOffer | null>(null);
   const [cartStatus, setCartStatus] = useState<"idle" | "adding" | "added" | "already">("idle");
+  const [auction,           setAuction]           = useState<AuctionItem | null>(null);
+  const [auctionDialogOpen, setAuctionDialogOpen] = useState(false);
+  const [bidDialogOpen,     setBidDialogOpen]     = useState(false);
+  // Pre-filled bid amount for the Buy Now (buy-out) flow; undefined means no prefill.
+  const [bidInitialAmount,  setBidInitialAmount]  = useState<number | undefined>(undefined);
 
   useEffect(() => {
     if (!id) return;
@@ -62,6 +70,20 @@ export default function CardDetailPage() {
     };
     fetchCard();
   }, [id]);
+
+  // Fetch active auction when card.inAuction is true.
+  // 1. card.inAuction is set to true by POST /api/auctions when the seller starts an auction.
+  // 2. GET /api/auctions?cardId returns any auction with status "active" or
+  //    "pending_seller_decision" — the raw DB row regardless of endsAt.
+  // 3. setAuction stores it; liveAuction below applies the client-side filters
+  //    (auctionExpiredClientSide) before deciding whether to pass it to BuyBox.
+  useEffect(() => {
+    if (!id || !card?.inAuction) return;
+    fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`)
+      .then((r) => r.json())
+      .then((data) => { if (data.auction) setAuction(data.auction); })
+      .catch(() => {});
+  }, [id, card?.inAuction]);
 
   // Fetch the viewer's own offer on this card (non-owners only)
   useEffect(() => {
@@ -109,6 +131,28 @@ export default function CardDetailPage() {
   const isOwner = userId === card.owner?.id;
   const canManageListing = isOwner || isAdmin;
   const isForSale = card.forSale && card.status !== "sold";
+
+  // Determine whether to pass the auction to BuyBox (auction mode) or null (standard mode).
+  //
+  // 1. auctionExpiredClientSide: active auction with no bids whose endsAt has passed.
+  //    We treat it as ended immediately on the client so the standard BuyBox appears
+  //    without waiting up to 5 min for the cron to flip it to "expired".
+  //    Active auctions WITH bids are NOT expired here — BuyBox handles that case
+  //    with the pendingSystemUpdate info box (4.3) while waiting for the cron.
+  const auctionExpiredClientSide =
+    auction?.status === "active" &&
+    new Date(auction.endsAt) <= new Date() &&
+    (auction.bidCount ?? 0) === 0;
+
+  // 2. liveAuction: non-null only while the auction is genuinely live or awaiting
+  //    a seller decision. Passing this to BuyBox switches it into auction mode.
+  //    null → BuyBox reverts to standard buy/offer mode.
+  const liveAuction =
+    auction &&
+    ["active", "pending_seller_decision"].includes(auction.status) &&
+    !auctionExpiredClientSide
+      ? auction
+      : null;
 
   const safeText = (val?: string | null) =>
     val && val.trim().length > 0 ? val : "-";
@@ -164,6 +208,22 @@ export default function CardDetailPage() {
       if (data.url) window.location.href = data.url;
     } catch (err) {
       console.error("Error calling /api/checkout:", err);
+    }
+  };
+
+  const handleAuctionDecide = async (auctionId: string, action: "accept" | "reject") => {
+    const res = await fetch(`/api/auctions/${auctionId}/decide`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      if (action === "accept") {
+        window.location.href = "/sold";
+      } else {
+        setAuction((a) => a ? { ...a, status: "expired" } : a);
+        setCard((c) => c ? { ...c, inAuction: false } : c);
+      }
     }
   };
 
@@ -395,6 +455,9 @@ export default function CardDetailPage() {
             gap: 2,
           }}
         >
+          {/* BuyBox handles both standard and auction modes.
+              When liveAuction is provided the price/action section switches to
+              auction UI; the conditions (grade pills) section is always shown. */}
           <BuyBox
             tcgPlayerId={card.tcgPlayerId}
             currentCardId={card.id}
@@ -419,8 +482,6 @@ export default function CardDetailPage() {
             primaryBlue={primaryBlue}
             onPlaceOffer={() =>
               requireLogin(() => {
-                // Owner/admin: open the offers inbox to review incoming offers
-                // Buyer: open the form to place or amend an offer
                 if (canManageListing) setSellerOffersOpen(true);
                 else setPlaceOfferOpen(true);
               })
@@ -428,6 +489,23 @@ export default function CardDetailPage() {
             onBuyNow={() => requireLogin(handleBuyNow)}
             onAddToCart={!canManageListing ? handleAddToCart : undefined}
             cartStatus={cartStatus}
+            // "Start Auction" only offered when no live auction is running and the
+            // previous (zero-bid) auction has already been cleared by the cron.
+            // While auctionExpiredClientSide is true the cron hasn't run yet —
+            // BuyBox shows a "processing" banner instead via auctionPendingCleanup.
+            onStartAuction={isOwner && !isAdmin && !liveAuction && !auctionExpiredClientSide ? () => setAuctionDialogOpen(true) : undefined}
+            auctionPendingCleanup={auctionExpiredClientSide}
+            // Auction mode — null when auction has ended or doesn't exist
+            auction={liveAuction}
+            onPlaceBid={!isOwner ? () => requireLogin(() => {
+              setBidInitialAmount(undefined);
+              setBidDialogOpen(true);
+            }) : undefined}
+            onBuyOut={!isOwner ? () => requireLogin(() => {
+              setBidInitialAmount(liveAuction?.buyOutPrice ?? undefined);
+              setBidDialogOpen(true);
+            }) : undefined}
+            onAuctionDecide={isOwner && liveAuction ? (action) => handleAuctionDecide(liveAuction.id, action) : undefined}
           />
 
           <CardMarketChart card={card} />
@@ -488,24 +566,70 @@ export default function CardDetailPage() {
           cardTitle={card.title}
           onClose={() => {
             setSellerOffersOpen(false);
-            // Seller closed the dialog after rejecting (or without acting).
-            // Re-fetch offer count so the "See Offers (N)" badge stays accurate.
             fetch(`/api/offers?cardId=${encodeURIComponent(card.id)}`)
               .then((r) => r.json())
               .then((data) => { if (data.offers) setOffersCount(data.offers.length); })
               .catch(() => {});
           }}
           onAccepted={() => {
-            // Seller accepted an offer — card was immediately transferred to the buyer
-            // (PI captured + ownerId changed atomically in PATCH /api/offers/[id]).
-            // We are no longer the card owner. Instead of reloading this page
-            // (which would show a confusing state), send the seller to their
-            // Transaction History → Sold tab so they can see the completed sale.
             setSellerOffersOpen(false);
             window.location.href = "/sold";
+          }}
+        />
+      )}
+
+      {/* Owner: start an auction (hidden while a live auction is running) */}
+      {isOwner && !liveAuction && (
+        <AuctionDialog
+          open={auctionDialogOpen}
+          cardId={card.id}
+          cardTitle={card.title}
+          onClose={() => setAuctionDialogOpen(false)}
+          onSuccess={() => {
+            setAuctionDialogOpen(false);
+            // Re-fetch card so inAuction flag and auction data update
+            fetch(`/api/cards/${id}`)
+              .then((r) => r.json())
+              .then((data) => { if (data.card) setCard(data.card); })
+              .catch(() => {});
+            fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`)
+              .then((r) => r.json())
+              .then((data) => { if (data.auction) setAuction(data.auction); })
+              .catch(() => {});
+          }}
+        />
+      )}
+
+      {/* Buyer: place a bid (only rendered while auction is live) */}
+      {!isOwner && liveAuction && (
+        <PlaceBidDialog
+          open={bidDialogOpen}
+          auction={liveAuction}
+          initialAmount={bidInitialAmount}
+          onClose={() => {
+            setBidDialogOpen(false);
+            setBidInitialAmount(undefined);
+          }}
+          onSuccess={(settled) => {
+            setBidDialogOpen(false);
+            setBidInitialAmount(undefined);
+            if (settled) {
+              // Buyout: auction is closed — clear state immediately so BuyBox
+              // reverts to standard mode without waiting for a re-fetch.
+              setAuction(null);
+              setCard((c) => c ? { ...c, inAuction: false } : c);
+            } else {
+              // Normal bid: re-fetch auction to reflect updated bid count and amount.
+              // Use ?? null so a sold/expired auction correctly clears the state.
+              fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`)
+                .then((r) => r.json())
+                .then((data) => { setAuction(data.auction ?? null); })
+                .catch(() => {});
+            }
           }}
         />
       )}
     </Box>
   );
 }
+

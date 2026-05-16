@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import type { CardItem } from "@/types/card";
+import type { AuctionItem } from "@/types/auction";
 
 interface FeaturedData {
   bestSellers: CardItem[];
@@ -27,11 +28,7 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
       <Typography
         variant="h5"
         fontWeight={700}
-        sx={{
-          mb: 2,
-          fontSize: { xs: "1.15rem", md: "1.35rem" },
-          color: "#444",
-        }}
+        sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
       >
         {title}{" "}
         <Typography
@@ -54,10 +51,7 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
             overflowX: "auto",
             pb: 1,
             "&::-webkit-scrollbar": { height: 4 },
-            "&::-webkit-scrollbar-thumb": {
-              backgroundColor: "#ccc",
-              borderRadius: 2,
-            },
+            "&::-webkit-scrollbar-thumb": { backgroundColor: "#ccc", borderRadius: 2 },
           }}
         >
           {cards.map((card) => (
@@ -73,6 +67,95 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
     </Box>
   );
 }
+
+// ── Converts an AuctionItem into the CardItem shape CardListItem expects ──────
+// Price/forSale are irrelevant here — the auctionOverride prop handles display.
+function auctionToCard(auction: AuctionItem): CardItem {
+  return {
+    id:          auction.cardId,
+    title:       auction.card.title,
+    price:       null,
+    condition:   auction.card.condition,
+    status:      "available",
+    forSale:     false,
+    imageUrls:   auction.card.imageUrls,
+    tcgPlayerId: auction.card.tcgPlayerId,
+    setName:     auction.card.setName,
+    rarity:      auction.card.rarity,
+    description: null,
+    language:    auction.card.language,
+    cardNumber:  auction.card.cardNumber,
+    createdAt:   "",
+    updatedAt:   "",
+    owner:       auction.card.owner
+      ? { id: auction.card.owner.id, username: auction.card.owner.username, email: "" }
+      : undefined,
+  };
+}
+
+// ── Auction row — "Ending Soon" horizontal scroll ────────────────────────────
+// Reuses CardListItem with auctionOverride to show bid/timer/count instead of price.
+
+function AuctionRow({ watchlistedIds, onCardClick }: { watchlistedIds: Set<string>; onCardClick: (card: CardItem) => void }) {
+  const [auctions, setAuctions] = useState<AuctionItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/auctions?expiringSoon=true")
+      .then((r) => r.json())
+      .then((data) => { if (data.auctions) setAuctions(data.auctions); })
+      .catch(console.error);
+  }, []);
+
+  if (auctions.length === 0) return null;
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Typography
+        variant="h5"
+        fontWeight={700}
+        sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
+      >
+        Auction.{" "}
+        <Typography
+          component="span"
+          fontWeight={400}
+          color="text.secondary"
+          sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+        >
+          Live auctions closing shortly.
+        </Typography>
+      </Typography>
+
+      <Box
+        sx={{
+          display: "flex",
+          gap: 2,
+          overflowX: "auto",
+          pb: 1,
+          "&::-webkit-scrollbar": { height: 4 },
+          "&::-webkit-scrollbar-thumb": { backgroundColor: "#ccc", borderRadius: 2 },
+        }}
+      >
+        {auctions.map((auction) => (
+          <CardListItem
+            key={auction.id}
+            card={auctionToCard(auction)}
+            watchlisted={watchlistedIds.has(auction.cardId)}
+            onClick={onCardClick}
+            auctionOverride={{
+              currentBid:  auction.currentBid,
+              startingBid: auction.startingBid,
+              endsAt:      auction.endsAt,
+              bidCount:    auction.bidCount,
+            }}
+          />
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+// ── Main featured component ───────────────────────────────────────────────────
 
 export default function HomeFeatured() {
   const router = useRouter();
@@ -102,6 +185,8 @@ export default function HomeFeatured() {
 
   return (
     <Box>
+      {/* Auction row sits at the very top — hidden when no auctions are ending soon */}
+      <AuctionRow watchlistedIds={watchlistedIds} onCardClick={handleCardClick} />
       <SectionRow
         title="Best Sellers."
         subtitle="Trending products."

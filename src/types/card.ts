@@ -15,6 +15,10 @@ export interface CardItem {
   language: string;
   cardNumber: string | null;
 
+  // True while the card has an active (or cron-pending) auction.
+  // Set by POST /api/auctions; cleared when the auction is settled or expired.
+  inAuction?: boolean;
+
   // Optional fields populated by specific API endpoints
   watchlistCount?: number;
   watchlistedByUser?: boolean;

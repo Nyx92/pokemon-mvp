@@ -37,12 +37,16 @@ async function main() {
   console.log("🚀 Starting database seed...");
 
   // ✅ Clean up (child tables first)
+  // Bid references Auction
+  await prisma.bid.deleteMany();
   // CardTransaction references Order/Card/User
   await prisma.cardTransaction.deleteMany();
   // Offer references Card/User
   await prisma.offer.deleteMany();
   // Order references Card/User
   await prisma.order.deleteMany();
+  // Auction references Card/User
+  await prisma.auction.deleteMany();
   // Card references Binder/User
   await prisma.card.deleteMany();
   // Binder references User
@@ -51,6 +55,8 @@ async function main() {
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
   await prisma.user.deleteMany();
+  // BestSeller is standalone
+  await prisma.bestSeller.deleteMany();
   // Hash passwords
   const adminPassword = await bcrypt.hash("admin", 10);
   const ashPassword = await bcrypt.hash("123", 10);
@@ -139,7 +145,8 @@ async function main() {
   const mockImageUrlThree = await uploadMockImage("blastoise.png");
   const mockImageUrlFour = await uploadMockImage("starmie_gx.png");
   const mockImageUrlFive = await uploadMockImage("psyduck.png");
-  const mockImageUrlSix = await uploadMockImage("gyarados_vmax.png");
+  const mockImageUrlSix   = await uploadMockImage("gyarados_vmax.png");
+  const mockImageUrlShuckle = await uploadMockImage("shuckle_psa10.png");
 
   console.log("✅ Uploaded all mock images");
 
@@ -624,6 +631,380 @@ async function main() {
 
   console.log("✅ Cards created for Ash and Misty");
 
+  // ── Extra best-seller cards ────────────────────────────────────────────────
+  // Two more cards to fill positions 6 and 7 in the Best Sellers row.
+  await prisma.card.createMany({
+    data: [
+      {
+        title: "Shuckle",
+        price: dollarsToCents(220),
+        condition: "PSA 10",
+        description: "PSA 10 Gem Mint — the rarest Shuckle you'll ever see.",
+        imageUrls: [mockImageUrlShuckle],
+        forSale: true,
+        setName: "Neo Revelation",
+        rarity: "Common",
+        binderId: rareBinder.id,
+        ownerId: ash.id,
+        tcgPlayerId: "14936",
+        language: "English",
+        cardNumber: "70/64",
+      },
+      {
+        title: "Shuckle",
+        price: dollarsToCents(90),
+        condition: "Near Mint",
+        description: "Shuckle from Neo Revelation in great shape.",
+        imageUrls: [mockImageUrlShuckle],
+        forSale: true,
+        setName: "Neo Revelation",
+        rarity: "Common",
+        binderId: rareBinder.id,
+        ownerId: ash.id,
+        tcgPlayerId: "14936",
+        language: "English",
+        cardNumber: "70/64",
+      },
+      {
+        title: "Psyduck V",
+        price: dollarsToCents(55),
+        condition: "Mint",
+        description: "Psyduck V — a modern staple with confusing energy.",
+        imageUrls: [mockImageUrlFive],
+        forSale: true,
+        setName: "Fusion Strike",
+        rarity: "Rare",
+        binderId: waterBinder.id,
+        ownerId: misty.id,
+        tcgPlayerId: "441629",
+        language: "Japanese",
+        cardNumber: "062/100",
+      },
+      {
+        title: "Psyduck V",
+        price: dollarsToCents(40),
+        condition: "Near Mint",
+        description: "Psyduck V in near-mint condition.",
+        imageUrls: [mockImageUrlFive],
+        forSale: true,
+        setName: "Fusion Strike",
+        rarity: "Rare",
+        binderId: waterBinder.id,
+        ownerId: misty.id,
+        tcgPlayerId: "441629",
+        language: "Japanese",
+        cardNumber: "062/100",
+      },
+    ],
+  });
+
+  console.log("✅ Extra best-seller cards created");
+
+  // ── Auction cards — 6 cards in live auctions ──────────────────────────────
+  // 3 ending soon (within 6h → appear in homepage "Ending Soon" row),
+  // 3 ending later (only visible on /auctions page).
+  const nowMs = Date.now();
+  const mins  = (m: number) => new Date(nowMs + m * 60 * 1000);
+  const hours = (h: number) => new Date(nowMs + h * 60 * 60 * 1000);
+  const days  = (d: number) => new Date(nowMs + d * 24 * 60 * 60 * 1000);
+
+  const auctionCard1 = await prisma.card.create({
+    data: {
+      title: "Charizard VMAX",
+      price: null,
+      condition: "Near Mint",
+      description: "Auction-only Charizard VMAX — rare chance to own this fire holo.",
+      imageUrls: [mockImageUrlOne],
+      forSale: false,
+      inAuction: true,
+      setName: "Shining Fates",
+      rarity: "Ultra Rare",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "232496",
+      language: "English",
+      cardNumber: "SV107",
+    },
+  });
+
+  const auctionCard2 = await prisma.card.create({
+    data: {
+      title: "Blastoise Holo Rare",
+      price: null,
+      condition: "Lightly Played",
+      description: "Vintage Base Set Blastoise in auction — light play only.",
+      imageUrls: [mockImageUrlThree],
+      forSale: false,
+      inAuction: true,
+      setName: "Base Set",
+      rarity: "Holo Rare",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "42360",
+      language: "English",
+      cardNumber: "002/102",
+    },
+  });
+
+  const auctionCard3 = await prisma.card.create({
+    data: {
+      title: "Gyarados VMAX",
+      price: null,
+      condition: "Mint",
+      description: "Mint-condition Gyarados VMAX in auction — closing soon.",
+      imageUrls: [mockImageUrlSix],
+      forSale: false,
+      inAuction: true,
+      setName: "Evolving Skies",
+      rarity: "Ultra Rare",
+      binderId: waterBinder.id,
+      ownerId: misty.id,
+      tcgPlayerId: "246724",
+      language: "English",
+      cardNumber: "109/203",
+    },
+  });
+
+  const auctionCard4 = await prisma.card.create({
+    data: {
+      title: "Venusaur V",
+      price: null,
+      condition: "Near Mint",
+      description: "Venusaur V — Grass-type powerhouse in a multi-day auction.",
+      imageUrls: [mockImageUrlTwo],
+      forSale: false,
+      inAuction: true,
+      setName: "Champion's Path",
+      rarity: "Rare",
+      binderId: grassBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "222990",
+      language: "English",
+      cardNumber: "01/73",
+    },
+  });
+
+  const auctionCard5 = await prisma.card.create({
+    data: {
+      title: "Starmie GX",
+      price: null,
+      condition: "Mint",
+      description: "Starmie GX in a 2-day auction — get your bids in early.",
+      imageUrls: [mockImageUrlFour],
+      forSale: false,
+      inAuction: true,
+      setName: "Hidden Fates",
+      rarity: "Ultra Rare",
+      binderId: waterBinder.id,
+      ownerId: misty.id,
+      tcgPlayerId: "197658",
+      language: "Japanese",
+      cardNumber: "14/68",
+    },
+  });
+
+  const auctionCard6 = await prisma.card.create({
+    data: {
+      title: "Shuckle",
+      price: null,
+      condition: "PSA 10",
+      description: "PSA 10 Shuckle in a 3-day auction — a true collector's gem.",
+      imageUrls: [mockImageUrlShuckle],
+      forSale: false,
+      inAuction: true,
+      setName: "Neo Revelation",
+      rarity: "Common",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "14936",
+      language: "English",
+      cardNumber: "70/64",
+    },
+  });
+
+  // ── Quick-expiry test auctions (5 / 6 / 7 / 10 min) ─────────────────────
+  // All owned by Ash. Log in as Misty to place bids and test the different paths.
+  //
+  //  Card 7  (10 min) — has RP $80, BO $150 → bid below RP → pending_seller_decision
+  //  Card 8  ( 5 min) — no RP, no BO        → let expire untouched → expiredNoBids
+  //  Card 9  ( 6 min) — has RP $50, BO $120 → bid above $50 RP → cron auto-settles
+  //  Card 10 ( 7 min) — has RP $80, no BO   → bid below $80 RP → pending_seller_decision
+  const auctionCard7 = await prisma.card.create({
+    data: {
+      title: "Blastoise Holo Rare",
+      price: null,
+      condition: "Mint",
+      description: "TEST (10 min) — bid below S$80 RP to trigger pending_seller_decision, or S$150 BO for instant win.",
+      imageUrls: [mockImageUrlThree],
+      forSale: false,
+      inAuction: true,
+      setName: "Base Set",
+      rarity: "Holo Rare",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "42360",
+      language: "English",
+      cardNumber: "002/102",
+    },
+  });
+
+  const auctionCard8 = await prisma.card.create({
+    data: {
+      title: "Psyduck",
+      price: null,
+      condition: "Near Mint",
+      description: "TEST (5 min) — no RP, no BO. Leave it with zero bids and fire the cron to test the expiredNoBids path.",
+      imageUrls: [mockImageUrlFive],
+      forSale: false,
+      inAuction: true,
+      setName: "Base Set",
+      rarity: "Common",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "232496",
+      language: "English",
+      cardNumber: "053/102",
+    },
+  });
+
+  const auctionCard9 = await prisma.card.create({
+    data: {
+      title: "Gyarados VMAX",
+      price: null,
+      condition: "Near Mint",
+      description: "TEST (6 min) — has RP $50, BO $120. Bid above S$50 RP (e.g. S$60) and let it expire — cron should auto-settle without seller action.",
+      imageUrls: [mockImageUrlSix],
+      forSale: false,
+      inAuction: true,
+      setName: "Vivid Voltage",
+      rarity: "Ultra Rare",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "197658",
+      language: "English",
+      cardNumber: "022/185",
+    },
+  });
+
+  const auctionCard10 = await prisma.card.create({
+    data: {
+      title: "Starmie GX",
+      price: null,
+      condition: "Mint",
+      description: "TEST (7 min) — has RP $80, no BO. Bid below S$80 RP (e.g. S$40) and let it expire — cron should move to pending_seller_decision.",
+      imageUrls: [mockImageUrlFour],
+      forSale: false,
+      inAuction: true,
+      setName: "Hidden Fates",
+      rarity: "Ultra Rare",
+      binderId: rareBinder.id,
+      ownerId: ash.id,
+      tcgPlayerId: "14936",
+      language: "English",
+      cardNumber: "014/068",
+    },
+  });
+
+  await prisma.auction.createMany({
+    data: [
+      // ── Ending soon (≤6 h) — appear in homepage row ───────────────────────
+      {
+        cardId:       auctionCard1.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(80),
+        reservePrice: dollarsToCents(150),
+        buyOutPrice:  dollarsToCents(300),
+        status:       "active",
+        endsAt:       hours(2),
+      },
+      {
+        cardId:       auctionCard2.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(60),
+        buyOutPrice:  dollarsToCents(200),
+        status:       "active",
+        endsAt:       hours(4),
+      },
+      {
+        cardId:       auctionCard3.id,
+        sellerId:     misty.id,
+        startingBid:  dollarsToCents(50),
+        reservePrice: dollarsToCents(100),
+        status:       "active",
+        endsAt:       hours(5),
+      },
+      // ── Ending later — only on /auctions page ─────────────────────────────
+      {
+        cardId:       auctionCard4.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(40),
+        reservePrice: dollarsToCents(80),
+        buyOutPrice:  dollarsToCents(150),
+        status:       "active",
+        endsAt:       days(1),
+      },
+      {
+        cardId:       auctionCard5.id,
+        sellerId:     misty.id,
+        startingBid:  dollarsToCents(30),
+        buyOutPrice:  dollarsToCents(120),
+        status:       "active",
+        endsAt:       days(2),
+      },
+      {
+        cardId:       auctionCard6.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(80),
+        reservePrice: dollarsToCents(160),
+        status:       "active",
+        endsAt:       days(3),
+      },
+      // ── Quick-expiry test auctions (5–10 min) — all owned by Ash ────────────
+      // Card 7 (10 min): bid below S$80 RP → pending_seller_decision, or S$150 BO → instant win
+      {
+        cardId:       auctionCard7.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(20),
+        reservePrice: dollarsToCents(80),
+        buyOutPrice:  dollarsToCents(150),
+        status:       "active",
+        endsAt:       mins(10),
+      },
+      // Card 8 (5 min): no RP, no BO — leave with zero bids → expiredNoBids
+      {
+        cardId:       auctionCard8.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(10),
+        reservePrice: null,
+        buyOutPrice:  null,
+        status:       "active",
+        endsAt:       mins(5),
+      },
+      // Card 9 (6 min): bid above S$50 RP (e.g. S$60) → cron auto-settles at endsAt
+      {
+        cardId:       auctionCard9.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(20),
+        reservePrice: dollarsToCents(50),
+        buyOutPrice:  dollarsToCents(120),
+        status:       "active",
+        endsAt:       mins(6),
+      },
+      // Card 10 (7 min): bid below S$80 RP (e.g. S$40) → pending_seller_decision
+      {
+        cardId:       auctionCard10.id,
+        sellerId:     ash.id,
+        startingBid:  dollarsToCents(30),
+        reservePrice: dollarsToCents(80),
+        buyOutPrice:  null,
+        status:       "active",
+        endsAt:       mins(7),
+      },
+    ],
+  });
+
+  console.log("✅ Seeded 10 auction cards (including 5/6/7/10-min quick-expiry test auctions)");
+
   // Offer — Misty (buyer) offers on Ash's Charizard (seller)
   const offer = await prisma.offer.create({
     data: {
@@ -756,6 +1137,8 @@ async function main() {
       { tcgPlayerId: "222990", position: 3 }, // Venusaur V
       { tcgPlayerId: "197658", position: 4 }, // Starmie GX
       { tcgPlayerId: "246724", position: 5 }, // Gyarados VMAX
+      { tcgPlayerId: "14936",  position: 6 }, // Shuckle PSA 10
+      { tcgPlayerId: "441629", position: 7 }, // Psyduck V (Japanese)
     ],
   });
 

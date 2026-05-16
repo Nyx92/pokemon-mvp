@@ -1,38 +1,45 @@
 /**
- * This file sets up and exports a single shared Prisma Client instance.
+ * Singleton Prisma Client.
  *
- * ✅ What it does:
- * - Ensures we don’t create multiple Prisma Client instances during hot reloads (Next.js dev mode).
- * - Configures Prisma logging for debugging queries, errors, and warnings.
- * - Exports a `prisma` object you can use anywhere to query your Postgres DB.
+ * ── Problem ──────────────────────────────────────────────────────────────────
+ * Next.js hot reloads re-evaluate modules on every file save. Without a
+ * singleton, each re-evaluation calls `new PrismaClient()` which opens a
+ * fresh TCP connection pool to the database. On the Supabase session-mode
+ * pooler (port 5432) connections are held for the lifetime of the client, so
+ * stale pools from previous hot-reload cycles accumulate until you exceed the
+ * hard limit of 15 session-mode connections and get EMAXCONNSESSION errors.
  *
- * ✅ Why it’s needed:
- * - Without this, each time Next.js reloads, a new PrismaClient instance is created.
- *   That can exhaust database connections and crash your app.
- * - By attaching Prisma to the `global` object, we reuse the same instance in development.
+ * ── Solution ─────────────────────────────────────────────────────────────────
+ * We cache the PrismaClient on the Node.js `global` object. `global` is NOT
+ * re-evaluated on hot reloads — it persists for the lifetime of the Node.js
+ * process — so every subsequent import gets the same instance and the same
+ * underlying connection pool.
  *
- * ✅ How it works:
- * - `globalForPrisma` acts like a cache for Prisma on the global object.
- * - If no Prisma client exists yet, create one.
- * - If we’re in development, store it globally so hot reloads reuse it.
- * - In production, always create a new instance (to avoid cross-request leakage).
+ * The assignment is unconditional (not guarded by NODE_ENV). Older patterns
+ * only cached in development and created a fresh client in production, which
+ * could still cause accumulation inside a long-running `next start` process.
  *
- * 👉 TL;DR: This file is your "database connector."
- * You import `{ prisma }` anywhere you need to talk to the DB.
+ * ── Connection pool ──────────────────────────────────────────────────────────
+ * DATABASE_URL points to Supabase's transaction-mode pooler (port 6543).
+ * In transaction mode a connection is borrowed for the duration of a single
+ * query then immediately returned, so the pool is shared efficiently across
+ * all concurrent API routes. connection_limit=5 in the URL caps Prisma's pool
+ * size well below the 15-connection ceiling, leaving headroom for other
+ * clients (e.g. migrations, Prisma Studio).
  */
 
-// Import the generated Prisma client (from your `prisma/schema.prisma` models)
 import { PrismaClient } from "@prisma/client";
 
-// Attach Prisma client to global object to avoid re-instantiating on hot reloads
+// Extend the global type so TypeScript knows about our cached client.
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-// Either reuse the existing Prisma client (if already created) OR make a new one
-export const prisma =
-  globalForPrisma.prisma ||
-  new PrismaClient({
-    log: ["query", "error", "warn"], // log SQL queries, errors, and warnings in console
-  });
+// ??= only runs the right-hand side when globalForPrisma.prisma is null/undefined,
+// i.e. the very first time this module is evaluated in the current process.
+// Every subsequent hot reload or import skips the constructor entirely.
+globalForPrisma.prisma ??= new PrismaClient({
+  // Full query logging in development helps trace N+1 queries and slow calls.
+  // Production logs errors only — query logging at scale generates too much noise.
+  log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+});
 
-// In development, reuse the same Prisma client across hot reloads
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+export const prisma = globalForPrisma.prisma;

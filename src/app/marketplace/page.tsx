@@ -4,8 +4,9 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/app/hooks/useAuth";
 import Marketplace from "./MarketPlace";
-import { Box, Tabs, Tab } from "@mui/material";
+import { Box, Tab, Tabs, Typography } from "@mui/material";
 import CollectionsIcon from "@mui/icons-material/Collections";
+import GavelIcon from "@mui/icons-material/Gavel";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import UploadIcon from "@mui/icons-material/Upload";
 
@@ -61,6 +62,14 @@ export default function MarketplacePage() {
               iconPosition="start"
               value="/marketplace"
             />
+            <Tab
+              component={Link}
+              href="/auctions"
+              icon={<GavelIcon />}
+              label="Auctions"
+              iconPosition="start"
+              value="/auctions"
+            />
             {isAdmin && (
               <Tab
                 component={Link}
@@ -75,6 +84,16 @@ export default function MarketplacePage() {
         </Box>
 
         <Box sx={{ mt: 4 }}>
+          {/* Page header */}
+          <Box sx={{ mb: 4 }}>
+            <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1 }}>
+              Marketplace
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.25 }}>
+              Browse and buy Pokémon cards listed by other collectors.
+            </Typography>
+          </Box>
+
           <Marketplace />
         </Box>
       </Box>

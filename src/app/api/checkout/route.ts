@@ -36,6 +36,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (card.ownerId === buyerId) {
+      return NextResponse.json(
+        { error: "You cannot buy your own card" },
+        { status: 403 }
+      );
+    }
+
     if (card.price == null || card.price <= 0) {
       return NextResponse.json(
         { error: "Card has invalid price" },

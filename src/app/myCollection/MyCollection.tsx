@@ -88,8 +88,9 @@ export default function MyCollection() {
     const matchesBinder = binder === "all" || product.binder?.id === binder;
     const matchesFilter =
       filter === "all" ||
-      (filter === "forsale" && product.forSale) ||
-      (filter === "sold" && product.status === "sold");
+      (filter === "forsale"   && product.forSale) ||
+      (filter === "inauction" && product.inAuction) ||
+      (filter === "sold"      && product.status === "sold");
     return matchesBinder && matchesFilter;
   });
 
@@ -210,6 +211,7 @@ export default function MyCollection() {
         >
           <ToggleButton value="all">All</ToggleButton>
           <ToggleButton value="forsale">For Sale</ToggleButton>
+          <ToggleButton value="inauction">In Auction</ToggleButton>
           <ToggleButton value="sold">Sold</ToggleButton>
         </ToggleButtonGroup>
       </Box>

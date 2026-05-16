@@ -8,6 +8,7 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import {
   RAW_GRADES,
   PSA_GRADES,
@@ -15,7 +16,9 @@ import {
   CGC_GRADES,
   SGC_GRADES,
 } from "@/constants/grades";
+import { getTimeLeft, pad } from "./tileHelpers";
 import type { CardItem } from "@/types/card";
+import type { AuctionItem } from "@/types/auction";
 import OfferCountdown from "./OfferCountdown";
 
 type GradeCompany = "Raw" | "PSA" | "Beckett" | "CGC" | "SGC";
@@ -89,6 +92,24 @@ interface BuyBoxProps {
   // cartStatus reflects the last add attempt so we can show feedback text.
   onAddToCart?: () => void;
   cartStatus?: "idle" | "adding" | "added" | "already";
+
+  // "Start Auction" — owner-mode only, shown when the card is not yet in auction.
+  onStartAuction?: () => void;
+  // True when a zero-bid auction just expired client-side but the cron hasn't
+  // cleared card.inAuction yet (~5 min lag). Replaces "Start Auction" with an
+  // info banner so the seller isn't confused by a misleading "already in auction" error.
+  auctionPendingCleanup?: boolean;
+
+  // ── Auction mode ──────────────────────────────────────────────────────────
+  // When provided, the price/action section switches to auction UI while the
+  // conditions section (grade pills) continues to show as normal.
+  auction?: AuctionItem | null;
+  // Viewer: "Place Bid" button
+  onPlaceBid?: () => void;
+  // Viewer: "Buy Now" button at the buy-out price (only enabled when buyOutPrice is set)
+  onBuyOut?: () => void;
+  // Owner: Accept or Decline the highest bid during the pending_seller_decision window
+  onAuctionDecide?: (action: "accept" | "reject") => void;
 }
 
 export default function BuyBox({
@@ -108,6 +129,12 @@ export default function BuyBox({
   activeOffer = null,
   onAddToCart,
   cartStatus = "idle",
+  onStartAuction,
+  auctionPendingCleanup = false,
+  auction = null,
+  onPlaceBid,
+  onBuyOut,
+  onAuctionDecide,
 }: BuyBoxProps) {
   const router = useRouter();
   const isOwnerMode = mode === "owner";
@@ -136,6 +163,40 @@ export default function BuyBox({
       })
       .catch(console.error);
   }, [tcgPlayerId]);
+
+  // ── Auction countdown — only active when auction prop is present ──────────
+  // The timer target switches to sellerDecisionDeadline once the auction ends
+  // and the seller has 24 h to accept or decline the highest bid.
+  const [auctionTimeLeft, setAuctionTimeLeft] = useState(() => {
+    if (!auction) return { h: 0, m: 0, s: 0, done: true };
+    const target =
+      auction.status === "pending_seller_decision" && auction.sellerDecisionDeadline
+        ? auction.sellerDecisionDeadline
+        : auction.endsAt;
+    return getTimeLeft(target);
+  });
+  const [auctionSpin, setAuctionSpin] = useState(false);
+
+  useEffect(() => {
+    if (!auction) return;
+    const target =
+      auction.status === "pending_seller_decision" && auction.sellerDecisionDeadline
+        ? auction.sellerDecisionDeadline
+        : auction.endsAt;
+    const tick = () => setAuctionTimeLeft(getTimeLeft(target));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [auction?.endsAt, auction?.sellerDecisionDeadline, auction?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!auction || auctionTimeLeft.done) return;
+    const id = setInterval(() => {
+      setAuctionSpin(true);
+      setTimeout(() => setAuctionSpin(false), 600);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [auction, auctionTimeLeft.done]);
 
   // Cheapest listing per condition
   const cheapestByCondition = new Map<string, ListingSummary>();
@@ -265,6 +326,35 @@ export default function BuyBox({
   const rightBtnLabel = isOwnerMode ? "Edit" : "Buy Now";
   const rightBtnDisabled = isOwnerMode ? false : !isForSale;
 
+  // ── Auction-specific derived values ───────────────────────────────────────
+  // 1. biddingOpen: auction is live and the client-side timer hasn't expired.
+  const biddingOpen = !!auction && auction.status === "active" && !auctionTimeLeft.done;
+
+  // 2. pendingSystemUpdate: timer has run out and the server still shows "active"
+  //    with bids. The cron will flip it to pending_seller_decision within ~5 min.
+  //    We show an info box ("refresh shortly") and "AWAITING DECISION" badge.
+  const pendingSystemUpdate =
+    !!auction && auction.status === "active" && auctionTimeLeft.done && auction.bidCount > 0;
+
+  // 3. inDecisionWindow: cron has processed the auction — seller can now decide.
+  //    Accept/Decline buttons are gated here because the decide endpoint requires
+  //    status === "pending_seller_decision".
+  const inDecisionWindow = !!auction && auction.status === "pending_seller_decision";
+
+  // 4. auctionDisplayEnded: auction is functionally over with nothing to decide.
+  //    Covers: server-expired, or active + timer done + zero bids (no cron update needed).
+  const auctionDisplayEnded =
+    !auction ||
+    auction.status === "expired" ||
+    (auction.status === "active" && auctionTimeLeft.done && auction.bidCount === 0);
+
+  // 5. Badge reflects the display state, not the raw server status.
+  const auctionBadge = auctionDisplayEnded
+    ? { label: "ENDED",             bg: "#f3f4f6", color: "#6b7280" }
+    : pendingSystemUpdate || inDecisionWindow
+    ? { label: "AWAITING DECISION", bg: "#fef9c3", color: "#92400e" }
+    : { label: "ACTIVE",            bg: "#dcfce7", color: "#16a34a" };
+
   return (
     <Box
       sx={{
@@ -276,7 +366,9 @@ export default function BuyBox({
       }}
     >
       <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-        {/* ── CONDITION / GRADE SECTION ── */}
+        {/* ── 1. CONDITION / GRADE SECTION ── */}
+        {/* Unchanged in both standard and auction mode — shows all grade pills with */}
+        {/* the cheapest fixed-price listing for each condition across all sellers. */}
         <Box sx={{ mb: 1.5 }}>
           <Typography
             sx={{
@@ -349,12 +441,11 @@ export default function BuyBox({
 
         <Divider sx={{ mb: 1.5 }} />
 
-        {/* ── VIEWER OFFER STATUS CALLOUT ── */}
-        {/* Shown only to the buyer (non-owner) when they have an active offer. */}
-        {!isOwnerMode && activeOffer && (
+        {/* ── 2. VIEWER OFFER STATUS CALLOUT (standard mode only) ── */}
+        {/* Hidden in auction mode — offers are blocked while card is in auction. */}
+        {!isOwnerMode && !auction && activeOffer && (
           <Box sx={{ mb: 1.2 }}>
-            {/* Accepted: PI was captured, card transfer is in progress.
-                The buyer should refresh — they may now own the card. */}
+            {/* Accepted: PI was captured, card transfer is in progress. */}
             {offerIsAccepted && (
               <Alert
                 icon={<CheckCircleOutlineIcon fontSize="small" />}
@@ -398,7 +489,7 @@ export default function BuyBox({
           </Box>
         )}
 
-        {/* ── PRICE ROW ── */}
+        {/* ── 3. PRICE ROW ── */}
         <Box
           sx={{
             display: "flex",
@@ -408,23 +499,52 @@ export default function BuyBox({
           }}
         >
           <Box>
-            <Typography sx={{ fontSize: 11, color: "#6b7280" }}>
-              {isOwnerMode ? "Listed for" : "Buy Now for"}
-            </Typography>
-            <Typography
-              sx={{
-                fontSize: { xs: 22, sm: 26 },
-                fontWeight: 700,
-                lineHeight: 1.05,
-                color: "#111",
-                mt: 0.3,
-              }}
-            >
-              {priceText}
-            </Typography>
+            {auction ? (
+              <>
+                {/* "Highest Bid" label + status badge */}
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                  <Typography sx={{ fontSize: 11, color: "#6b7280" }}>
+                    Highest Bid
+                  </Typography>
+                  <Box sx={{ px: 1, py: 0.25, borderRadius: 1, backgroundColor: auctionBadge.bg }}>
+                    <Typography sx={{ fontSize: 11, fontWeight: 700, color: auctionBadge.color }}>
+                      {auctionBadge.label}
+                    </Typography>
+                  </Box>
+                </Box>
+                {/* Highest bid — S$0.00 when no bids have been placed */}
+                <Typography
+                  sx={{ fontSize: { xs: 22, sm: 26 }, fontWeight: 700, lineHeight: 1.05, color: "#111" }}
+                >
+                  S${(auction.currentBid ?? 0).toFixed(2)}
+                </Typography>
+                {/* Bid count */}
+                <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.3 }}>
+                  {auction.bidCount} {auction.bidCount === 1 ? "bid" : "bids"}
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography sx={{ fontSize: 11, color: "#6b7280" }}>
+                  {isOwnerMode ? "Listed for" : "Buy Now for"}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: 22, sm: 26 },
+                    fontWeight: 700,
+                    lineHeight: 1.05,
+                    color: "#111",
+                    mt: 0.3,
+                  }}
+                >
+                  {priceText}
+                </Typography>
+              </>
+            )}
           </Box>
 
-          {isLowest && !isOwnerMode && (
+          {/* "Lowest price" badge — standard mode only */}
+          {!auction && isLowest && !isOwnerMode && (
             <Box
               sx={{
                 display: "flex",
@@ -448,132 +568,320 @@ export default function BuyBox({
           )}
         </Box>
 
-        {/* ── ACTION BUTTONS ── */}
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 1,
-            mb: 1.2,
-          }}
-        >
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<GavelIcon />}
-            onClick={onPlaceOffer}
-            disabled={leftBtnDisabled}
-            sx={{
-              textTransform: "none",
-              borderColor: "#e5e7eb",
-              color: "#111",
-              backgroundColor: "#fff",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-              "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
-              fontWeight: 500,
-              borderRadius: 1.5,
-            }}
-          >
-            {offerIsPending && !isOwnerMode ? "Amend Offer" : leftBtnLabel}
-          </Button>
-
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />}
-            onClick={isOwnerMode ? onEdit : onBuyNow}
-            disabled={rightBtnDisabled}
-            sx={{
-              textTransform: "none",
-              backgroundColor: "#5b7fe8",
-              "&:hover": { backgroundColor: "#0041cc" },
-              boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
-              fontWeight: 500,
-              letterSpacing: "0.3px",
-              borderRadius: 1.5,
-            }}
-          >
-            {rightBtnLabel}
-          </Button>
-        </Box>
-
-        {/* ── ADD TO CART (viewer only, when for sale) ── */}
-        {!isOwnerMode && isForSale && onAddToCart && (
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<ShoppingCartIcon />}
-            onClick={onAddToCart}
-            disabled={
-              cartStatus === "adding" ||
-              cartStatus === "added" ||
-              cartStatus === "already"
-            }
-            sx={{
-              textTransform: "none",
-              borderColor:
-                cartStatus === "added" || cartStatus === "already"
-                  ? "#16a34a"
-                  : "#e5e7eb",
-              color:
-                cartStatus === "added" || cartStatus === "already"
-                  ? "#16a34a"
-                  : "#111",
-              backgroundColor: "#fff",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-              "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
-              fontWeight: 500,
-              borderRadius: 1.5,
-              mb: 1.2,
-            }}
-          >
-            {cartStatus === "added"
-              ? "Added to cart ✓"
-              : cartStatus === "already"
-                ? "Already in cart ✓"
-                : cartStatus === "adding"
-                  ? "Adding…"
-                  : "Add to Cart"}
-          </Button>
-        )}
-
-        {/* ── OTHER LISTINGS (same condition) — always visible ── */}
-        {!isOwnerMode && (
-          <Box
-            onClick={otherCount > 0 ? onViewListings : undefined}
-            sx={{
-              border: "1px solid #e5e7eb",
-              borderRadius: 1.5,
-              px: 1.6,
-              py: 0.8,
-              textAlign: "center",
-              backgroundColor: otherCount > 0 ? "#fafafa" : "#f9fafb",
-              cursor: otherCount > 0 ? "pointer" : "default",
-              "&:hover": otherCount > 0 ? { backgroundColor: "#f3f4f6" } : {},
-            }}
-          >
-            {otherCount > 0 ? (
-              <>
-                <Typography
-                  sx={{ fontSize: 12, color: primaryBlue, fontWeight: 500 }}
+        {/* ── 4. ACTION BUTTONS ── */}
+        {/* Auction mode renders 4.1–4.6 below; standard mode follows in the else branch. */}
+        {auction ? (
+          // ── Auction mode ─────────────────────────────────────────────────
+          <>
+            {/* 4.1. Viewer: Place Bid + Buy Now (buy-out).
+                  Both buttons are disabled when biddingOpen = false — i.e. the
+                  client-side timer has expired or the server status is no longer "active". */}
+            {!isOwnerMode && (
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1.2 }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<GavelIcon />}
+                  onClick={onPlaceBid}
+                  disabled={!biddingOpen}
+                  sx={{
+                    textTransform: "none",
+                    borderColor: "#e5e7eb",
+                    color: "#111",
+                    backgroundColor: "#fff",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                    "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
+                    fontWeight: 500,
+                    borderRadius: 1.5,
+                  }}
                 >
-                  {otherCount} other {currentCondition} listing
-                  {otherCount !== 1 ? "s" : ""}
+                  Place Bid
+                </Button>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<ShoppingCartIcon />}
+                  onClick={onBuyOut}
+                  disabled={!biddingOpen || auction.buyOutPrice === null}
+                  sx={{
+                    textTransform: "none",
+                    backgroundColor: "#5b7fe8",
+                    "&:hover": { backgroundColor: "#0041cc" },
+                    boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
+                    fontWeight: 500,
+                    letterSpacing: "0.3px",
+                    borderRadius: 1.5,
+                  }}
+                >
+                  {auction.buyOutPrice !== null
+                    ? `Buy Now S$${auction.buyOutPrice.toFixed(2)}`
+                    : "No Buy-out"}
+                </Button>
+              </Box>
+            )}
+
+            {/* 4.2. Owner (decision window): Accept or Decline the highest bid.
+                  Shown only when inDecisionWindow = true (status === "pending_seller_decision").
+                  The decide endpoint enforces this — it rejects any other status with 409. */}
+            {isOwnerMode && inDecisionWindow && auction.currentBid !== null && (
+              <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1.2 }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={() => onAuctionDecide?.("accept")}
+                  sx={{
+                    backgroundColor: "#16a34a",
+                    "&:hover": { backgroundColor: "#15803d" },
+                    textTransform: "none",
+                    fontWeight: 700,
+                    borderRadius: 1.5,
+                  }}
+                >
+                  Accept S${auction.currentBid.toFixed(2)}
+                </Button>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  color="error"
+                  onClick={() => onAuctionDecide?.("reject")}
+                  sx={{ textTransform: "none", fontWeight: 700, borderRadius: 1.5 }}
+                >
+                  Decline
+                </Button>
+              </Box>
+            )}
+
+            {/* 4.3. Owner (pre-cron window): timer expired with bids, status still "active".
+                  The cron hasn't run yet (up to ~5 min lag). We can't show Accept/Decline
+                  here because the decide endpoint requires pending_seller_decision. */}
+            {isOwnerMode && pendingSystemUpdate && (
+              <Box sx={{ p: 1.2, backgroundColor: "#fef9c3", borderRadius: 1.5, mb: 1.2 }}>
+                <Typography sx={{ fontSize: 12, color: "#92400e" }}>
+                  Auction ended — results are being processed. Refresh in a moment to accept or decline.
                 </Typography>
-                {lowestOther !== null && (
-                  <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.15 }}>
-                    As low as S${lowestOther.toFixed(2)}
+              </Box>
+            )}
+
+            {/* 4.4. Owner (auction live): informational banner while bids are still open. */}
+            {isOwnerMode && biddingOpen && (
+              <Box sx={{ p: 1.2, backgroundColor: "#f0f9ff", borderRadius: 1.5, mb: 1.2 }}>
+                <Typography sx={{ fontSize: 12, color: "#0369a1" }}>
+                  Auction is live — bids are open.
+                </Typography>
+              </Box>
+            )}
+
+            {/* 4.5. SB / RP / BO — always show all three; "—" when a price is not set. */}
+            <Box sx={{ display: "flex", gap: 2.5, mb: 1.2, flexWrap: "wrap" }}>
+              {[
+                { label: "Starting Bid",   value: auction.startingBid },
+                { label: "Reserve Price",  value: auction.reservePrice },
+                { label: "Buy-out",        value: auction.buyOutPrice },
+              ].map(({ label, value }) => (
+                <Box key={label}>
+                  <Typography sx={{ fontSize: 10, color: "#6b7280", mb: 0.25 }}>{label}</Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                    {value !== null ? `S$${value.toFixed(2)}` : "—"}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+
+            {/* 4.6. Countdown timer — target switches between endsAt and sellerDecisionDeadline.
+                  When done = true the label freezes at "Auction ended" in grey. */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 1.2 }}>
+              <HourglassEmptyIcon
+                sx={{
+                  fontSize: 16,
+                  color: auctionTimeLeft.done ? "#9ca3af" : "#f97316",
+                  animation: auctionSpin && !auctionTimeLeft.done ? "spin 0.6s linear" : "none",
+                  "@keyframes spin": {
+                    "0%": { transform: "rotate(0deg)" },
+                    "100%": { transform: "rotate(180deg)" },
+                  },
+                }}
+              />
+              <Typography
+                sx={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: auctionTimeLeft.done ? "#9ca3af" : "#f97316",
+                }}
+              >
+                {auctionTimeLeft.done
+                  ? "Auction ended"
+                  : `${auctionTimeLeft.h}h ${pad(auctionTimeLeft.m)}m ${pad(auctionTimeLeft.s)}s`}
+              </Typography>
+              {!auctionTimeLeft.done && inDecisionWindow && (
+                <Typography sx={{ fontSize: 11, color: "#92400e", ml: 0.5 }}>
+                  (seller decision window)
+                </Typography>
+              )}
+            </Box>
+          </>
+        ) : (
+          // ── Standard mode ─────────────────────────────────────────────────
+          <>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 1,
+                mb: 1.2,
+              }}
+            >
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GavelIcon />}
+                onClick={onPlaceOffer}
+                disabled={leftBtnDisabled}
+                sx={{
+                  textTransform: "none",
+                  borderColor: "#e5e7eb",
+                  color: "#111",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                  "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
+                  fontWeight: 500,
+                  borderRadius: 1.5,
+                }}
+              >
+                {offerIsPending && !isOwnerMode ? "Amend Offer" : leftBtnLabel}
+              </Button>
+
+              <Button
+                fullWidth
+                variant="contained"
+                startIcon={isOwnerMode ? <EditIcon /> : <ShoppingCartIcon />}
+                onClick={isOwnerMode ? onEdit : onBuyNow}
+                disabled={rightBtnDisabled}
+                sx={{
+                  textTransform: "none",
+                  backgroundColor: "#5b7fe8",
+                  "&:hover": { backgroundColor: "#0041cc" },
+                  boxShadow: "0 3px 10px rgba(0,83,255,0.25)",
+                  fontWeight: 500,
+                  letterSpacing: "0.3px",
+                  borderRadius: 1.5,
+                }}
+              >
+                {rightBtnLabel}
+              </Button>
+            </Box>
+
+            {/* ── START AUCTION (owner only, when card is not yet in auction) ── */}
+            {/* auctionPendingCleanup = previous zero-bid auction ended but cron hasn't
+                cleared inAuction yet. Show an info banner instead of the button so the
+                seller isn't confused by an "already in auction" error on submit. */}
+            {isOwnerMode && auctionPendingCleanup && (
+              <Box sx={{ p: 1.2, backgroundColor: "#fef9c3", borderRadius: 1.5, mb: 1.2 }}>
+                <Typography sx={{ fontSize: 12, color: "#92400e" }}>
+                  Auction ended — results are being processed. You can start a new auction in a moment.
+                </Typography>
+              </Box>
+            )}
+            {isOwnerMode && onStartAuction && !auctionPendingCleanup && (
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<GavelIcon />}
+                onClick={onStartAuction}
+                sx={{
+                  textTransform: "none",
+                  borderColor: "#e5e7eb",
+                  color: "#111",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                  "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
+                  fontWeight: 500,
+                  borderRadius: 1.5,
+                  mb: 1.2,
+                }}
+              >
+                Start Auction
+              </Button>
+            )}
+
+            {/* ── ADD TO CART (viewer only, when for sale) ── */}
+            {!isOwnerMode && isForSale && onAddToCart && (
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<ShoppingCartIcon />}
+                onClick={onAddToCart}
+                disabled={
+                  cartStatus === "adding" ||
+                  cartStatus === "added" ||
+                  cartStatus === "already"
+                }
+                sx={{
+                  textTransform: "none",
+                  borderColor:
+                    cartStatus === "added" || cartStatus === "already"
+                      ? "#16a34a"
+                      : "#e5e7eb",
+                  color:
+                    cartStatus === "added" || cartStatus === "already"
+                      ? "#16a34a"
+                      : "#111",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+                  "&:hover": { borderColor: "#d1d5db", backgroundColor: "#fafafa" },
+                  fontWeight: 500,
+                  borderRadius: 1.5,
+                  mb: 1.2,
+                }}
+              >
+                {cartStatus === "added"
+                  ? "Added to cart ✓"
+                  : cartStatus === "already"
+                    ? "Already in cart ✓"
+                    : cartStatus === "adding"
+                      ? "Adding…"
+                      : "Add to Cart"}
+              </Button>
+            )}
+
+            {/* ── OTHER LISTINGS (same condition) — standard mode only ── */}
+            {!isOwnerMode && (
+              <Box
+                onClick={otherCount > 0 ? onViewListings : undefined}
+                sx={{
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 1.5,
+                  px: 1.6,
+                  py: 0.8,
+                  textAlign: "center",
+                  backgroundColor: otherCount > 0 ? "#fafafa" : "#f9fafb",
+                  cursor: otherCount > 0 ? "pointer" : "default",
+                  "&:hover": otherCount > 0 ? { backgroundColor: "#f3f4f6" } : {},
+                }}
+              >
+                {otherCount > 0 ? (
+                  <>
+                    <Typography
+                      sx={{ fontSize: 12, color: primaryBlue, fontWeight: 500 }}
+                    >
+                      {otherCount} other {currentCondition} listing
+                      {otherCount !== 1 ? "s" : ""}
+                    </Typography>
+                    {lowestOther !== null && (
+                      <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.15 }}>
+                        As low as S${lowestOther.toFixed(2)}
+                      </Typography>
+                    )}
+                  </>
+                ) : (
+                  <Typography
+                    sx={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}
+                  >
+                    Only listing for this condition
                   </Typography>
                 )}
-              </>
-            ) : (
-              <Typography
-                sx={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}
-              >
-                Only listing for this condition
-              </Typography>
+              </Box>
             )}
-          </Box>
+          </>
         )}
       </Box>
     </Box>
