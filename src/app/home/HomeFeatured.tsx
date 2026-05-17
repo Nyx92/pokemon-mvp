@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, CircularProgress } from "@mui/material";
 import { useRouter } from "next/navigation";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
+import ErrorState from "@/app/shared-components/ErrorState";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import type { CardItem } from "@/types/card";
 import type { AuctionItem } from "@/types/auction";
@@ -12,6 +13,7 @@ interface FeaturedData {
   bestSellers: CardItem[];
   highestTransacted: CardItem[];
   newlyListed: CardItem[];
+  auctionsEndingSoon: AuctionItem[];
 }
 
 interface SectionRowProps {
@@ -95,17 +97,10 @@ function auctionToCard(auction: AuctionItem): CardItem {
 
 // ── Auction row — "Ending Soon" horizontal scroll ────────────────────────────
 // Reuses CardListItem with auctionOverride to show bid/timer/count instead of price.
+// Auctions are passed from HomeFeatured (fetched as part of /api/home/featured)
+// so the row renders together with the rest of the page without a separate fetch.
 
-function AuctionRow({ watchlistedIds, onCardClick }: { watchlistedIds: Set<string>; onCardClick: (card: CardItem) => void }) {
-  const [auctions, setAuctions] = useState<AuctionItem[]>([]);
-
-  useEffect(() => {
-    fetch("/api/auctions?expiringSoon=true")
-      .then((r) => r.json())
-      .then((data) => { if (data.auctions) setAuctions(data.auctions); })
-      .catch(console.error);
-  }, []);
-
+function AuctionRow({ auctions, watchlistedIds, onCardClick }: { auctions: AuctionItem[]; watchlistedIds: Set<string>; onCardClick: (card: CardItem) => void }) {
   if (auctions.length === 0) return null;
 
   return (
@@ -159,15 +154,17 @@ function AuctionRow({ watchlistedIds, onCardClick }: { watchlistedIds: Set<strin
 
 export default function HomeFeatured() {
   const router = useRouter();
-  const [data, setData] = useState<FeaturedData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data,       setData]       = useState<FeaturedData | null>(null);
+  const [loading,    setLoading]    = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const watchlistedIds = useWatchlistIds();
 
+  // 1. Fetch all featured data in one request; surface error state on failure.
   useEffect(() => {
     fetch("/api/home/featured")
       .then((r) => r.json())
       .then(setData)
-      .catch(console.error)
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -183,10 +180,21 @@ export default function HomeFeatured() {
     );
   }
 
+  // 2. Render error state if the featured data fetch failed.
+  if (fetchError) {
+    return (
+      <ErrorState
+        variant="error"
+        title="Couldn't load featured cards"
+        action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+      />
+    );
+  }
+
   return (
     <Box>
       {/* Auction row sits at the very top — hidden when no auctions are ending soon */}
-      <AuctionRow watchlistedIds={watchlistedIds} onCardClick={handleCardClick} />
+      <AuctionRow auctions={data?.auctionsEndingSoon ?? []} watchlistedIds={watchlistedIds} onCardClick={handleCardClick} />
       <SectionRow
         title="Best Sellers."
         subtitle="Trending products."

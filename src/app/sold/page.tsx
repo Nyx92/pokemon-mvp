@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box, Typography, TextField, InputAdornment, IconButton,
-  CircularProgress, Alert,
+  CircularProgress,
 } from "@mui/material";
 import SellIcon from "@mui/icons-material/Sell";
 import SearchIcon from "@mui/icons-material/Search";
@@ -19,6 +19,7 @@ import CloseIcon from "@mui/icons-material/Close";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import ErrorState from "@/app/shared-components/ErrorState";
 import { OrderCard, type OrderRow } from "@/app/shared-components/transaction-cards";
 
 export default function SoldPage() {
@@ -71,6 +72,20 @@ export default function SoldPage() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  // 1. Show full-page error state so the user has a clear recovery path.
+  if (error) {
+    return (
+      <AccountLayout>
+        <ErrorState
+          variant="error"
+          title="Couldn't load your sales"
+          action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+        />
+      </AccountLayout>
+    );
+  }
+
   return (
     <AccountLayout>
       {/* Page header */}
@@ -96,8 +111,6 @@ export default function SoldPage() {
           }}
         />
       </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* Order list */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>

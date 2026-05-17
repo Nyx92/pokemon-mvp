@@ -21,12 +21,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Box, Typography, CircularProgress, Alert, Button,
+  Box, Typography, CircularProgress, Button,
 } from "@mui/material";
 import GavelIcon from "@mui/icons-material/Gavel";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import ErrorState from "@/app/shared-components/ErrorState";
 import {
   PlacedOfferCard, ReceivedOfferCard,
   type OfferRow, type ReceivedOfferRow,
@@ -172,13 +173,25 @@ export default function OffersPage() {
   });
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  // 1. Show full-page error state so the user has a clear recovery path.
+  if (error) {
+    return (
+      <AccountLayout>
+        <ErrorState
+          variant="error"
+          title="Couldn't load your offers"
+          action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+        />
+      </AccountLayout>
+    );
+  }
+
   return (
     <AccountLayout>
       <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
         My Offers
       </Typography>
-
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>

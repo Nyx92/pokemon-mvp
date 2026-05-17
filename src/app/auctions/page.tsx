@@ -16,6 +16,7 @@ import GavelIcon from "@mui/icons-material/Gavel";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import UploadIcon from "@mui/icons-material/Upload";
 import AuctionCardItem from "@/app/shared-components/cards/AuctionCardItem";
+import ErrorState from "@/app/shared-components/ErrorState";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import type { AuctionItem } from "@/types/auction";
@@ -23,16 +24,17 @@ import type { AuctionItem } from "@/types/auction";
 export default function AuctionsPage() {
   const pathname     = usePathname();
   const { isLoggedIn, isAdmin } = useAuth();
-  const [auctions, setAuctions] = useState<AuctionItem[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const watchlistedIds          = useWatchlistIds();
+  const [auctions,   setAuctions]   = useState<AuctionItem[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const watchlistedIds              = useWatchlistIds();
 
-  // Load all active auctions on mount
+  // 1. Load all active auctions on mount; surface error state on failure.
   useEffect(() => {
     fetch("/api/auctions")
       .then((r) => r.json())
       .then((data) => { if (data.auctions) setAuctions(data.auctions); })
-      .catch(console.error)
+      .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -83,15 +85,24 @@ export default function AuctionsPage() {
           </Typography>
         </Box>
 
+        {/* 2. Error state — fetch failed */}
+        {fetchError && (
+          <ErrorState
+            variant="error"
+            title="Couldn't load auctions"
+            action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+          />
+        )}
+
         {/* Loading state */}
-        {loading && (
+        {!fetchError && loading && (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
             <CircularProgress />
           </Box>
         )}
 
         {/* Empty state */}
-        {!loading && auctions.length === 0 && (
+        {!fetchError && !loading && auctions.length === 0 && (
           <Box sx={{ textAlign: "center", mt: 10 }}>
             <GavelIcon sx={{ fontSize: 48, color: "#d1d5db", mb: 2 }} />
             <Typography variant="h6" color="text.secondary">
@@ -104,7 +115,7 @@ export default function AuctionsPage() {
         )}
 
         {/* Auction grid */}
-        {!loading && auctions.length > 0 && (
+        {!fetchError && !loading && auctions.length > 0 && (
           <Box
             sx={{
               display: "grid",

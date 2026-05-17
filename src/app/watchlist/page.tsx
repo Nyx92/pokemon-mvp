@@ -14,7 +14,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Alert,
   Box,
   Button,
   CircularProgress,
@@ -25,6 +24,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
+import ErrorState from "@/app/shared-components/ErrorState";
 import type { CardItem } from "@/types/card";
 
 export default function WatchlistPage() {
@@ -70,13 +70,24 @@ export default function WatchlistPage() {
     );
   }
 
+  // 1. Show full-page error state so the user has a clear recovery path.
+  if (error) {
+    return (
+      <AccountLayout>
+        <ErrorState
+          variant="error"
+          title="Couldn't load your watchlist"
+          action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+        />
+      </AccountLayout>
+    );
+  }
+
   return (
     <AccountLayout>
       <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
         Watchlist
       </Typography>
-
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>

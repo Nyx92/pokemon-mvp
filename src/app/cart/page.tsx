@@ -30,6 +30,7 @@ import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
 import { useCart } from "@/app/context/CartContext";
 import ConditionBadge from "@/app/shared-components/cards/ConditionBadge";
 import PlaceOfferDialog from "@/app/shared-components/cards/PlaceOfferDialog";
+import ErrorState from "@/app/shared-components/ErrorState";
 import { type CartItemData, type CartResponse } from "@/types/cart";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -276,18 +277,24 @@ export default function CartPage() {
   const router = useRouter();
   const { decrementCount, refreshCount } = useCart();
 
-  const [cartData, setCartData] = useState<CartResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [cartData,       setCartData]       = useState<CartResponse | null>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [fetchError,     setFetchError]     = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   // Cart item whose "Make Offer" was clicked — drives the offer dialog
   const [offerTarget, setOfferTarget] = useState<CartItemData | null>(null);
 
+  // 1. Fetch cart items; surface error state on failure.
   const loadCart = useCallback(async () => {
     setLoading(true);
+    setFetchError(false);
     try {
       const res = await fetch("/api/cart");
       if (res.ok) setCartData(await res.json());
+      else setFetchError(true);
+    } catch {
+      setFetchError(true);
     } finally {
       setLoading(false);
     }
@@ -412,6 +419,17 @@ export default function CartPage() {
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // 2. Render error state if the cart fetch failed.
+  if (fetchError) {
+    return (
+      <ErrorState
+        variant="error"
+        title="Couldn't load your cart"
+        action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+      />
     );
   }
 

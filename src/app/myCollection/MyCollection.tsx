@@ -24,12 +24,14 @@ import AddIcon from "@mui/icons-material/Add";
 import { useRouter } from "next/navigation";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 import CardListItem from "../shared-components/cards/CardListItem";
+import ErrorState from "../shared-components/ErrorState";
 import type { CardItem } from "@/types/card";
 import { centsToDollars } from "@/lib/money";
 
 export default function MyCollection() {
-  const [cards, setCards] = useState<CardItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cards,      setCards]      = useState<CardItem[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [binders, setBinders] = useState<{ id: string; name: string }[]>([
     { id: "all", name: "All Cards" },
   ]);
@@ -40,7 +42,7 @@ export default function MyCollection() {
   const [openDialog, setOpenDialog] = useState(false);
   const [newBinderName, setNewBinderName] = useState("");
 
-  // Fetch user's cards
+  // 1. Fetch the user's cards; surface error state on failure.
   useEffect(() => {
     const fetchCards = async () => {
       setLoading(true);
@@ -65,9 +67,11 @@ export default function MyCollection() {
           ]);
         } else {
           console.error("Error loading cards:", data.error);
+          setFetchError(true);
         }
       } catch (err) {
-        console.error("❌ Failed to fetch cards:", err);
+        console.error("Failed to fetch cards:", err);
+        setFetchError(true);
       } finally {
         setLoading(false);
       }
@@ -112,6 +116,17 @@ export default function MyCollection() {
       <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // 2. Render error state if the fetch failed.
+  if (fetchError) {
+    return (
+      <ErrorState
+        variant="error"
+        title="Couldn't load your collection"
+        action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+      />
     );
   }
 

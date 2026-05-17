@@ -17,7 +17,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Alert,
   Box,
   CircularProgress,
   Divider,
@@ -36,6 +35,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useNotifications } from "@/app/context/NotificationContext";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import ErrorState from "@/app/shared-components/ErrorState";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -154,6 +154,20 @@ export default function NotificationsPage() {
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  // 1. Show full-page error state so the user has a clear recovery path.
+  if (error) {
+    return (
+      <AccountLayout>
+        <ErrorState
+          variant="error"
+          title="Couldn't load notifications"
+          action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+        />
+      </AccountLayout>
+    );
+  }
+
   return (
     <AccountLayout>
       {/* Header */}
@@ -210,8 +224,6 @@ export default function NotificationsPage() {
           </Button>
         )}
       </Box>
-
-      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* List */}
       <Box

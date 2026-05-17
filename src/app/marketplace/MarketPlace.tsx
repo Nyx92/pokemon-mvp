@@ -14,16 +14,19 @@ import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import CardListItem from "../shared-components/cards/CardListItem";
+import ErrorState from "../shared-components/ErrorState";
 import type { CardItem } from "@/types/card";
 
 export default function Marketplace() {
   const { userId } = useAuth();
   const router = useRouter();
   const watchlistedIds = useWatchlistIds();
-  const [cards, setCards] = useState<CardItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
+  const [cards,      setCards]      = useState<CardItem[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [search,     setSearch]     = useState("");
 
+  // 1. Fetch all cards listed for sale; surface error state on failure.
   useEffect(() => {
     const fetchCards = async () => {
       setLoading(true);
@@ -34,9 +37,11 @@ export default function Marketplace() {
           setCards(data.cards);
         } else {
           console.error("Error loading cards:", data.error);
+          setFetchError(true);
         }
       } catch (err) {
-        console.error("❌ Failed to fetch cards:", err);
+        console.error("Failed to fetch cards:", err);
+        setFetchError(true);
       } finally {
         setLoading(false);
       }
@@ -60,6 +65,17 @@ export default function Marketplace() {
       <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
         <CircularProgress />
       </Box>
+    );
+  }
+
+  // 2. Render error state if the fetch failed.
+  if (fetchError) {
+    return (
+      <ErrorState
+        variant="error"
+        title="Couldn't load the marketplace"
+        action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+      />
     );
   }
 

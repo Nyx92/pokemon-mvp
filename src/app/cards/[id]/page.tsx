@@ -11,6 +11,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import { useCart } from "@/app/context/CartContext";
 import BuyBox, { type ActiveOffer } from "@/app/shared-components/cards/BuyBox";
+import ErrorState from "@/app/shared-components/ErrorState";
 import CardMarketChart from "@/app/shared-components/cards/CardMarketChart";
 import EditPriceDialog from "@/app/shared-components/cards/EditPriceDialog";
 import AllListings from "@/app/shared-components/cards/AllListings";
@@ -33,6 +34,7 @@ export default function CardDetailPage() {
 
   const [card, setCard] = useState<CardItem | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cardErrorType, setCardErrorType] = useState<"not_found" | "error" | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [watchlisted, setWatchlisted] = useState(false);
   const [watchlistCount, setWatchlistCount] = useState(0);
@@ -50,40 +52,56 @@ export default function CardDetailPage() {
   // Pre-filled bid amount for the Buy Now (buy-out) flow; undefined means no prefill.
   const [bidInitialAmount,  setBidInitialAmount]  = useState<number | undefined>(undefined);
 
+  // Combined card + auction fetch on [id].
+  // 1. Fetch card; classify non-ok responses so the user sees the right error.
+  // 2. If the card is in an auction, also fetch the auction in the same effect
+  //    so BuyBox receives both in one render cycle (no flicker between states).
+  // 3. loading=false only after everything above is done.
+  //
+  // Auction background:
+  //   card.inAuction is set to true by POST /api/auctions when the seller starts an auction.
+  //   GET /api/auctions?cardId returns any auction with status "active" or
+  //   "pending_seller_decision" — the raw DB row regardless of endsAt.
+  //   setAuction stores it; liveAuction below applies the client-side filters
+  //   (auctionExpiredClientSide) before deciding whether to pass it to BuyBox.
   useEffect(() => {
     if (!id) return;
-    const fetchCard = async () => {
+    const fetchAll = async () => {
+      // 1. Reset error state and start loading.
+      setCardErrorType(null);
       setLoading(true);
       try {
+        // 2. Fetch card.
         const res = await fetch(`/api/cards/${id}`);
+        if (!res.ok) {
+          // 3. Classify the error so the render branch shows the right message.
+          const data = await res.json().catch(() => ({}));
+          console.error("Error loading card:", data.error ?? res.status);
+          setCardErrorType(res.status === 404 ? "not_found" : "error");
+          return;
+        }
         const data = await res.json();
-        if (res.ok) {
-          setCard(data.card);
-          setWatchlisted(data.card.watchlistedByUser ?? false);
-          setWatchlistCount(data.card.watchlistCount ?? 0);
-        } else console.error("Error loading card:", data.error);
+        const fetchedCard: CardItem = data.card;
+        // 4. Set card state.
+        setCard(fetchedCard);
+        setWatchlisted(fetchedCard.watchlistedByUser ?? false);
+        setWatchlistCount(fetchedCard.watchlistCount ?? 0);
+        // 5. If the card is in an auction, fetch it now (same tick → no flicker).
+        if (fetchedCard.inAuction === true) {
+          const aRes = await fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`);
+          const aData = await aRes.json().catch(() => ({}));
+          if (aData.auction) setAuction(aData.auction);
+        }
       } catch (err) {
         console.error("Failed to fetch card:", err);
+        setCardErrorType("error");
       } finally {
+        // 6. Always clear loading once all fetches are done.
         setLoading(false);
       }
     };
-    fetchCard();
+    fetchAll();
   }, [id]);
-
-  // Fetch active auction when card.inAuction is true.
-  // 1. card.inAuction is set to true by POST /api/auctions when the seller starts an auction.
-  // 2. GET /api/auctions?cardId returns any auction with status "active" or
-  //    "pending_seller_decision" — the raw DB row regardless of endsAt.
-  // 3. setAuction stores it; liveAuction below applies the client-side filters
-  //    (auctionExpiredClientSide) before deciding whether to pass it to BuyBox.
-  useEffect(() => {
-    if (!id || !card?.inAuction) return;
-    fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`)
-      .then((r) => r.json())
-      .then((data) => { if (data.auction) setAuction(data.auction); })
-      .catch(() => {});
-  }, [id, card?.inAuction]);
 
   // Fetch the viewer's own offer on this card (non-owners only)
   useEffect(() => {
@@ -118,15 +136,27 @@ export default function CardDetailPage() {
     );
   }
 
-  if (!card) {
+  if (cardErrorType === "not_found") {
     return (
-      <Box sx={{ textAlign: "center", mt: 10 }}>
-        <Typography variant="h6" color="text.secondary">
-          Card not found.
-        </Typography>
-      </Box>
+      <ErrorState
+        variant="not_found"
+        title="Card not found"
+        subtitle="This card may have been removed or the link is incorrect."
+        action={{ label: "Back to Marketplace", href: "/marketplace" }}
+      />
     );
   }
+
+  if (cardErrorType === "error") {
+    return (
+      <ErrorState
+        variant="error"
+        action={{ label: "Go to Home", href: "/" }}
+      />
+    );
+  }
+
+  if (!card) return null;
 
   const isOwner = userId === card.owner?.id;
   const canManageListing = isOwner || isAdmin;
