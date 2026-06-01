@@ -24,6 +24,7 @@ import {
   Divider,
   Typography,
 } from "@mui/material";
+import { motion, AnimatePresence } from "framer-motion";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import LocalOfferOutlinedIcon from "@mui/icons-material/LocalOfferOutlined";
@@ -434,25 +435,44 @@ export default function CartPage() {
   }
 
   // ── Empty state ────────────────────────────────────────────────────────────
+  // 3. Container fades in; icon spring-bounces in at 0.1 s; text rises at 0.2 s.
 
   if (!cartData || cartData.packages.length === 0) {
     return (
-      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: 2 }}>
-        <ShoppingCartOutlinedIcon sx={{ fontSize: 64, color: "#d1d5db" }} />
-        <Typography sx={{ fontSize: 20, fontWeight: 600, color: "#374151" }}>
-          Your cart is empty
-        </Typography>
-        <Typography sx={{ fontSize: 14, color: "#6b7280" }}>
-          Browse the marketplace and add cards to your cart.
-        </Typography>
-        <Button
-          variant="contained"
-          onClick={() => router.push("/marketplace")}
-          sx={{ mt: 1, textTransform: "none", fontWeight: 600, backgroundColor: "#000", "&:hover": { backgroundColor: "#222" } }}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+        style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: "16px" }}
+      >
+        <motion.div
+          initial={{ scale: 0.4, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}
         >
-          Browse Marketplace
-        </Button>
-      </Box>
+          <ShoppingCartOutlinedIcon sx={{ fontSize: 64, color: "#d1d5db" }} />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.2 }}
+          style={{ textAlign: "center" }}
+        >
+          <Typography sx={{ fontSize: 20, fontWeight: 600, color: "#374151" }}>
+            Your cart is empty
+          </Typography>
+          <Typography sx={{ fontSize: 14, color: "#6b7280", mt: 1 }}>
+            Browse the marketplace and add cards to your cart.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => router.push("/marketplace")}
+            sx={{ mt: 2, textTransform: "none", fontWeight: 600, backgroundColor: "#000", "&:hover": { backgroundColor: "#222" } }}
+          >
+            Browse Marketplace
+          </Button>
+        </motion.div>
+      </motion.div>
     );
   }
 
@@ -510,21 +530,39 @@ export default function CartPage() {
       <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start", flexDirection: { xs: "column", lg: "row" } }}>
 
         {/* ── Left: item folders ── */}
+        {/* 4. Items slide in from the left with stagger; AnimatePresence lets
+               removed items slide back out before being unmounted. */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          {allItems.map((item, i) => (
-            <CartItemFolder
-              key={item.id}
-              item={item}
-              index={i}
-              total={allItems.length}
-              onToggleSelect={handleToggleItem}
-              onRemove={handleRemoveItem}
-              onOffer={setOfferTarget}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {allItems.map((item, i) => (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -24 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -32, transition: { duration: 0.22 } }}
+                transition={{ duration: 0.35, delay: i * 0.07, ease: "easeOut" }}
+              >
+                <CartItemFolder
+                  item={item}
+                  index={i}
+                  total={allItems.length}
+                  onToggleSelect={handleToggleItem}
+                  onRemove={handleRemoveItem}
+                  onOffer={setOfferTarget}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </Box>
 
         {/* ── Right: Cart Summary panel ── */}
+        {/* 5. Summary slides in from the right at 0.2 s, after items have
+               started entering, so the eye lands on items first. */}
+        <motion.div
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.45, delay: 0.2, ease: "easeOut" }}
+        >
         <Box
           sx={{
             width: { xs: "100%", lg: 360 },
@@ -631,6 +669,7 @@ export default function CartPage() {
             </Box>
           </Box>
         </Box>
+        </motion.div>
       </Box>
 
       {/* ── Offer dialog ── */}

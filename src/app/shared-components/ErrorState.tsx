@@ -5,6 +5,20 @@ import Link from "next/link";
 import { Box, Button, Typography } from "@mui/material";
 import CloudOffIcon from "@mui/icons-material/CloudOff";
 import SearchOffIcon from "@mui/icons-material/SearchOff";
+import { motion, type Variants } from "framer-motion";
+
+const iconVariant: Variants = {
+  hidden: { opacity: 0, scale: 0.4 },
+  visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 350, damping: 13 } },
+};
+const textVariant: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+};
+const containerVariant: Variants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.1 } },
+};
 
 // ── Variant presets ────────────────────────────────────────────────────────────
 // Each variant owns its icon, colours, and default copy. Callers can override
@@ -69,84 +83,99 @@ export default function ErrorState({
         mx: "auto",
       }}
     >
-      {/* Icon badge */}
-      <Box
-        sx={{
-          width:           72,
-          height:          72,
-          borderRadius:    "50%",
-          backgroundColor: iconBg,
-          display:         "flex",
-          alignItems:      "center",
-          justifyContent:  "center",
-          mb:              3,
-        }}
+      <motion.div
+        variants={containerVariant}
+        initial="hidden"
+        animate="visible"
+        style={{ display: "flex", flexDirection: "column", alignItems: "center" }}
       >
-        <Icon sx={{ fontSize: 36, color: iconColor }} />
-      </Box>
-
-      {/* Heading */}
-      <Typography
-        sx={{
-          fontSize:   { xs: 20, md: 22 },
-          fontWeight: 700,
-          color:      "#111",
-          mb:         1,
-          lineHeight: 1.25,
-        }}
-      >
-        {title ?? defaultTitle}
-      </Typography>
-
-      {/* Subtext */}
-      <Typography
-        sx={{
-          fontSize: 14,
-          color:    "#6b7280",
-          mb:       action ? 3.5 : 0,
-          lineHeight: 1.6,
-        }}
-      >
-        {subtitle ?? defaultSubtitle}
-      </Typography>
-
-      {/* Optional action */}
-      {action && (
-        action.href ? (
-          <Button
-            component={Link}
-            href={action.href}
-            variant="outlined"
+        {/* Icon badge */}
+        <motion.div variants={iconVariant}>
+          <Box
             sx={{
-              textTransform: "none",
-              fontWeight:    600,
-              borderColor:   "#d1d5db",
-              color:         "#111",
-              "&:hover":     { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
-              borderRadius:  1.5,
-              px:            3,
+              width:           72,
+              height:          72,
+              borderRadius:    "50%",
+              backgroundColor: iconBg,
+              display:         "flex",
+              alignItems:      "center",
+              justifyContent:  "center",
+              mb:              3,
             }}
           >
-            {action.label}
-          </Button>
-        ) : (
-          <Button
-            onClick={action.onClick}
-            variant="outlined"
+            <Icon sx={{ fontSize: 36, color: iconColor }} />
+          </Box>
+        </motion.div>
+
+        {/* Heading */}
+        <motion.div variants={textVariant}>
+          <Typography
             sx={{
-              textTransform: "none",
-              fontWeight:    600,
-              borderColor:   "#d1d5db",
-              color:         "#111",
-              "&:hover":     { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
-              borderRadius:  1.5,
-              px:            3,
+              fontSize:   { xs: 20, md: 22 },
+              fontWeight: 700,
+              color:      "#111",
+              mb:         1,
+              lineHeight: 1.25,
             }}
           >
-            {action.label}
-          </Button>
-        )
-      )}
+            {title ?? defaultTitle}
+          </Typography>
+        </motion.div>
+
+        {/* Subtext */}
+        <motion.div variants={textVariant}>
+          <Typography
+            sx={{
+              fontSize: 14,
+              color:    "#6b7280",
+              mb:       action ? 3.5 : 0,
+              lineHeight: 1.6,
+            }}
+          >
+            {subtitle ?? defaultSubtitle}
+          </Typography>
+        </motion.div>
+
+        {/* Optional action */}
+        {action && (
+          <motion.div variants={textVariant}>
+            {action.href ? (
+              <Button
+                component={Link}
+                href={action.href}
+                variant="outlined"
+                sx={{
+                  textTransform: "none",
+                  fontWeight:    600,
+                  borderColor:   "#d1d5db",
+                  color:         "#111",
+                  "&:hover":     { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+                  borderRadius:  1.5,
+                  px:            3,
+                }}
+              >
+                {action.label}
+              </Button>
+            ) : (
+              <Button
+                onClick={action.onClick}
+                variant="outlined"
+                sx={{
+                  textTransform: "none",
+                  fontWeight:    600,
+                  borderColor:   "#d1d5db",
+                  color:         "#111",
+                  "&:hover":     { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+                  borderRadius:  1.5,
+                  px:            3,
+                }}
+              >
+                {action.label}
+              </Button>
+            )}
+          </motion.div>
+        )}
+      </motion.div>
     </Box>
   );
 }

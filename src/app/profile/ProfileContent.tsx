@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import {
   Box, Typography, Button, Avatar, Divider, CircularProgress,
 } from "@mui/material";
+import { motion } from "framer-motion";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 
@@ -85,11 +86,14 @@ export default function ProfileContent() {
 
   return (
     <AccountLayout>
-      <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
-        Account Settings
-      </Typography>
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+          Account Settings
+        </Typography>
+      </motion.div>
 
       {/* ── Personal Information ── */}
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut", delay: 0.08 }}>
       <Section
         title="Personal Information"
         action={
@@ -146,7 +150,10 @@ export default function ProfileContent() {
         </Box>
       </Section>
 
+      </motion.div>
+
       {/* ── Account Authorization ── */}
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut", delay: 0.16 }}>
       <Section title="Account Authorization">
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Box
@@ -177,7 +184,10 @@ export default function ProfileContent() {
         </Box>
       </Section>
 
+      </motion.div>
+
       {/* ── Advanced ── */}
+      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut", delay: 0.24 }}>
       <Box sx={{ bgcolor: "#fff", borderRadius: 2.5, border: "1px solid #c9cdd4", overflow: "hidden" }}>
         <Box sx={{ px: 3, py: 2, borderBottom: "1px solid #c9cdd4" }}>
           <Typography sx={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Advanced</Typography>
@@ -216,6 +226,7 @@ export default function ProfileContent() {
           </Typography>
         </Box>
       </Box>
+      </motion.div>
     </AccountLayout>
   );
 }

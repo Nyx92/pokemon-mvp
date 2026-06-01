@@ -36,6 +36,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { useNotifications } from "@/app/context/NotificationContext";
 import AccountLayout from "@/app/shared-components/AccountLayout";
 import ErrorState from "@/app/shared-components/ErrorState";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -171,6 +172,7 @@ export default function NotificationsPage() {
   return (
     <AccountLayout>
       {/* Header */}
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
       <Box
         sx={{
           display: "flex",
@@ -224,6 +226,7 @@ export default function NotificationsPage() {
           </Button>
         )}
       </Box>
+      </motion.div>
 
       {/* List */}
       <Box
@@ -246,10 +249,21 @@ export default function NotificationsPage() {
             </Typography>
           </Box>
         ) : (
-          notifications.map((n, i) => {
+          /* 2. AnimatePresence wraps individual items so the exit animation
+                runs when dismiss() removes a notification from state.
+                Cap stagger at 0.3 s to avoid a long wait for many notifications. */
+          <AnimatePresence>
+          {notifications.map((n, i) => {
             const { Icon, color } = typeConfig(n.type);
             return (
-              <Box key={n.id}>
+              <motion.div
+                key={n.id}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 40, transition: { duration: 0.2 } }}
+                transition={{ duration: 0.3, ease: "easeOut", delay: Math.min(i * 0.05, 0.3) }}
+              >
+              <Box>
                 {i > 0 && <Divider sx={{ borderColor: "#f3f4f6" }} />}
                 <Box
                   onClick={() => !n.read && markRead(n.id)}
@@ -322,8 +336,10 @@ export default function NotificationsPage() {
                   </Tooltip>
                 </Box>
               </Box>
+              </motion.div>
             );
-          })
+          })}
+          </AnimatePresence>
         )}
       </Box>
     </AccountLayout>

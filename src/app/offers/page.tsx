@@ -32,6 +32,7 @@ import {
   PlacedOfferCard, ReceivedOfferCard,
   type OfferRow, type ReceivedOfferRow,
 } from "@/app/shared-components/transaction-cards";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ── Internal sub-components ───────────────────────────────────────────────────
 
@@ -189,9 +190,11 @@ export default function OffersPage() {
 
   return (
     <AccountLayout>
-      <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
-        My Offers
-      </Typography>
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
+        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+          My Offers
+        </Typography>
+      </motion.div>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
@@ -218,8 +221,19 @@ export default function OffersPage() {
           </Box>
 
           {/* ── Offers Placed ─────────────────────────────────────────────────── */}
+          {/* 2. AnimatePresence mode="wait" means the old panel fully exits
+                 before the new one enters — prevents two panels overlapping.
+                 key combines view + tab so switching either triggers the transition. */}
+          <AnimatePresence mode="wait">
           {offerView === "placed" && (
-            visiblePlaced.length === 0 ? (
+            <motion.div
+              key={`placed-${offerTab}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+            {visiblePlaced.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 10 }}>
                 <GavelIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
                 <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
@@ -233,14 +247,31 @@ export default function OffersPage() {
               </Box>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {visiblePlaced.map((o) => <PlacedOfferCard key={o.id} offer={o} />)}
+                {visiblePlaced.map((o, i) => (
+                  <motion.div
+                    key={o.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28, ease: "easeOut", delay: Math.min(i * 0.06, 0.3) }}
+                  >
+                    <PlacedOfferCard offer={o} />
+                  </motion.div>
+                ))}
               </Box>
-            )
+            )}
+            </motion.div>
           )}
 
           {/* ── Incoming Offers ───────────────────────────────────────────────── */}
           {offerView === "received" && (
-            visibleReceived.length === 0 ? (
+            <motion.div
+              key={`received-${offerTab}`}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+            {visibleReceived.length === 0 ? (
               <Box sx={{ textAlign: "center", py: 10 }}>
                 <GavelIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
                 <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
@@ -254,26 +285,32 @@ export default function OffersPage() {
               </Box>
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                {visibleReceived.map((o) => (
-                  <ReceivedOfferCard
+                {visibleReceived.map((o, i) => (
+                  <motion.div
                     key={o.id}
-                    offer={o}
-                    onRespond={(id, action) =>
-                      // Both accept and reject update status in-place so the offer
-                      // moves to the correct tab immediately without a page refresh.
-                      setReceivedOffers((prev) =>
-                        prev.map((r) =>
-                          r.id === id
-                            ? { ...r, status: action === "accept" ? "paid" : "rejected" }
-                            : r
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.28, ease: "easeOut", delay: Math.min(i * 0.06, 0.3) }}
+                  >
+                    <ReceivedOfferCard
+                      offer={o}
+                      onRespond={(id, action) =>
+                        setReceivedOffers((prev) =>
+                          prev.map((r) =>
+                            r.id === id
+                              ? { ...r, status: action === "accept" ? "paid" : "rejected" }
+                              : r
+                          )
                         )
-                      )
-                    }
-                  />
+                      }
+                    />
+                  </motion.div>
                 ))}
               </Box>
-            )
+            )}
+            </motion.div>
           )}
+          </AnimatePresence>
         </>
       )}
     </AccountLayout>

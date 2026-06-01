@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/app/hooks/useAuth";
 import MyCollection from "./MyCollection";
 import { Box, Tab, Tabs, Typography } from "@mui/material";
+import { motion } from "framer-motion";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import GavelIcon from "@mui/icons-material/Gavel";
 import StorefrontIcon from "@mui/icons-material/Storefront";
@@ -85,14 +86,20 @@ export default function CollectionPage() {
 
         <Box sx={{ mt: 4 }}>
           {/* Page header */}
-          <Box sx={{ mb: 4 }}>
-            <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1 }}>
-              My Collection
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.25 }}>
-              Browse and manage your Pokémon card collection.
-            </Typography>
-          </Box>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            <Box sx={{ mb: 4 }}>
+              <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1 }}>
+                My Collection
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.25 }}>
+                Browse and manage your Pokémon card collection.
+              </Typography>
+            </Box>
+          </motion.div>
 
           {isLoggedIn ? (
             <MyCollection />

@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { Box, Typography, IconButton, CircularProgress } from "@mui/material";
+import { motion } from "framer-motion";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
@@ -280,24 +281,30 @@ export default function CardDetailPage() {
         py: { xs: 3, md: 5 },
       }}
     >
-      {/* Back button */}
-      <Box
-        onClick={() => router.push("/")}
-        sx={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 0.5,
-          mb: 2,
-          cursor: "pointer",
-          color: "#6b7280",
-          "&:hover": { color: "#111" },
-        }}
+      {/* 1. Back button fades in from the left before the main layout renders. */}
+      <motion.div
+        initial={{ opacity: 0, x: -12 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
       >
-        <ArrowBackIcon fontSize="small" />
-        <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
-          Back to Home
-        </Typography>
-      </Box>
+        <Box
+          onClick={() => router.push("/")}
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 0.5,
+            mb: 2,
+            cursor: "pointer",
+            color: "#6b7280",
+            "&:hover": { color: "#111" },
+          }}
+        >
+          <ArrowBackIcon fontSize="small" />
+          <Typography sx={{ fontSize: 14, fontWeight: 500 }}>
+            Back to Home
+          </Typography>
+        </Box>
+      </motion.div>
 
       <Box
         sx={{
@@ -307,7 +314,16 @@ export default function CardDetailPage() {
           alignItems: "flex-start",
         }}
       >
+        {/* 2. Three columns enter sequentially: image from left → metadata from
+               below (0.1 s) → BuyBox from right (0.15 s). Columns use flex-basis
+               so the motion wrapper is the correct flex child width. */}
         {/* ===== COL 1: image ===== */}
+        <motion.div
+          initial={{ opacity: 0, x: -24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut" }}
+          style={{ flex: "0 0 360px", maxWidth: "100%" }}
+        >
         <Box
           sx={{
             flex: { xs: "0 0 auto", md: "0 0 360px" },
@@ -421,8 +437,15 @@ export default function CardDetailPage() {
             </Box>
           )}
         </Box>
+        </motion.div>
 
         {/* ===== COL 2: title + metadata ===== */}
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
+          style={{ flex: 1, minWidth: 0 }}
+        >
         <Box
           sx={{
             flex: 1,
@@ -475,8 +498,15 @@ export default function CardDetailPage() {
             ))}
           </Box>
         </Box>
+        </motion.div>
 
         {/* ===== COL 3: buybox + market chart ===== */}
+        <motion.div
+          initial={{ opacity: 0, x: 24 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.45, ease: "easeOut", delay: 0.15 }}
+          style={{ flex: "0 0 500px", maxWidth: "100%" }}
+        >
         <Box
           sx={{
             flex: { xs: "0 0 auto", md: "0 0 500px" },
@@ -540,6 +570,7 @@ export default function CardDetailPage() {
 
           <CardMarketChart card={card} />
         </Box>
+        </motion.div>
       </Box>
 
       {/* All Listings */}

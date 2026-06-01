@@ -24,6 +24,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
 import ErrorState from "@/app/shared-components/ErrorState";
 import { OrderCard, type OrderRow } from "@/app/shared-components/transaction-cards";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function PurchasesPage() {
   const { isLoggedIn, status } = useAuth();
@@ -150,6 +151,7 @@ export default function PurchasesPage() {
   return (
     <AccountLayout>
       {/* Page header */}
+      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 3 }}>
         <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px" }}>
           Purchases
@@ -172,6 +174,7 @@ export default function PurchasesPage() {
           }}
         />
       </Box>
+      </motion.div>
 
       {/* Checkout outcome banner — shown after Stripe redirect */}
       {checkoutState === "checking" && (
@@ -233,7 +236,26 @@ export default function PurchasesPage() {
             </Typography>
           </Box>
         ) : (
-          filtered.map((o) => <OrderCard key={o.id} order={o} />)
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={q}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1, transition: { staggerChildren: 0.06 } }}
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+              style={{ display: "flex", flexDirection: "column", gap: "16px" }}
+            >
+              {filtered.map((o, i) => (
+                <motion.div
+                  key={o.id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, ease: "easeOut", delay: Math.min(i * 0.06, 0.3) }}
+                >
+                  <OrderCard order={o} />
+                </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
         )}
       </Box>
     </AccountLayout>

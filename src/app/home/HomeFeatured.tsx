@@ -3,11 +3,25 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography, CircularProgress } from "@mui/material";
 import { useRouter } from "next/navigation";
+import { motion, type Variants } from "framer-motion";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
 import ErrorState from "@/app/shared-components/ErrorState";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import type { CardItem } from "@/types/card";
 import type { AuctionItem } from "@/types/auction";
+
+// ── Animation variants ────────────────────────────────────────────────────────
+// 1. Section titles: slide up + fade in when scrolled into view (once only).
+const titleVariants: Variants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
+};
+// 2. Individual card tiles: same slide-up, capped stagger delay avoids
+//    long waits on rows with many cards.
+const cardItemVariants: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+};
 
 interface FeaturedData {
   bestSellers: CardItem[];
@@ -27,21 +41,28 @@ interface SectionRowProps {
 function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: SectionRowProps) {
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography
-        variant="h5"
-        fontWeight={700}
-        sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
+      <motion.div
+        variants={titleVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-40px" }}
       >
-        {title}{" "}
         <Typography
-          component="span"
-          fontWeight={400}
-          color="text.secondary"
-          sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+          variant="h5"
+          fontWeight={700}
+          sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
         >
-          {subtitle}
+          {title}{" "}
+          <Typography
+            component="span"
+            fontWeight={400}
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+          >
+            {subtitle}
+          </Typography>
         </Typography>
-      </Typography>
+      </motion.div>
 
       {cards.length === 0 ? (
         <Typography color="text.secondary">No cards available yet.</Typography>
@@ -56,13 +77,24 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
             "&::-webkit-scrollbar-thumb": { backgroundColor: "#ccc", borderRadius: 2 },
           }}
         >
-          {cards.map((card) => (
-            <CardListItem
+          {/* 3. Each card staggers in as the row enters the viewport.
+               Cap at 0.35 s so long rows don't leave the last card waiting. */}
+          {cards.map((card, i) => (
+            <motion.div
               key={card.id}
-              card={card}
-              watchlisted={watchlistedIds.has(card.id)}
-              onClick={onCardClick}
-            />
+              variants={cardItemVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+              transition={{ delay: Math.min(i * 0.05, 0.35) }}
+              style={{ flexShrink: 0 }}
+            >
+              <CardListItem
+                card={card}
+                watchlisted={watchlistedIds.has(card.id)}
+                onClick={onCardClick}
+              />
+            </motion.div>
           ))}
         </Box>
       )}
@@ -105,21 +137,28 @@ function AuctionRow({ auctions, watchlistedIds, onCardClick }: { auctions: Aucti
 
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography
-        variant="h5"
-        fontWeight={700}
-        sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
+      <motion.div
+        variants={titleVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, margin: "-40px" }}
       >
-        Auction.{" "}
         <Typography
-          component="span"
-          fontWeight={400}
-          color="text.secondary"
-          sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+          variant="h5"
+          fontWeight={700}
+          sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
         >
-          Live auctions closing shortly.
+          Auction.{" "}
+          <Typography
+            component="span"
+            fontWeight={400}
+            color="text.secondary"
+            sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+          >
+            Live auctions closing shortly.
+          </Typography>
         </Typography>
-      </Typography>
+      </motion.div>
 
       <Box
         sx={{
@@ -131,19 +170,28 @@ function AuctionRow({ auctions, watchlistedIds, onCardClick }: { auctions: Aucti
           "&::-webkit-scrollbar-thumb": { backgroundColor: "#ccc", borderRadius: 2 },
         }}
       >
-        {auctions.map((auction) => (
-          <CardListItem
+        {auctions.map((auction, i) => (
+          <motion.div
             key={auction.id}
-            card={auctionToCard(auction)}
-            watchlisted={watchlistedIds.has(auction.cardId)}
-            onClick={onCardClick}
-            auctionOverride={{
-              currentBid:  auction.currentBid,
-              startingBid: auction.startingBid,
-              endsAt:      auction.endsAt,
-              bidCount:    auction.bidCount,
-            }}
-          />
+            variants={cardItemVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, amount: 0.1 }}
+            transition={{ delay: Math.min(i * 0.05, 0.35) }}
+            style={{ flexShrink: 0 }}
+          >
+            <CardListItem
+              card={auctionToCard(auction)}
+              watchlisted={watchlistedIds.has(auction.cardId)}
+              onClick={onCardClick}
+              auctionOverride={{
+                currentBid:  auction.currentBid,
+                startingBid: auction.startingBid,
+                endsAt:      auction.endsAt,
+                bidCount:    auction.bidCount,
+              }}
+            />
+          </motion.div>
         ))}
       </Box>
     </Box>

@@ -4,6 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, Tabs, Tab } from "@mui/material";
+import { motion } from "framer-motion";
 import HomeFeatured from "./home/HomeFeatured";
 import Carousell from "./home/carousell/Carousell";
 import DuckReveal from "./home/DuckReveal";
@@ -23,6 +24,11 @@ export default function Home() {
       <Carousell />
 
       {/* Tab Bar Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: "easeOut", delay: 0.15 }}
+      >
       <Box sx={{ mt: 4, px: { xs: 2, md: 4 } }}>
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Tabs
@@ -95,6 +101,7 @@ export default function Home() {
           <HomeFeatured />
         </Box>
       </Box>
+      </motion.div>
       <DuckReveal />
     </main>
   );

@@ -19,6 +19,21 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+
+// ── Animation variants ────────────────────────────────────────────────────────
+// 1. Individual card tile: fade up on enter.
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
+// 2. Grid container: staggers card tiles and fades out when any of
+//    filter / binder / search changes (AnimatePresence key-swap).
+const gridVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
 import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import { useRouter } from "next/navigation";
@@ -233,33 +248,40 @@ export default function MyCollection() {
 
       {/* Card Grid */}
       <Box>
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 2,
-            justifyContent: "center",
-          }}
-        >
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <CardListItem
-                key={product.id}
-                card={product}
-                onClick={(card) => router.push(`/cards/${card.id}`)}
-              />
-            ))
-          ) : (
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              textAlign="center"
-              sx={{ mt: 4 }}
-            >
-              No cards match your filters.
-            </Typography>
-          )}
-        </Box>
+        {/* 3. Composite key covers all three filter axes so any change
+               triggers exit + re-enter, replaying the stagger entrance. */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${filter}-${binder}-${search}`}
+            variants={gridVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}
+          >
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => (
+                <motion.div key={product.id} variants={cardVariants}>
+                  <CardListItem
+                    card={product}
+                    onClick={(card) => router.push(`/cards/${card.id}`)}
+                  />
+                </motion.div>
+              ))
+            ) : (
+              <motion.div variants={cardVariants} style={{ width: "100%" }}>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  textAlign="center"
+                  sx={{ mt: 4 }}
+                >
+                  No cards match your filters.
+                </Typography>
+              </motion.div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </Box>
 
       {/* Create Binder Dialog */}

@@ -9,6 +9,7 @@ import {
   InputAdornment,
   CircularProgress,
 } from "@mui/material";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import SearchIcon from "@mui/icons-material/Search";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -16,6 +17,20 @@ import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import CardListItem from "../shared-components/cards/CardListItem";
 import ErrorState from "../shared-components/ErrorState";
 import type { CardItem } from "@/types/card";
+
+// ── Animation variants ────────────────────────────────────────────────────────
+// 1. Individual card tile: fade up on enter.
+const cardVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" } },
+};
+// 2. Grid container: staggers child cards and fades the whole grid out when
+//    `search` changes (AnimatePresence key-swap triggers exit → enter cycle).
+const gridVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+  exit: { opacity: 0, transition: { duration: 0.15 } },
+};
 
 export default function Marketplace() {
   const { userId } = useAuth();
@@ -110,34 +125,41 @@ export default function Marketplace() {
 
       {/* Card Grid */}
       <Box>
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 2,
-            justifyContent: "center",
-          }}
-        >
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map((product) => (
-              <CardListItem
-                key={product.id}
-                card={product}
-                watchlisted={watchlistedIds.has(product.id)}
-                onClick={(card) => router.push(`/cards/${card.id}`)}
-              />
-            ))
-          ) : (
-            <Typography
-              variant="body1"
-              color="text.secondary"
-              textAlign="center"
-              sx={{ mt: 4 }}
-            >
-              No cards match your filters.
-            </Typography>
-          )}
-        </Box>
+        {/* 3. key={search} causes AnimatePresence to unmount + remount the grid
+               whenever the search query changes, replaying the stagger entrance. */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={search}
+            variants={gridVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}
+          >
+            {filteredProducts.length > 0 ? (
+              filteredProducts.map((product) => (
+                <motion.div key={product.id} variants={cardVariants}>
+                  <CardListItem
+                    card={product}
+                    watchlisted={watchlistedIds.has(product.id)}
+                    onClick={(card) => router.push(`/cards/${card.id}`)}
+                  />
+                </motion.div>
+              ))
+            ) : (
+              <motion.div variants={cardVariants} style={{ width: "100%" }}>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  textAlign="center"
+                  sx={{ mt: 4 }}
+                >
+                  No cards match your filters.
+                </Typography>
+              </motion.div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </Box>
     </Box>
   );
