@@ -26,6 +26,7 @@ import { NextRequest } from "next/server";
  *   - 400 bid not higher than currentBid
  *   - 409 concurrent bid (optimistic lock collision)
  *   - 409 PI not in requires_capture state
+ *   - 400 PI amount does not match the claimed bid amount
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -94,7 +95,10 @@ const BASE_AUCTION = {
   card:            { id: "card-1", title: "Charizard" },
 };
 
-// PI returned by stripe.paymentIntents.retrieve
+// PI returned by stripe.paymentIntents.retrieve.
+// `amount` is left out here since it must match whatever bid amount each
+// test exercises — tests that reach the PI-amount check spread this base
+// object and add the matching `amount` (in cents) explicitly.
 const PI_REQUIRES_CAPTURE = {
   status:   "requires_capture",
   metadata: { bidderId: "buyer-1" },
@@ -190,7 +194,7 @@ describe("POST /api/auctions/[id]/bid", () => {
   it("returns 409 on concurrent bid (optimistic lock miss)", async () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION);
-    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 1000 });
     mockPrisma.bid.findFirst.mockResolvedValue(null);
 
     // Simulate lock miss: updateMany returns count=0
@@ -213,7 +217,7 @@ describe("POST /api/auctions/[id]/bid", () => {
   it("places bid successfully and sends notifications", async () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION);
-    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 1000 });
     mockPrisma.bid.findFirst.mockResolvedValue(null);
     txSuccess();
 
@@ -234,7 +238,7 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockPrisma.auction.findUnique.mockResolvedValue({
       ...BASE_AUCTION, currentBid: 1000, highestBidderId: "other-buyer",
     });
-    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 1500 });
     mockPrisma.bid.findFirst.mockResolvedValue({
       id: "prev-bid-1", paymentIntentId: "pi_prev", bidderId: "other-buyer",
     });
@@ -257,7 +261,7 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockPrisma.auction.findUnique.mockResolvedValue({
       ...BASE_AUCTION, buyOutPrice: 2000, // S$20 buy-out
     });
-    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 2000 });
     mockPrisma.bid.findFirst.mockResolvedValue(null);
     txSuccess();
 
@@ -276,7 +280,7 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockPrisma.auction.findUnique.mockResolvedValue({
       ...BASE_AUCTION, reservePrice: 1500, // S$15 reserve
     });
-    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 1500 });
     mockPrisma.bid.findFirst.mockResolvedValue(null);
     txSuccess();
 
@@ -286,5 +290,19 @@ describe("POST /api/auctions/[id]/bid", () => {
     const body = await res.json();
     expect(body.settled).toBe(false);             // auction still running
     expect(mockSettleAuction).not.toHaveBeenCalled(); // no immediate settlement
+  });
+
+  it("returns 400 and cancels the PI when its authorised amount doesn't match the claimed bid", async () => {
+    mockGetServerSession.mockResolvedValue(BUYER_SESSION);
+    mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION);
+    // Authorised for S$5.00 (500 cents) but the request claims a S$10 bid.
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 500 });
+
+    const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 10 }), PARAMS);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/does not match/i);
+    expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_1");
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 });

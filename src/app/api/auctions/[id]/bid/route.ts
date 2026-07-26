@@ -121,6 +121,19 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // ── 3b. Verify the authorised amount matches the claimed bid ─────────────
+    // Without this, a bidder could authorise a small PI via
+    // POST /api/auctions/[id]/bid/intent, then submit an arbitrarily larger
+    // `amount` here — currentBid/Bid.amount would record the larger figure
+    // while Stripe only ever holds/captures the smaller one.
+    if (pi.amount !== amountCents) {
+      await cancelSafely(paymentIntentId);
+      return NextResponse.json(
+        { error: "Bid amount does not match the authorised payment amount" },
+        { status: 400 }
+      );
+    }
+
     // ── 4. Snapshot the current highest bid before writing ───────────────────
     // We need its PI id to cancel it after winning the lock.
     const previousBid = auction.highestBidderId

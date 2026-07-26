@@ -67,8 +67,11 @@ import { notifyAsync } from "@/lib/notifications";
 
 const CARD = { id: "card-1", title: "Charizard", forSale: true, ownerId: "seller-1" };
 
-// A PaymentIntent that has been authorised — funds held, ready to capture
-const PI_REQUIRES_CAPTURE = { status: "requires_capture", metadata: { buyerId: "buyer-1" } };
+// A PaymentIntent that has been authorised — funds held, ready to capture.
+// `amount` (5000 cents = S$50) matches the default `price: 50` used by most
+// POST tests below. Tests that submit a different price (the amend tests,
+// which use price: 60) override this mock with a matching `amount`.
+const PI_REQUIRES_CAPTURE = { status: "requires_capture", metadata: { buyerId: "buyer-1" }, amount: 5000 };
 
 function postRequest(body: object) {
   return new NextRequest("http://localhost/api/offers", {
@@ -224,6 +227,25 @@ describe("POST /api/offers", () => {
     expect(res.status).toBe(403);
   });
 
+  // What's being tested: the PI-amount guard.
+  //
+  // Without this check, a buyer could authorise a small PaymentIntent via
+  // POST /api/offers/payment-intent, then submit an arbitrarily larger
+  // `price` here — the offer would be stored/shown to the seller at the
+  // larger amount while Stripe only ever holds/captures the smaller one.
+  // The route must reject the mismatch and cancel the PI rather than save
+  // the offer.
+
+  it("returns 400 and cancels the PI when its authorised amount doesn't match the claimed price", async () => {
+    // PI was authorised for S$50 (5000 cents, the default), but the request
+    // claims a S$500 offer.
+    const res = await POST(postRequest({ cardId: "card-1", price: 500, paymentIntentId: "pi_1" }));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining("does not match") });
+    expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_1");
+    expect(mockPrisma.offer.create).not.toHaveBeenCalled();
+  });
+
   // ── New offer (happy path) ────────────────────────────────────────────────
 
   // What's being tested: the full successful new offer creation flow.
@@ -317,6 +339,10 @@ describe("POST /api/offers", () => {
       paymentIntentId: "pi_old",
     };
     mockPrisma.offer.findFirst.mockResolvedValue(existingOffer);
+    // The new PI was authorised for S$60 — matches the price submitted below.
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({
+      status: "requires_capture", metadata: { buyerId: "buyer-1" }, amount: 6000,
+    });
 
     const updatedOffer = {
       id: "offer-old",
@@ -374,6 +400,9 @@ describe("POST /api/offers", () => {
       status: "pending",
       paymentIntentId: "pi_old",
     });
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({
+      status: "requires_capture", metadata: { buyerId: "buyer-1" }, amount: 6000,
+    });
     mockPrisma.offer.update.mockResolvedValue({
       id: "offer-old",
       price: 6000,
@@ -415,6 +444,9 @@ describe("POST /api/offers", () => {
       id: "offer-old",
       status: "pending",
       paymentIntentId: "pi_old",
+    });
+    mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({
+      status: "requires_capture", metadata: { buyerId: "buyer-1" }, amount: 6000,
     });
     // Old PI cancel throws — already in terminal state
     mockStripeInstance.paymentIntents.cancel.mockRejectedValue(new Error("already cancelled"));

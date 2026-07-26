@@ -258,6 +258,27 @@ export async function POST(req: NextRequest) {
     const priceInCents = dollarsToCents(Number(price));
     const cleanMessage = message?.trim() || null;
 
+    // ── 4b. Verify the authorised amount matches the claimed offer price ────
+    // Without this, a buyer could authorise a small PI via
+    // POST /api/offers/payment-intent, then submit an arbitrarily larger
+    // `price` here — the offer would be stored/shown to the seller at the
+    // larger amount while Stripe only ever holds/captures the smaller one.
+    if (pi.amount !== priceInCents) {
+      try {
+        await stripe.paymentIntents.cancel(paymentIntentId);
+      } catch (cancelErr) {
+        console.warn(
+          "[offers POST] Could not cancel mismatched PI:",
+          paymentIntentId,
+          cancelErr
+        );
+      }
+      return NextResponse.json(
+        { error: "Offer amount does not match the authorised payment amount" },
+        { status: 400 }
+      );
+    }
+
     // ── 5. Check for existing live offer from this buyer ─────────────────────
     // A buyer can only have ONE active offer per card at a time.
     const existing = await prisma.offer.findFirst({
