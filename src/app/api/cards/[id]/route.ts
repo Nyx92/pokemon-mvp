@@ -21,7 +21,10 @@ const card = await prisma.card.findUnique({
       where: { id: params.id },
       include: {
         binder: true,
-        owner: { select: { id: true, username: true, email: true } },
+        // Public card detail page — email deliberately excluded (nothing in
+        // the frontend reads it here, and card owners' emails shouldn't be
+        // exposed to anonymous visitors).
+        owner: { select: { id: true, username: true } },
         _count: { select: { watchlist: true } },
       },
     });

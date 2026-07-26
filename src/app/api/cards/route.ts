@@ -25,7 +25,10 @@ export async function GET(req: Request) {
       where,
       include: {
         binder: true,
-        owner: { select: { id: true, username: true, email: true } },
+        // Public listing — email is deliberately excluded (nothing in the
+        // frontend reads it here, and card owners' emails shouldn't be
+        // exposed to anonymous marketplace visitors).
+        owner: { select: { id: true, username: true } },
       },
       orderBy: { createdAt: "desc" },
     });
