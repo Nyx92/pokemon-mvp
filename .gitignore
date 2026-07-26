@@ -39,3 +39,6 @@ next-env.d.ts
 ./public/dance.mp4
 
 /src/generated/prisma
+
+# stray CLI binary tarball, never used by build/dev/CI
+stripe.tar.gz
