@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { dollarsToCents, centsToDollars } from "@/lib/money";
@@ -46,6 +48,19 @@ export async function GET(req: Request) {
 // POST /api/cards
 export async function POST(req: Request) {
   try {
+    // This endpoint lets the caller assign the new card to ANY user (see
+    // ownerId below) — it's an admin tool for listing cards on behalf of
+    // sellers, not a self-service upload. The `isAdmin` gate on the /upload
+    // page only hides the UI; without a server-side check here, anyone
+    // could call this route directly and create a card owned by anyone.
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+    if (session.user.role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const formData = await req.formData();
 
     // ✅ Basic fields
