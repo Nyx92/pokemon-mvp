@@ -150,17 +150,34 @@ Set all variables from the `.env` section above in **Vercel → Project → Sett
 
 Use the **Transaction Pooler** `DATABASE_URL` (port 6543) in production.
 
-### Cron job (offer expiry)
+### Cron jobs (offer + auction expiry)
 
-Pending offers expire after 24 hours. The cron job at `GET /api/cron/expire-offers` is configured in `vercel.json`.
+Pending offers expire after 24 hours, and auctions need to be closed out once their end time passes. These are handled by:
 
-> **Current schedule:** `0 0 * * *` (once daily at midnight UTC) — set for Vercel Hobby plan.
-> **When you upgrade to Vercel Pro:** change the schedule in `vercel.json` to `*/5 * * * *` to run every 5 minutes.
+- `GET /api/cron/expire-offers`
+- `GET /api/cron/expire-auctions`
 
-Two things are required for it to work:
+Two things are required for either to work:
 
-1. Set `CRON_SECRET` to a long random string in Vercel's environment variables. Vercel automatically sends this as a bearer token when invoking the cron — no manual wiring needed.
-2. Be on **Vercel Pro** — the Hobby plan only allows once-per-day cron jobs. On Hobby, use a free external service like [cron-job.org](https://cron-job.org) pointing at `https://your-app.vercel.app/api/cron/expire-offers` with header `Authorization: Bearer <CRON_SECRET>`.
+1. Set `CRON_SECRET` to a long random string in Vercel's environment variables.
+2. Something needs to actually call the endpoint on a schedule with header `Authorization: Bearer <CRON_SECRET>` — Vercel Hobby's built-in cron only allows once-per-day, so we use an external scheduler instead (see below).
+
+**Current setup — [cron-job.org](https://console.cron-job.org/dashboard)** (account: `ngyx92@mxyyc.community`)
+
+Both endpoints below are pinged **every minute**:
+
+- `https://pokemon-mvp.vercel.app/api/cron/expire-auctions`
+- `https://pokemon-mvp.vercel.app/api/cron/expire-offers`
+
+---
+
+## Monitoring
+
+**[UptimeRobot](https://dashboard.uptimerobot.com/)** (account: `ngyx92@gmail.com`) monitors the health endpoint:
+
+- `https://mxyyc-grading.vercel.app/api/health`
+
+Alerts are integrated with Discord.
 
 ---
 
