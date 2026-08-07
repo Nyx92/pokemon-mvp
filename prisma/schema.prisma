@@ -174,6 +174,9 @@ model Card {
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([forSale])
 }
 
 model Order {
@@ -181,9 +184,9 @@ model Order {
   card              Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
   cardId             String
 
-  seller             User     @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller             User     @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
   sellerId           String
-  buyer              User     @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyer              User     @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
   buyerId            String
 
   amount             Int      // store cents
@@ -202,6 +205,8 @@ model Order {
   offer              Offer?
 
   @@index([stripeCheckoutSessionId])
+  @@index([buyerId])
+  @@index([sellerId])
 }
 
 
@@ -245,6 +250,10 @@ model Offer {
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@index([cardId])
+  @@index([buyerId])
+  @@index([sellerId])
 }
 
 // 🌟 Admin-curated best sellers (by card type, not individual listing)
@@ -325,10 +334,10 @@ model CardTransaction {
   card          Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
   cardId        String
 
-  seller        User   @relation("SellerTransactions", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller        User   @relation("SellerTransactions", fields: [sellerId], references: [id], onDelete: Restrict)
   sellerId      String
 
-  buyer         User   @relation("BuyerTransactions", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyer         User   @relation("BuyerTransactions", fields: [buyerId], references: [id], onDelete: Restrict)
   buyerId       String
 
   amount        Int
@@ -341,6 +350,8 @@ model CardTransaction {
 
   // Composite: one stripe event may produce multiple transactions (one per order in cart checkout).
   @@unique([stripeEventId, orderId])
+  @@index([buyerId])
+  @@index([sellerId])
 }
 
 // 🔨 Auction — a timed listing where buyers compete with binding bids.
@@ -358,7 +369,7 @@ model Auction {
   id        String @id @default(uuid())
   card      Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
   cardId    String
-  seller    User   @relation("SellerAuctions", fields: [sellerId], references: [id], onDelete: Cascade)
+  seller    User   @relation("SellerAuctions", fields: [sellerId], references: [id], onDelete: Restrict)
   sellerId  String
 
   startingBid  Int   // minimum first bid (cents)
@@ -402,7 +413,7 @@ model Bid {
   id        String  @id @default(uuid())
   auction   Auction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
   auctionId String
-  bidder    User    @relation("UserBids", fields: [bidderId], references: [id], onDelete: Cascade)
+  bidder    User    @relation("UserBids", fields: [bidderId], references: [id], onDelete: Restrict)
   bidderId  String
 
   amount          Int    // bid amount in cents
@@ -414,5 +425,6 @@ model Bid {
   createdAt DateTime @default(now())
 
   @@index([auctionId, status])
+  @@index([bidderId])
 }
 

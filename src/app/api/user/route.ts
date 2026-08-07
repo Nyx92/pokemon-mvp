@@ -35,12 +35,26 @@ export async function POST(req: Request) {
         verified: false,
         role: "user",
       },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        country: true,
+        sex: true,
+        dob: true,
+        address: true,
+        phoneNumber: true,
+        verified: true,
+        role: true,
+      },
     });
 
     return NextResponse.json({ success: true, user: newUser }, { status: 201 });
   } catch (err: any) {
     console.error("❌ Error creating user:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 }
 
@@ -69,6 +83,20 @@ export async function PUT(req: Request) {
         dob: data.dob ? new Date(data.dob) : null,
         address: data.address,
       },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        country: true,
+        sex: true,
+        dob: true,
+        address: true,
+        phoneNumber: true,
+        verified: true,
+        role: true,
+      },
     });
 
     return NextResponse.json(
@@ -80,6 +108,6 @@ export async function PUT(req: Request) {
     if (err.code === "P2002") {
       return NextResponse.json({ error: "That email is already in use." }, { status: 409 });
     }
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
   }
 }
