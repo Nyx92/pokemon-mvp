@@ -80,3 +80,38 @@ describe("PUT /api/cards/[id] — owner update", () => {
     });
   });
 });
+
+describe("PUT /api/cards/[id] — admin update with shared guard", () => {
+  const ADMIN_SESSION = { user: { id: "admin-1", role: "admin" } };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+  });
+
+  it("returns 409 when the admin tries to list a card for sale while it's in an active auction", async () => {
+    mockPrisma.card.findUnique.mockResolvedValue({ ...CARD, inAuction: true, forSale: false });
+
+    // Admin request with full fields (title, condition, ownerId, etc.) — the
+    // guard runs before admin-specific validation, so it should 409 before
+    // image validation matters, but we construct a realistic request anyway.
+    const adminFields = {
+      title: "Charizard Holo",
+      condition: "Mint",
+      ownerId: "owner-1",
+      tcgPlayerId: "base1-4",
+      language: "English",
+      forSale: "true",
+      price: "100",
+    };
+
+    const res = await PUT(putRequest(adminFields), { params: { id: "card-1" } });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "Cannot list a card for sale while it is in an active auction",
+    });
+    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+  });
+});
