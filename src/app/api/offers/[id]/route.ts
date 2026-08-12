@@ -136,6 +136,8 @@ export async function PATCH(
           { status: 409 }
         );
       }
+
+      // ── 3b. Guard: check card is not in an active auction ────────────────
       // A card mid-auction must not also be sellable via an accepted offer —
       // settleAuction() transfers ownership unconditionally when the auction
       // ends, which would silently overwrite this accept's transfer.
