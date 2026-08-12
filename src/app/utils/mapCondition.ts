@@ -11,11 +11,12 @@ const GRADING_COMPANY_MARKERS = ["psa", "cgc", "sgc", "beckett"];
 export function mapConditionToAPI(condition: string): ConditionMapping {
   const c = condition.toLowerCase();
 
+  // Graded cards (PSA, CGC, SGC, Beckett…)
   const gradingCompany = GRADING_COMPANY_MARKERS.find((marker) => c.includes(marker));
   if (gradingCompany) {
     return {
       type: "graded",
-      grade: gradingCompany === "psa" ? c.replace("psa", "").trim() : c,
+      grade: gradingCompany === "psa" ? c.replace("psa", "").trim() : c, // "10", "9", "8.5" for PSA; full string for others
     };
   }
 
