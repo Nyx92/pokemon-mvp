@@ -142,8 +142,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cardId is required" }, { status: 400 });
     }
 
-    const startingBidCents = dollarsToCents(Number(startingBid));
-    if (!startingBid || startingBidCents <= 0) {
+    // Number.isNaN checks come BEFORE the <= 0 comparisons below —
+    // `NaN <= 0` and `!amount` (for a truthy non-numeric string) are both
+    // `false`, so a non-numeric input would otherwise silently reach
+    // prisma.auction.create as NaN and surface as a raw 500.
+    const startingBidNum = Number(startingBid);
+    if (!startingBid || Number.isNaN(startingBidNum)) {
+      return NextResponse.json(
+        { error: "Starting bid must be greater than $0" },
+        { status: 400 }
+      );
+    }
+    const startingBidCents = dollarsToCents(startingBidNum);
+    if (startingBidCents <= 0) {
       return NextResponse.json(
         { error: "Starting bid must be greater than $0" },
         { status: 400 }
@@ -151,11 +162,18 @@ export async function POST(req: NextRequest) {
     }
 
     const days = Number(durationDays);
-    if (!days || days < 1 || days > 6) {
+    if (!durationDays || Number.isNaN(days) || days < 1 || days > 6) {
       return NextResponse.json(
         { error: "Duration must be between 1 and 6 days" },
         { status: 400 }
       );
+    }
+
+    if (reservePrice != null && Number.isNaN(Number(reservePrice))) {
+      return NextResponse.json({ error: "Reserve price must be a number" }, { status: 400 });
+    }
+    if (buyOutPrice != null && Number.isNaN(Number(buyOutPrice))) {
+      return NextResponse.json({ error: "Buy-out price must be a number" }, { status: 400 });
     }
 
     const reservePriceCents = reservePrice != null ? dollarsToCents(Number(reservePrice)) : null;

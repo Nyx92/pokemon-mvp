@@ -113,6 +113,40 @@ describe("POST /api/auctions", () => {
     expect(res.status).toBe(400);
   });
 
+  // What's being tested: a non-numeric startingBid must be rejected with a
+  // clean 400, not silently become NaN and reach prisma.auction.create
+  // (which would throw a raw Prisma validation error, caught by the generic
+  // catch and surfaced as an unhelpful 500).
+
+  it("returns 400 when startingBid is not a number", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    const res = await POST(postReq({ cardId: "card-1", startingBid: "abc", durationDays: 3 }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/starting bid/i);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when reservePrice is not a number", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    const res = await POST(postReq({
+      cardId: "card-1", startingBid: 5, reservePrice: "xyz", durationDays: 3,
+    }));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when buyOutPrice is not a number", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    const res = await POST(postReq({
+      cardId: "card-1", startingBid: 5, buyOutPrice: "xyz", durationDays: 3,
+    }));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("returns 400 when durationDays is out of range", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
     const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 7 }));
