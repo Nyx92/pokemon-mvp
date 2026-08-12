@@ -117,8 +117,8 @@ describe("PATCH /api/offers/[id] — accept", () => {
     mockGetServerSession.mockResolvedValue({ user: { id: "seller-1" } });
     // Default: offer is pending and valid
     mockPrisma.offer.findUnique.mockResolvedValue(PENDING_OFFER);
-    // Default: card is NOT reserved (no active Buy Now checkout in progress)
-    mockPrisma.card.findUnique.mockResolvedValue({ reservedById: null, reservedUntil: null });
+    // Default: card is NOT reserved and NOT in an auction
+    mockPrisma.card.findUnique.mockResolvedValue({ reservedById: null, reservedUntil: null, inAuction: false });
     // Default: Stripe PI capture succeeds
     mockStripeInstance.paymentIntents.capture.mockResolvedValue({
       id: "pi_123",
@@ -355,6 +355,28 @@ describe("PATCH /api/offers/[id] — accept", () => {
     expect(await res.json()).toMatchObject({ error: "Card is currently reserved by a pending checkout" });
 
     // PI capture must NOT be called — money must not move when card is reserved
+    expect(mockStripeInstance.paymentIntents.capture).not.toHaveBeenCalled();
+  });
+
+  // ── Auction guard ──────────────────────────────────────────────────────────
+
+  // What's being tested: a card that's mid-auction must not also be sellable
+  // via an accepted offer — settleAuction() would later silently overwrite
+  // the ownership transfer this accept just performed (double-sale bug).
+
+  it("returns 409 when the card is currently in an active auction", async () => {
+    mockPrisma.card.findUnique.mockResolvedValue({
+      reservedById: null,
+      reservedUntil: null,
+      inAuction: true,
+    });
+
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: "Card is currently in an active auction" });
+
+    // PI capture must NOT be called — money must not move while the card is
+    // locked in an auction.
     expect(mockStripeInstance.paymentIntents.capture).not.toHaveBeenCalled();
   });
 

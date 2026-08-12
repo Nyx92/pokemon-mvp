@@ -124,7 +124,7 @@ export async function PATCH(
       // have already moved with no way to roll it back cleanly.
       const currentCard = await prisma.card.findUnique({
         where: { id: cardId },
-        select: { reservedById: true, reservedUntil: true },
+        select: { reservedById: true, reservedUntil: true, inAuction: true },
       });
       if (
         currentCard?.reservedById &&
@@ -133,6 +133,15 @@ export async function PATCH(
       ) {
         return NextResponse.json(
           { error: "Card is currently reserved by a pending checkout" },
+          { status: 409 }
+        );
+      }
+      // A card mid-auction must not also be sellable via an accepted offer —
+      // settleAuction() transfers ownership unconditionally when the auction
+      // ends, which would silently overwrite this accept's transfer.
+      if (currentCard?.inAuction) {
+        return NextResponse.json(
+          { error: "Card is currently in an active auction" },
           { status: 409 }
         );
       }
