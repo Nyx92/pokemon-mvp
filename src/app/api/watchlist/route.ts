@@ -22,7 +22,9 @@ export async function GET() {
     include: {
       card: {
         include: {
-          owner: { select: { id: true, username: true, email: true } },
+          // Watchlisting a card requires no relationship with the seller —
+          // email deliberately excluded, same rationale as cards/route.ts.
+          owner: { select: { id: true, username: true } },
         },
       },
     },

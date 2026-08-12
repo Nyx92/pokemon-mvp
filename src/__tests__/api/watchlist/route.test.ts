@@ -48,7 +48,10 @@ function makeWatchlistEntry(cardId: string, priceInCents: number | null) {
       status: "available",
       description: "",
       binderId: null,
-      owner: { id: "owner-1", username: "Ash", email: "ash@pkmn.com" },
+      // No email here: a mocked findMany call bypasses Prisma's `select`
+      // entirely, so this fixture must mirror what the corrected
+      // { id, username } select actually returns in production.
+      owner: { id: "owner-1", username: "Ash" },
       createdAt: new Date("2025-01-01"),
       updatedAt: new Date("2025-01-01"),
     },
@@ -125,5 +128,22 @@ describe("GET /api/watchlist", () => {
 
     expect(res.status).toBe(200);
     expect(body.cards).toEqual([]);
+  });
+
+  // What's being tested: the card owner's email must never reach the
+  // response. Commit 6410447 already fixed this for /api/cards and
+  // /api/cards/[id] — this route was missed. Watchlisting a card requires
+  // no relationship with the seller, so there's no reason to expose it.
+
+  it("never includes the card owner's email in the response", async () => {
+    mockPrisma.cardWatchlist.findMany.mockResolvedValueOnce([
+      makeWatchlistEntry("c1", 1000),
+    ]);
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(body.cards[0].owner).toEqual({ id: "owner-1", username: "Ash" });
+    expect(body.cards[0].owner.email).toBeUndefined();
   });
 });

@@ -32,7 +32,9 @@ export async function GET() {
         include: {
           card: {
             include: {
-              owner: { select: { id: true, username: true, email: true } },
+              // Adding to cart requires no relationship with the seller yet —
+              // email deliberately excluded, same rationale as cards/route.ts.
+              owner: { select: { id: true, username: true } },
             },
           },
         },
@@ -61,7 +63,7 @@ export async function GET() {
 
   for (const item of cart.items) {
     const sellerId = item.card.owner.id;
-    const sellerName = item.card.owner.username ?? item.card.owner.email;
+    const sellerName = item.card.owner.username ?? "Seller";
     if (!sellerMap.has(sellerId)) {
       sellerMap.set(sellerId, { sellerName, items: [] });
     }

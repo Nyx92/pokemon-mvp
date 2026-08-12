@@ -122,6 +122,44 @@ describe("GET /api/cart", () => {
     expect(res.status).toBe(200);
     expect(body.packages).toEqual([]);
   });
+
+  // What's being tested: the card owner's email must never reach the
+  // response, and the sellerName fallback must not silently read it either
+  // now that email is no longer selected.
+
+  it("never includes the card owner's email, and falls back sellerName to 'Seller' if username is missing", async () => {
+    mockPrisma.cart.upsert.mockResolvedValue({
+      items: [
+        {
+          id: "item-1",
+          selected: true,
+          createdAt: new Date("2025-01-01"),
+          card: {
+            id: "card-1",
+            title: "Charizard",
+            price: 5000,
+            condition: "NM",
+            imageUrls: [],
+            language: "English",
+            setName: "Base Set",
+            rarity: "Rare",
+            cardNumber: "004",
+            forSale: true,
+            tcgPlayerId: null,
+            owner: { id: "owner-1", username: "Ash" },
+          },
+        },
+      ],
+    });
+
+    const res = await GET();
+    const body = await res.json();
+
+    const owner = body.packages[0].items[0].card.owner;
+    expect(owner).toEqual({ id: "owner-1", username: "Ash" });
+    expect(owner.email).toBeUndefined();
+    expect(body.packages[0].sellerName).toBe("Ash");
+  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

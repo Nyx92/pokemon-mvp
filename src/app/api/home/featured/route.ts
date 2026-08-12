@@ -48,7 +48,9 @@ const AUCTION_CARD_SELECT = {
 } as const;
 
 const cardInclude = {
-  owner: { select: { id: true, username: true, email: true } },
+  // Public, unauthenticated endpoint — email deliberately excluded, same
+  // rationale as src/app/api/cards/route.ts and cards/[id]/route.ts.
+  owner: { select: { id: true, username: true } },
   binder: true,
 };
 
