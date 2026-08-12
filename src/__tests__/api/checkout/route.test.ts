@@ -303,6 +303,60 @@ describe("POST /api/checkout", () => {
     expect(res.status).toBe(500);
   });
 
+  // What's being tested: the specific race this fix closes. Buyer A has
+  // already reserved the card (reservedUntil is in the future) but their
+  // Stripe session hasn't been created yet, so reservedCheckoutSessionId is
+  // still null. Before the fix, the `{ reservedCheckoutSessionId: null }`
+  // branch of the OR clause let Buyer B's updateMany match and steal the
+  // reservation out from under Buyer A. After the fix, only an expired or
+  // never-set reservedUntil allows a new reservation — an active
+  // reservedUntil blocks Buyer B regardless of reservedCheckoutSessionId.
+
+  it("does not let a second buyer steal a reservation that's active but not yet session-stamped", async () => {
+    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
+      if (typeof fnOrOps === "function") {
+        const mockTx = {
+          // Simulates the real WHERE clause correctly rejecting Buyer B:
+          // reservedUntil is in the future and reservedCheckoutSessionId is
+          // null, but reservedCheckoutSessionId: null must no longer be a
+          // standalone match branch.
+          card: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+          order: { create: vi.fn() },
+          user: { findUnique: vi.fn().mockResolvedValue({ id: "buyer-1" }) },
+        };
+        return fnOrOps(mockTx);
+      }
+      return Promise.all(fnOrOps);
+    });
+
+    const res = await POST(makeRequest({ cardId: "card-1" }));
+    expect(res.status).toBe(500);
+  });
+
+  it("reservation query no longer includes a standalone reservedCheckoutSessionId:null branch", async () => {
+    let capturedWhere: any;
+    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
+      if (typeof fnOrOps === "function") {
+        const mockTx = {
+          card: {
+            updateMany: vi.fn().mockImplementation((args) => {
+              capturedWhere = args.where;
+              return Promise.resolve({ count: 1 });
+            }),
+          },
+          order: { create: vi.fn().mockResolvedValue(MOCK_ORDER) },
+          user: { findUnique: vi.fn().mockResolvedValue({ id: "buyer-1" }) },
+        };
+        return fnOrOps(mockTx);
+      }
+      return Promise.all(fnOrOps);
+    });
+
+    await POST(makeRequest({ cardId: "card-1" }));
+
+    expect(capturedWhere.OR).not.toContainEqual({ reservedCheckoutSessionId: null });
+  });
+
   // ── Happy path ──────────────────────────────────────────────────────────────
 
   // What's being tested: the full successful checkout flow end to end.

@@ -93,10 +93,17 @@ export async function POST(_req: NextRequest) {
           where: {
             id: card.id,
             forSale: true,
+            // A card is reservable only if it has never been reserved, or its
+            // previous reservation has expired. The old third branch
+            // (`reservedCheckoutSessionId: null`) let a second buyer steal an
+            // *active* reservation during the window between "reservedUntil
+            // set" and "Stripe session created" (reservedCheckoutSessionId is
+            // only stamped after the session.create() call below returns) —
+            // whoever's card.update ran last would win, and the webhook would
+            // later refund whichever buyer actually completed payment.
             OR: [
               { reservedUntil: null },
               { reservedUntil: { lt: new Date() } },
-              { reservedCheckoutSessionId: null },
             ],
           },
           data: { reservedById: buyerId, reservedUntil },

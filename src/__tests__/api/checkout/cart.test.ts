@@ -150,6 +150,71 @@ describe("POST /api/checkout/cart", () => {
     expect(body.error).toContain("reserved by another buyer");
   });
 
+  // What's being tested: the specific race this fix closes. Buyer A has
+  // already reserved the card (reservedUntil is in the future) but their
+  // Stripe session hasn't been created yet, so reservedCheckoutSessionId is
+  // still null. Before the fix, the `{ reservedCheckoutSessionId: null }`
+  // branch of the OR clause let Buyer B's updateMany match and steal the
+  // reservation out from under Buyer A. After the fix, only an expired or
+  // never-set reservedUntil allows a new reservation — an active
+  // reservedUntil blocks Buyer B regardless of reservedCheckoutSessionId.
+  it("does not let a second buyer steal a reservation that's active but not yet session-stamped", async () => {
+    mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
+    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
+
+    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
+      if (typeof fnOrOps === "function") {
+        const mockTx = {
+          card: {
+            // Simulates the real WHERE clause correctly rejecting Buyer B:
+            // reservedUntil is in the future and reservedCheckoutSessionId is
+            // null, but reservedCheckoutSessionId: null must no longer be a
+            // standalone match branch.
+            updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+          },
+          order: { create: vi.fn() },
+        };
+        return fnOrOps(mockTx);
+      }
+      return Promise.all(fnOrOps);
+    });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toContain("reserved by another buyer");
+  });
+
+  // What's being tested: same fix as above, verified by inspecting the
+  // actual WHERE clause the per-item reservation loop sends to
+  // tx.card.updateMany — it must no longer include a standalone
+  // `{ reservedCheckoutSessionId: null }` branch in its OR clause.
+  it("reservation query no longer includes a standalone reservedCheckoutSessionId:null branch", async () => {
+    mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
+    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
+
+    let capturedWhere: any;
+    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
+      if (typeof fnOrOps === "function") {
+        const mockTx = {
+          card: {
+            updateMany: vi.fn().mockImplementation((args) => {
+              capturedWhere = args.where;
+              return Promise.resolve({ count: 1 });
+            }),
+          },
+          order: { create: vi.fn().mockResolvedValue({ id: "order-1" }) },
+        };
+        return fnOrOps(mockTx);
+      }
+      return Promise.all(fnOrOps);
+    });
+
+    await POST(makeRequest());
+
+    expect(capturedWhere.OR).not.toContainEqual({ reservedCheckoutSessionId: null });
+  });
+
   // What's being tested: happy path — session created, url returned
   it("creates orders, creates stripe session, returns url", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
