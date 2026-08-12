@@ -145,5 +145,15 @@ describe("GET /api/watchlist", () => {
 
     expect(body.cards[0].owner).toEqual({ id: "owner-1", username: "Ash" });
     expect(body.cards[0].owner.email).toBeUndefined();
+
+    // Because the mock above already returns an email-free owner regardless
+    // of what select we pass Prisma, the response-body assertions above
+    // can't actually prove the fix — reverting `owner: { select: { id, username } }`
+    // back to including `email: true` would still pass them. Assert on the
+    // call arguments themselves so this test fails if that select is widened.
+    const findManyArgs = mockPrisma.cardWatchlist.findMany.mock.calls[0][0];
+    expect(findManyArgs.include.card.include.owner).toEqual({
+      select: { id: true, username: true },
+    });
   });
 });

@@ -124,32 +124,37 @@ describe("GET /api/cart", () => {
   });
 
   // What's being tested: the card owner's email must never reach the
-  // response, and the sellerName fallback must not silently read it either
-  // now that email is no longer selected.
+  // response, and the query itself must not select it — asserting only on
+  // the response body isn't enough here, since the mock below already
+  // returns an email-free owner regardless of what select we pass Prisma;
+  // reverting the route's `owner: { select: { id, username } }` back to
+  // including `email: true` would still pass a body-only assertion.
 
-  it("never includes the card owner's email, and falls back sellerName to 'Seller' if username is missing", async () => {
+  function cartItemFixture(owner: { id: string; username: string | null }) {
+    return {
+      id: "item-1",
+      selected: true,
+      createdAt: new Date("2025-01-01"),
+      card: {
+        id: "card-1",
+        title: "Charizard",
+        price: 5000,
+        condition: "NM",
+        imageUrls: [],
+        language: "English",
+        setName: "Base Set",
+        rarity: "Rare",
+        cardNumber: "004",
+        forSale: true,
+        tcgPlayerId: null,
+        owner,
+      },
+    };
+  }
+
+  it("never includes the card owner's email in the response or the query", async () => {
     mockPrisma.cart.upsert.mockResolvedValue({
-      items: [
-        {
-          id: "item-1",
-          selected: true,
-          createdAt: new Date("2025-01-01"),
-          card: {
-            id: "card-1",
-            title: "Charizard",
-            price: 5000,
-            condition: "NM",
-            imageUrls: [],
-            language: "English",
-            setName: "Base Set",
-            rarity: "Rare",
-            cardNumber: "004",
-            forSale: true,
-            tcgPlayerId: null,
-            owner: { id: "owner-1", username: "Ash" },
-          },
-        },
-      ],
+      items: [cartItemFixture({ id: "owner-1", username: "Ash" })],
     });
 
     const res = await GET();
@@ -159,6 +164,27 @@ describe("GET /api/cart", () => {
     expect(owner).toEqual({ id: "owner-1", username: "Ash" });
     expect(owner.email).toBeUndefined();
     expect(body.packages[0].sellerName).toBe("Ash");
+
+    const upsertArgs = mockPrisma.cart.upsert.mock.calls[0][0];
+    expect(upsertArgs.include.items.include.card.include.owner).toEqual({
+      select: { id: true, username: true },
+    });
+  });
+
+  // What's being tested: the actual behavior change in this task — the
+  // sellerName fallback used to read `owner.email` when `username` was
+  // missing; now that email is no longer selected, it must fall back to
+  // the literal string "Seller" instead of silently becoming undefined.
+
+  it("falls back sellerName to 'Seller' when the owner has no username", async () => {
+    mockPrisma.cart.upsert.mockResolvedValue({
+      items: [cartItemFixture({ id: "owner-1", username: null })],
+    });
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(body.packages[0].sellerName).toBe("Seller");
   });
 });
 

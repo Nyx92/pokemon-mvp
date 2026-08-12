@@ -54,5 +54,21 @@ describe("GET /api/home/featured", () => {
         expect(card.owner.email).toBeUndefined();
       }
     }
+
+    // The response-body assertions above can't actually prove the fix: the
+    // mocks return an email-free owner regardless of what select the route
+    // passes to Prisma, so reverting `cardInclude.owner`'s select back to
+    // including `email: true` would still pass them. Assert on the actual
+    // call arguments for every call site that shares `cardInclude` — the
+    // findFirst calls driving bestSellers/highestTransacted, and the
+    // findMany call driving newlyListed — so this test fails if that
+    // select is ever widened again.
+    expect(mockPrisma.card.findFirst.mock.calls.length).toBeGreaterThan(0);
+    for (const [args] of mockPrisma.card.findFirst.mock.calls) {
+      expect(args.include.owner).toEqual({ select: { id: true, username: true } });
+    }
+
+    const findManyArgs = mockPrisma.card.findMany.mock.calls[0][0];
+    expect(findManyArgs.include.owner).toEqual({ select: { id: true, username: true } });
   });
 });
