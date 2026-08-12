@@ -167,82 +167,103 @@ export async function PATCH(
       // ── 5. Atomic DB transaction ───────────────────────────────────────────
       // Everything below must either all succeed or all roll back.
       // We cannot have money captured but the card not transferred.
-      const { order } = await prisma.$transaction(async (tx) => {
-        // 5a. Create an Order record to represent this sale.
-        //     This links the offer, buyer, seller, and amount for history/display.
-        const order = await tx.order.create({
-          data: {
-            cardId,
-            sellerId: userId, // seller = card owner = current user
-            buyerId: offer.buyerId,
-            amount: offer.price!, // already in cents
-            currency: "sgd",
-            status: "PAID",
-            stripePaymentIntentId: offer.paymentIntentId,
-          },
-        });
+      let order;
+      try {
+        const result = await prisma.$transaction(async (tx) => {
+          // 5a. Create an Order record to represent this sale.
+          //     This links the offer, buyer, seller, and amount for history/display.
+          const order = await tx.order.create({
+            data: {
+              cardId,
+              sellerId: userId, // seller = card owner = current user
+              buyerId: offer.buyerId,
+              amount: offer.price!, // already in cents
+              currency: "sgd",
+              status: "PAID",
+              stripePaymentIntentId: offer.paymentIntentId,
+            },
+          });
 
-        // 5b. Mark the offer as paid and link it to the Order.
-        //     "paid" is the final happy-path status — the buyer got the card.
-        await tx.offer.update({
-          where: { id: params.id },
-          data: {
-            status: "paid",
-            orderId: order.id,
-          },
-        });
+          // 5b. Mark the offer as paid and link it to the Order.
+          //     "paid" is the final happy-path status — the buyer got the card.
+          await tx.offer.update({
+            where: { id: params.id },
+            data: {
+              status: "paid",
+              orderId: order.id,
+            },
+          });
 
-        // 5c. Archive ALL offers on this card (pending, rejected, expired, etc.)
-        //     The card is now sold — neither the new owner nor old buyers should
-        //     see these in their active views. History is preserved via archivedAt.
-        await tx.offer.updateMany({
-          where: { cardId, archivedAt: null },
-          data: { archivedAt: new Date() },
-        });
+          // 5c. Archive ALL offers on this card (pending, rejected, expired, etc.)
+          //     The card is now sold — neither the new owner nor old buyers should
+          //     see these in their active views. History is preserved via archivedAt.
+          await tx.offer.updateMany({
+            where: { cardId, archivedAt: null },
+            data: { archivedAt: new Date() },
+          });
 
-        // 5d. Transfer card ownership to the buyer.
-        //     - ownerId changes to the buyer
-        //     - forSale = false (card is sold, shouldn't appear in marketplace)
-        //     - price = null (listing price is cleared — card has a new owner)
-        //     - Clear any reservation fields (no longer needed)
-        await tx.card.update({
-          where: { id: cardId },
-          data: {
-            ownerId: offer.buyerId,
-            forSale: false,
-            price: null,
-            reservedById: null,
-            reservedUntil: null,
-            reservedCheckoutSessionId: null,
-          },
-        });
+          // 5d. Transfer card ownership to the buyer.
+          //     - ownerId changes to the buyer
+          //     - forSale = false (card is sold, shouldn't appear in marketplace)
+          //     - price = null (listing price is cleared — card has a new owner)
+          //     - Clear any reservation fields (no longer needed)
+          await tx.card.update({
+            where: { id: cardId },
+            data: {
+              ownerId: offer.buyerId,
+              forSale: false,
+              price: null,
+              reservedById: null,
+              reservedUntil: null,
+              reservedCheckoutSessionId: null,
+            },
+          });
 
-        // 5e. Create a CardTransaction — permanent audit trail of who sold what,
-        //     for how much, and which Stripe PI was used.
-        //     (stripeEventId uses the PI id since there's no webhook event here)
-        await tx.cardTransaction.create({
-          data: {
-            orderId: order.id,
-            cardId,
-            sellerId: userId,
-            buyerId: offer.buyerId,
-            amount: offer.price!,
-            currency: "sgd",
-            // Use the PI id as a unique key — there's one PI per offer,
-            // so this prevents duplicate transaction records if PATCH is retried.
-            stripeEventId: offer.paymentIntentId!,
-            tcgPlayerId:
-              (
-                await tx.card.findUnique({
-                  where: { id: cardId },
-                  select: { tcgPlayerId: true },
-                })
-              )?.tcgPlayerId ?? undefined,
-          },
-        });
+          // 5e. Create a CardTransaction — permanent audit trail of who sold what,
+          //     for how much, and which Stripe PI was used.
+          //     (stripeEventId uses the PI id since there's no webhook event here)
+          await tx.cardTransaction.create({
+            data: {
+              orderId: order.id,
+              cardId,
+              sellerId: userId,
+              buyerId: offer.buyerId,
+              amount: offer.price!,
+              currency: "sgd",
+              // Use the PI id as a unique key — there's one PI per offer,
+              // so this prevents duplicate transaction records if PATCH is retried.
+              stripeEventId: offer.paymentIntentId!,
+              tcgPlayerId:
+                (
+                  await tx.card.findUnique({
+                    where: { id: cardId },
+                    select: { tcgPlayerId: true },
+                  })
+                )?.tcgPlayerId ?? undefined,
+            },
+          });
 
-        return { order };
-      });
+          return { order };
+        });
+        order = result.order;
+      } catch (txErr) {
+        // DB failed AFTER the PI was captured — refund the buyer so they're
+        // not charged for a card that never transferred. Mirrors the same
+        // safety net in lib/auctionSettlement.ts's settleAuction().
+        console.error(
+          "[offers PATCH] DB transaction failed after capture, issuing refund:",
+          txErr
+        );
+        try {
+          await stripe.refunds.create({ payment_intent: offer.paymentIntentId! });
+        } catch (refundErr) {
+          console.error(
+            "[offers PATCH] Refund also failed — manual intervention required:",
+            refundErr
+          );
+        }
+        throw txErr;
+      }
 
       console.log(
         `[offers PATCH] Card ${cardId} transferred to buyer ${offer.buyerId}. Order: ${order.id}`

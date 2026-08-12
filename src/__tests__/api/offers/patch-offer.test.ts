@@ -44,6 +44,9 @@ const mockStripeInstance = vi.hoisted(() => ({
     capture: vi.fn(), // accept: captures the held funds → actual charge
     cancel: vi.fn(),  // reject: releases the hold → no charge
   },
+  refunds: {
+    create: vi.fn(), // accept: compensating refund if the DB tx fails after capture
+  },
 }));
 
 // mockTx is the fake Prisma client passed into the $transaction callback.
@@ -124,6 +127,8 @@ describe("PATCH /api/offers/[id] — accept", () => {
       id: "pi_123",
       status: "succeeded",
     });
+    // Default: compensating refund succeeds (only exercised when $transaction throws)
+    mockStripeInstance.refunds.create.mockResolvedValue({ id: "re_123" });
 
     // Default: $transaction runs the callback with the mock tx client.
     // Each method on mockTx is pre-set to succeed so tests only override
@@ -230,6 +235,33 @@ describe("PATCH /api/offers/[id] — accept", () => {
         }),
       })
     );
+  });
+
+  // ── Refund safety net ─────────────────────────────────────────────────────
+
+  // What's being tested: if the DB transaction throws AFTER the PI was
+  // captured (money already moved), the route must issue a Stripe refund so
+  // the buyer isn't charged for a card that never transferred — mirroring
+  // the existing safety net in settleAuction() (lib/auctionSettlement.ts).
+
+  it("refunds the buyer if the DB transaction fails after PI capture", async () => {
+    mockPrisma.$transaction.mockRejectedValue(new Error("DB exploded"));
+
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+
+    expect(res.status).toBe(500);
+    expect(mockStripeInstance.paymentIntents.capture).toHaveBeenCalledWith("pi_123");
+    expect(mockStripeInstance.refunds.create).toHaveBeenCalledWith({ payment_intent: "pi_123" });
+  });
+
+  it("still returns 500 (not a crash) if the compensating refund itself fails", async () => {
+    mockPrisma.$transaction.mockRejectedValue(new Error("DB exploded"));
+    mockStripeInstance.refunds.create.mockRejectedValue(new Error("refund also failed"));
+
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+
+    expect(res.status).toBe(500);
+    expect(mockStripeInstance.refunds.create).toHaveBeenCalled();
   });
 
   // ── Auth / ownership ──────────────────────────────────────────────────────
