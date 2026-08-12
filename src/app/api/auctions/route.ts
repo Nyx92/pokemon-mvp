@@ -195,6 +195,19 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    // Without a reserve price, buyOutPrice must still be at least the
+    // starting bid — otherwise the first legal bid (>= startingBid) would
+    // trigger an instant buy-out settlement below the seller's intended floor.
+    if (
+      reservePriceCents === null &&
+      buyOutPriceCents  !== null &&
+      buyOutPriceCents  < startingBidCents
+    ) {
+      return NextResponse.json(
+        { error: "Buy-out price must be at least the starting bid" },
+        { status: 400 }
+      );
+    }
 
     // ── 3. Verify the card belongs to the seller and is not in auction ───────
     const card = await prisma.card.findUnique({

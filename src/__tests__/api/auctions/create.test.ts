@@ -175,6 +175,35 @@ describe("POST /api/auctions", () => {
     expect(body.error).toMatch(/buy-out/i);
   });
 
+  // What's being tested: the existing buyOutPrice <= reservePrice check only
+  // runs when reservePrice is set. Without a reserve, buyOutPrice must still
+  // be validated against startingBid — otherwise the very first legal bid
+  // (>= startingBid) can force an instant settlement below the seller's
+  // intended buy-out floor.
+
+  it("returns 400 when buyOutPrice is below startingBid and no reservePrice is set", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    const res = await POST(postReq({
+      cardId: "card-1", startingBid: 50, buyOutPrice: 10, durationDays: 3,
+    }));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/buy-out/i);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("allows buyOutPrice equal to startingBid when no reservePrice is set", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    const dbAuction = makeDbAuction({ startingBid: 5000, buyOutPrice: 5000 });
+    mockPrisma.$transaction.mockResolvedValue([dbAuction]);
+    const res = await POST(postReq({
+      cardId: "card-1", startingBid: 50, buyOutPrice: 50, durationDays: 3,
+    }));
+    expect(res.status).toBe(201);
+  });
+
   it("returns 404 when card does not exist", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
     mockPrisma.card.findUnique.mockResolvedValue(null);
