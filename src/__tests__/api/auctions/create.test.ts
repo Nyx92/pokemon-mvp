@@ -24,6 +24,7 @@ import { NextRequest } from "next/server";
 const mockPrisma = vi.hoisted(() => ({
   card:    { findUnique: vi.fn(), update: vi.fn() },
   auction: { create: vi.fn() },
+  offer:   { findFirst: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -86,6 +87,7 @@ function makeDbAuction(overrides = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.CRON_SECRET = "secret";
+  mockPrisma.offer.findFirst.mockResolvedValue(null); // default: no pending offer
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -160,6 +162,24 @@ describe("POST /api/auctions", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toMatch(/already.*auction/i);
+  });
+
+  // What's being tested: a card with a pending offer must not also be
+  // auctionable — the seller could accept that offer mid-auction and
+  // settleAuction() would later overwrite the transfer when the auction ends
+  // (the other half of the double-sale bug fixed in offers/[id]/route.ts).
+
+  it("returns 409 when card has a pending offer", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.offer.findFirst.mockResolvedValue({ id: "offer-1" });
+
+    const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/pending offer/i);
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("creates auction and returns 201 with prices in dollars", async () => {

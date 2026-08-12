@@ -197,6 +197,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── 3b. Guard: check card doesn't have a pending offer ──────────────────────
+    // A card with a pending offer must not also be auctionable — the seller could
+    // accept that offer mid-auction and settleAuction() would later overwrite the
+    // transfer when the auction ends (the other half of this race, fixed in
+    // offers/[id]/route.ts's accept flow).
+    const pendingOffer = await prisma.offer.findFirst({
+      where: { cardId, status: "pending", archivedAt: null },
+      select: { id: true },
+    });
+    if (pendingOffer) {
+      return NextResponse.json(
+        { error: "This card has a pending offer — resolve it before starting an auction" },
+        { status: 409 }
+      );
+    }
+
     // ── 4 & 5. Create auction + lock card (atomic) ───────────────────────────
     const endsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
 
