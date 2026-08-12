@@ -42,3 +42,6 @@ next-env.d.ts
 
 # stray CLI binary tarball, never used by build/dev/CI
 stripe.tar.gz
+
+# superpowers subagent-driven-development scratch workspace (ledgers, briefs, reports)
+/.superpowers/
