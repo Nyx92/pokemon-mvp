@@ -92,6 +92,18 @@ export async function PUT(
       if (!Number.isNaN(dollars)) price = dollarsToCents(dollars);
     }
 
+    // A card mid-auction must not be re-listed for sale through this path —
+    // POST /api/auctions already set forSale: false and inAuction: true to
+    // lock it. Allowing forSale: true here would let Buy Now/offers run
+    // concurrently with live bids (the same double-sale class of bug fixed
+    // in the offer-accept and auction-creation guards).
+    if (forSale && card.inAuction) {
+      return NextResponse.json(
+        { error: "Cannot list a card for sale while it is in an active auction" },
+        { status: 409 }
+      );
+    }
+
     // Owner: only price + forSale
     if (!isAdmin) {
       const updated = await prisma.card.update({
