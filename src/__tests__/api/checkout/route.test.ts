@@ -311,29 +311,12 @@ describe("POST /api/checkout", () => {
   // reservation out from under Buyer A. After the fix, only an expired or
   // never-set reservedUntil allows a new reservation — an active
   // reservedUntil blocks Buyer B regardless of reservedCheckoutSessionId.
-
-  it("does not let a second buyer steal a reservation that's active but not yet session-stamped", async () => {
-    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
-      if (typeof fnOrOps === "function") {
-        const mockTx = {
-          // Simulates the real WHERE clause correctly rejecting Buyer B:
-          // reservedUntil is in the future and reservedCheckoutSessionId is
-          // null, but reservedCheckoutSessionId: null must no longer be a
-          // standalone match branch.
-          card: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
-          order: { create: vi.fn() },
-          user: { findUnique: vi.fn().mockResolvedValue({ id: "buyer-1" }) },
-        };
-        return fnOrOps(mockTx);
-      }
-      return Promise.all(fnOrOps);
-    });
-
-    const res = await POST(makeRequest({ cardId: "card-1" }));
-    expect(res.status).toBe(500);
-  });
-
-  it("reservation query no longer includes a standalone reservedCheckoutSessionId:null branch", async () => {
+  //
+  // Proven by asserting the *exact* shape of the OR clause sent to
+  // tx.card.updateMany — not just that the vulnerable branch is absent
+  // (which would also pass for an empty OR, or one missing a legitimate
+  // branch), but that precisely the two legitimate branches remain.
+  it("reservation query's OR clause only allows never-reserved or expired reservations", async () => {
     let capturedWhere: any;
     mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
       if (typeof fnOrOps === "function") {
@@ -354,7 +337,10 @@ describe("POST /api/checkout", () => {
 
     await POST(makeRequest({ cardId: "card-1" }));
 
-    expect(capturedWhere.OR).not.toContainEqual({ reservedCheckoutSessionId: null });
+    expect(capturedWhere.OR).toEqual([
+      { reservedUntil: null },
+      { reservedUntil: { lt: expect.any(Date) } },
+    ]);
   });
 
   // ── Happy path ──────────────────────────────────────────────────────────────

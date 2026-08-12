@@ -187,9 +187,12 @@ describe("POST /api/checkout/cart", () => {
 
   // What's being tested: same fix as above, verified by inspecting the
   // actual WHERE clause the per-item reservation loop sends to
-  // tx.card.updateMany — it must no longer include a standalone
-  // `{ reservedCheckoutSessionId: null }` branch in its OR clause.
-  it("reservation query no longer includes a standalone reservedCheckoutSessionId:null branch", async () => {
+  // tx.card.updateMany — its OR clause must contain exactly the two
+  // legitimate branches (never-reserved, or expired), and nothing else.
+  // Asserting the exact shape (not just the absence of the vulnerable
+  // branch) also catches a regression that accidentally dropped one of the
+  // legitimate branches instead of the vulnerable one.
+  it("reservation query's OR clause only allows never-reserved or expired reservations", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
     mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
 
@@ -212,7 +215,10 @@ describe("POST /api/checkout/cart", () => {
 
     await POST(makeRequest());
 
-    expect(capturedWhere.OR).not.toContainEqual({ reservedCheckoutSessionId: null });
+    expect(capturedWhere.OR).toEqual([
+      { reservedUntil: null },
+      { reservedUntil: { lt: expect.any(Date) } },
+    ]);
   });
 
   // What's being tested: happy path — session created, url returned
