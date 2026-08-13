@@ -51,18 +51,19 @@ export async function POST(req: NextRequest) {
     }
 
     const amount = card.price;
-    // TODO: Increase to 15-30 mins for production.
-    // Note: If syncing with Stripe's 'expires_at', Stripe requires a 30min minimum.
-    const reserveMinutes = 1;
+    // 15 minutes gives a buyer enough time to complete the Stripe Checkout
+    // page without holding the card unreasonably long from other buyers.
+    // Deliberately under Stripe's 30-minute expires_at minimum — see the
+    // comment on the commented-out expires_at below for why the two aren't
+    // synced yet.
+    const reserveMinutes = 15;
     const reservedUntil = new Date(Date.now() + reserveMinutes * 60_000);
 
     const order = await prisma.$transaction(async (tx) => {
-      console.log("[checkout] buyerId from session:", buyerId);
       // 1. Double-check the buyer exists in the system
       const buyer = await prisma.user.findUnique({
         where: { id: buyerId! },
       });
-      console.log("[checkout] buyer exists in DB:", !!buyer);
       // 2. The "Atomic Reservation"
       // We don't just find the card; we try to UPDATE it only if it's currently available.
       const updated = await tx.card.updateMany({
@@ -138,14 +139,14 @@ export async function POST(req: NextRequest) {
         buyerId,
         sellerId: card.ownerId,
       },
-      // TODO: Re-enable `expires_at` after testing.
-      // Stripe requires `expires_at` to be at least 30 minutes from session creation.
-      // When we re-enable it, also add a "Resume checkout" flow:
-      // - Persist stripeCheckoutSessionId on Order (already doing)
-      // - Provide an endpoint/UI that finds the user's latest PENDING order and redirects them back to the same Checkout Session
-      //   (or creates a new session if the old one expired).
-      // expires_at: Math.floor(reservedUntil.getTime() / 1000),
-      // expires_at: Math.floor(reservedUntil.getTime() / 1000),
+      // expires_at intentionally omitted: Stripe requires it to be at least
+      // 30 minutes from session creation, but our DB reservation
+      // (reserveMinutes above) is 15 minutes — syncing the two would mean
+      // either lengthening the DB hold to 30+ minutes (locking the card from
+      // other buyers longer) or building a "resume checkout" flow (find the
+      // user's latest PENDING order, redirect back to its still-open
+      // session, or create a new one if expired). Deferred as a follow-up;
+      // tracked outside this plan.
     });
 
     // 4) Save session id + tie reservation to this session id
