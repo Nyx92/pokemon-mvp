@@ -50,7 +50,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
-import { notifyAsync } from "@/lib/notifications";
+import { transferCardOwnership, notifySellerCardSold } from "@/lib/webhookHelpers";
 
 // Webhooks must run on Node runtime (Stripe SDK + raw-body signature verification)
 export const runtime = "nodejs";
@@ -352,26 +352,14 @@ async function handleCartSessionCompleted(
         // is still reserved by THIS exact checkout session and buyer. If another
         // process already transferred or released the card, count will be 0 and
         // we throw, rolling back the entire transaction (all cards stay with seller).
-        const moved = await tx.card.updateMany({
-          where: {
-            id: order.cardId,
-            reservedCheckoutSessionId: session.id,
-            reservedById: buyerId,
-            forSale: true,
-          },
-          data: {
-            ownerId: buyerId,                  // new owner is the buyer
-            forSale: false,                    // taken off the marketplace
-            price: null,                       // price no longer relevant
-            reservedById: null,                // clear reservation
-            reservedUntil: null,
-            reservedCheckoutSessionId: null,
-            binderId: null,                    // detach from seller's binder
-          },
+        const movedCount = await transferCardOwnership(tx, {
+          cardId: order.cardId,
+          checkoutSessionId: session.id,
+          buyerId,
         });
 
-        if (moved.count !== 1) {
-          console.error(`[webhook] ❌ Card transfer failed for card ${order.cardId}. Count: ${moved.count}`);
+        if (movedCount !== 1) {
+          console.error(`[webhook] ❌ Card transfer failed for card ${order.cardId}. Count: ${movedCount}`);
           throw new Error(`Card transfer failed for order ${order.id}`);
         }
 
@@ -413,19 +401,7 @@ async function handleCartSessionCompleted(
 
   // Step 8: Notify each seller — fire-and-forget, one notification per card sold.
   for (const { sellerId, cardId, orderId } of soldItems) {
-    prisma.card
-      .findUnique({ where: { id: cardId }, select: { title: true } })
-      .then((card) =>
-        notifyAsync({
-          userId:  sellerId,
-          type:    "card_sold",
-          title:   "Your card was sold",
-          body:    `Your card "${card?.title ?? "a card"}" was purchased via Buy Now.`,
-          cardId,
-          orderId,
-        })
-      )
-      .catch(() => {});
+    notifySellerCardSold({ sellerId, cardId, orderId });
   }
 
   console.log(`[webhook] 🎉 Cart checkout complete for session ${session.id}`);
@@ -517,13 +493,14 @@ async function handleSingleSessionCompleted(
       // card is still reserved by this exact session and buyer. If another process
       // already transferred or released the card, count will be 0 → we throw →
       // transaction rolls back → catch block fires the auto-refund (Step 7 below).
-      const moved = await tx.card.updateMany({
-        where: { id: cardId, reservedCheckoutSessionId: session.id, reservedById: buyerId, forSale: true },
-        data: { ownerId: buyerId, forSale: false, price: null, reservedById: null, reservedUntil: null, reservedCheckoutSessionId: null, binderId: null },
+      const movedCount = await transferCardOwnership(tx, {
+        cardId,
+        checkoutSessionId: session.id,
+        buyerId,
       });
 
-      if (moved.count !== 1) {
-        console.error(`[webhook] ❌ Transfer FAILED. Count: ${moved.count}.`);
+      if (movedCount !== 1) {
+        console.error(`[webhook] ❌ Transfer FAILED. Count: ${movedCount}.`);
         throw new Error("Card was not reserved by this checkout session");
       }
 
@@ -541,19 +518,7 @@ async function handleSingleSessionCompleted(
   }
 
   // Notify the seller — fire-and-forget.
-  prisma.card
-    .findUnique({ where: { id: cardId }, select: { title: true } })
-    .then((card) =>
-      notifyAsync({
-        userId:  sellerId,
-        type:    "card_sold",
-        title:   "Your card was sold",
-        body:    `Your card "${card?.title ?? "a card"}" was purchased via Buy Now.`,
-        cardId,
-        orderId,
-      })
-    )
-    .catch(() => {});
+  notifySellerCardSold({ sellerId, cardId, orderId });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
