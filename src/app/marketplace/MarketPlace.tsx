@@ -32,6 +32,11 @@ const gridVariants: Variants = {
   exit: { opacity: 0, transition: { duration: 0.15 } },
 };
 
+// Hoisted so the reference is stable across renders — passing a new array
+// literal here every render defeats useFuzzySearch's internal useMemo,
+// rebuilding the entire Fuse index on every keystroke in the search box.
+const MARKETPLACE_SEARCH_KEYS = ["title", "status", "condition", "setName", "rarity", "type"];
+
 export default function Marketplace() {
   const { userId } = useAuth();
   const router = useRouter();
@@ -68,7 +73,7 @@ export default function Marketplace() {
   const searchResults = useFuzzySearch({
     data: cards,
     query: search,
-    keys: ["title", "status", "condition", "setName", "rarity", "type"],
+    keys: MARKETPLACE_SEARCH_KEYS,
   });
 
   const filteredProducts = searchResults.filter(

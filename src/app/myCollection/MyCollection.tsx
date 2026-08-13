@@ -43,6 +43,11 @@ import ErrorState from "../shared-components/ErrorState";
 import type { CardItem } from "@/types/card";
 import { centsToDollars } from "@/lib/money";
 
+// Hoisted so the reference is stable across renders — passing a new array
+// literal here every render defeats useFuzzySearch's internal useMemo,
+// rebuilding the entire Fuse index on every keystroke in the search box.
+const MY_COLLECTION_SEARCH_KEYS = ["title", "status", "condition", "setName", "rarity", "type"];
+
 export default function MyCollection() {
   const [cards,      setCards]      = useState<CardItem[]>([]);
   const [loading,    setLoading]    = useState(true);
@@ -99,7 +104,7 @@ export default function MyCollection() {
   const searchResults = useFuzzySearch({
     data: cards,
     query: search,
-    keys: ["title", "status", "condition", "setName", "rarity", "type"],
+    keys: MY_COLLECTION_SEARCH_KEYS,
   });
 
   // Filters
