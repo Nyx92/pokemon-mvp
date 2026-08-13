@@ -67,6 +67,12 @@ export default function CardDetailPage() {
   //   (auctionExpiredClientSide) before deciding whether to pass it to BuyBox.
   useEffect(() => {
     if (!id) return;
+    // Next.js App Router reuses this component instance across sibling
+    // /cards/[id] navigations — it does NOT necessarily unmount. Without a
+    // "is this fetch still for the current id" guard, a slow in-flight fetch
+    // for the PREVIOUS card can resolve after the user has already navigated
+    // to a new card and overwrite that new card's state.
+    let isCurrent = true;
     const fetchAll = async () => {
       // 1. Reset error state and start loading.
       setCardErrorType(null);
@@ -74,6 +80,7 @@ export default function CardDetailPage() {
       try {
         // 2. Fetch card.
         const res = await fetch(`/api/cards/${id}`);
+        if (!isCurrent) return;
         if (!res.ok) {
           // 3. Classify the error so the render branch shows the right message.
           const data = await res.json().catch(() => ({}));
@@ -91,35 +98,48 @@ export default function CardDetailPage() {
         if (fetchedCard.inAuction === true) {
           const aRes = await fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`);
           const aData = await aRes.json().catch(() => ({}));
-          if (aData.auction) setAuction(aData.auction);
+          if (isCurrent && aData.auction) setAuction(aData.auction);
         }
       } catch (err) {
+        if (!isCurrent) return;
         console.error("Failed to fetch card:", err);
         setCardErrorType("error");
       } finally {
-        // 6. Always clear loading once all fetches are done.
-        setLoading(false);
+        // 6. Always clear loading once all fetches are done, but only for
+        //    the id this effect run was fetching.
+        if (isCurrent) setLoading(false);
       }
     };
     fetchAll();
+    return () => {
+      isCurrent = false;
+    };
   }, [id]);
 
   // Fetch the viewer's own offer on this card (non-owners only)
   useEffect(() => {
     if (!id || !userId) return;
+    let isCurrent = true;
     fetch(`/api/offers?cardId=${encodeURIComponent(id)}&myOffer=true`)
       .then((r) => r.json())
-      .then((data) => { if ("offer" in data) setActiveOffer(data.offer); })
+      .then((data) => { if (isCurrent && "offer" in data) setActiveOffer(data.offer); })
       .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
   }, [id, userId]);
 
   // Fetch offer count for owner's button label
   useEffect(() => {
     if (!id || !userId) return;
+    let isCurrent = true;
     fetch(`/api/offers?cardId=${encodeURIComponent(id)}`)
       .then((r) => r.json())
-      .then((data) => { if (data.offers) setOffersCount(data.offers.length); })
+      .then((data) => { if (isCurrent && data.offers) setOffersCount(data.offers.length); })
       .catch(() => {});
+    return () => {
+      isCurrent = false;
+    };
   }, [id, userId]);
 
   if (loading) {
