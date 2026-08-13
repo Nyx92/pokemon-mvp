@@ -71,4 +71,38 @@ describe("GET /api/home/featured", () => {
     const findManyArgs = mockPrisma.card.findMany.mock.calls[0][0];
     expect(findManyArgs.include.owner).toEqual({ select: { id: true, username: true } });
   });
+
+  // What's being tested: the four independent query groups (bestSellers,
+  // highestTransacted, newlyListed, auctionsEndingSoon) must be issued
+  // concurrently, not one after another — none of them depends on another's
+  // result. This test proves concurrency by using manually-controlled
+  // ("deferred") promises: if the route awaited them sequentially, only the
+  // first mock would be invoked before this assertion runs; if it uses
+  // Promise.all (or an equivalent), all four are invoked before any resolve.
+
+  it("issues all four independent query groups concurrently", async () => {
+    const started: string[] = [];
+    const finishers: Record<string, (v: any) => void> = {};
+
+    function deferred(name: string, value: any) {
+      started.push(name);
+      return new Promise((resolve) => {
+        finishers[name] = () => resolve(value);
+      });
+    }
+
+    mockPrisma.bestSeller.findMany.mockImplementation(() => deferred("bestSeller", []));
+    mockPrisma.$queryRaw.mockImplementation(() => deferred("queryRaw", []));
+    mockPrisma.card.findMany.mockImplementation(() => deferred("newlyListed", []));
+    mockPrisma.auction.findMany.mockImplementation(() => deferred("endingSoon", []));
+
+    const resPromise = GET();
+    await Promise.resolve(); // let the handler run up to its first await boundary
+    await Promise.resolve(); // and its microtask continuations
+
+    expect(started.sort()).toEqual(["bestSeller", "endingSoon", "newlyListed", "queryRaw"]);
+
+    Object.values(finishers).forEach((finish) => finish(undefined));
+    await resPromise;
+  });
 });

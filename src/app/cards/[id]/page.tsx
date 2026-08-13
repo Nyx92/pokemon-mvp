@@ -132,9 +132,11 @@ export default function CardDetailPage() {
     };
   }, [id, userId]);
 
-  // Fetch offer count for owner's button label
+  // Fetch offer count for owner's button label — owner-only; this endpoint
+  // 403s for non-owners, so firing it for every viewer wastes a request and
+  // a DB query on every card-page view.
   useEffect(() => {
-    if (!id || !userId) return;
+    if (!id || !userId || !card || card.owner?.id !== userId) return;
     let isCurrent = true;
     fetch(`/api/offers?cardId=${encodeURIComponent(id)}`)
       .then((r) => r.json())
@@ -143,7 +145,7 @@ export default function CardDetailPage() {
     return () => {
       isCurrent = false;
     };
-  }, [id, userId]);
+  }, [id, userId, card]);
 
   if (loading) {
     return (

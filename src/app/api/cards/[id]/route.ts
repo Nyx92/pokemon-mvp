@@ -17,30 +17,33 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-const card = await prisma.card.findUnique({
-      where: { id: params.id },
-      include: {
-        binder: true,
-        // Public card detail page — email deliberately excluded (nothing in
-        // the frontend reads it here, and card owners' emails shouldn't be
-        // exposed to anonymous visitors).
-        owner: { select: { id: true, username: true } },
-        _count: { select: { watchlist: true } },
-      },
-    });
+const [card, watchlistEntry] = await Promise.all([
+      prisma.card.findUnique({
+        where: { id: params.id },
+        include: {
+          binder: true,
+          // Public card detail page — email deliberately excluded (nothing in
+          // the frontend reads it here, and card owners' emails shouldn't be
+          // exposed to anonymous visitors).
+          owner: { select: { id: true, username: true } },
+          _count: { select: { watchlist: true } },
+        },
+      }),
+      session?.user?.id
+        ? prisma.cardWatchlist.findUnique({
+            where: {
+              cardId_userId: { cardId: params.id, userId: session.user.id },
+            },
+          })
+        : Promise.resolve(null),
+    ]);
 
     if (!card) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
     // Check if the requesting user has this card watchlisted
-    const watchlistedByUser = session?.user?.id
-      ? !!(await prisma.cardWatchlist.findUnique({
-          where: {
-            cardId_userId: { cardId: params.id, userId: session.user.id },
-          },
-        }))
-      : false;
+    const watchlistedByUser = !!watchlistEntry;
 
     const { _count, ...rest } = card;
     return NextResponse.json({

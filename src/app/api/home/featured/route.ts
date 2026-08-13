@@ -56,71 +56,76 @@ const cardInclude = {
 
 export async function GET() {
   try {
-    // Best Sellers: admin-curated, ordered by position.
-    // Fetch all rows then slice to 5 *after* filtering out any tcgPlayerIds that
-    // have no forSale listing — prevents a null hole from shrinking the visible row.
-    const bestSellerRows = await prisma.bestSeller.findMany({
-      orderBy: { position: "asc" },
-    });
-    const bestSellers = (
-      await Promise.all(
-        bestSellerRows.map(({ tcgPlayerId }) =>
-          prisma.card.findFirst({
-            where: { tcgPlayerId, forSale: true },
-            include: cardInclude,
-            orderBy: { price: "asc" },
-          })
+    const [bestSellers, highestTransacted, newlyListedRaw, endingSoonRaw] = await Promise.all([
+      // Best Sellers: admin-curated, ordered by position.
+      // Fetch all rows then slice to 5 *after* filtering out any tcgPlayerIds that
+      // have no forSale listing — prevents a null hole from shrinking the visible row.
+      (async () => {
+        const bestSellerRows = await prisma.bestSeller.findMany({
+          orderBy: { position: "asc" },
+        });
+        return (
+          await Promise.all(
+            bestSellerRows.map(({ tcgPlayerId }) =>
+              prisma.card.findFirst({
+                where: { tcgPlayerId, forSale: true },
+                include: cardInclude,
+                orderBy: { price: "asc" },
+              })
+            )
+          )
         )
-      )
-    )
-      .filter(Boolean)
-      .slice(0, 5)
-      .map(mapCard);
+          .filter(Boolean)
+          .slice(0, 5)
+          .map(mapCard);
+      })(),
 
-    // Highest Transacted: group transactions by tcgPlayerId (via card join),
-    // then fetch the cheapest forSale listing for each.
-    const topTcgPlayerIds = await prisma.$queryRaw<
-      Array<{ tcgPlayerId: string; count: bigint }>
-    >`
-      SELECT c."tcgPlayerId", COUNT(*) AS count
-      FROM "CardTransaction" ct
-      JOIN "Card" c ON ct."cardId" = c.id
-      GROUP BY c."tcgPlayerId"
-      ORDER BY count DESC
-      LIMIT 5
-    `;
-
-    const highestTransacted = (
-      await Promise.all(
-        topTcgPlayerIds.map(({ tcgPlayerId }) =>
-          prisma.card.findFirst({
-            where: { tcgPlayerId, forSale: true },
-            include: cardInclude,
-            orderBy: { price: "asc" },
-          })
+      // Highest Transacted: group transactions by tcgPlayerId (via card join),
+      // then fetch the cheapest forSale listing for each.
+      (async () => {
+        const topTcgPlayerIds = await prisma.$queryRaw<
+          Array<{ tcgPlayerId: string; count: bigint }>
+        >`
+          SELECT c."tcgPlayerId", COUNT(*) AS count
+          FROM "CardTransaction" ct
+          JOIN "Card" c ON ct."cardId" = c.id
+          GROUP BY c."tcgPlayerId"
+          ORDER BY count DESC
+          LIMIT 5
+        `;
+        return (
+          await Promise.all(
+            topTcgPlayerIds.map(({ tcgPlayerId }) =>
+              prisma.card.findFirst({
+                where: { tcgPlayerId, forSale: true },
+                include: cardInclude,
+                orderBy: { price: "asc" },
+              })
+            )
+          )
         )
-      )
-    )
-      .filter(Boolean)
-      .map(mapCard);
+          .filter(Boolean)
+          .map(mapCard);
+      })(),
 
-    // Newly Listed: 5 most recent forSale cards
-    const newlyListedRaw = await prisma.card.findMany({
-      where: { forSale: true },
-      include: cardInclude,
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    });
+      // Newly Listed: 5 most recent forSale cards
+      prisma.card.findMany({
+        where: { forSale: true },
+        include: cardInclude,
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
 
-    // Auctions Ending Soon: 5 active auctions with the earliest end time.
-    // Mirrors GET /api/auctions?expiringSoon=true so HomeFeatured can render
-    // the auction row immediately without a separate client-side fetch.
-    const endingSoonRaw = await prisma.auction.findMany({
-      where:   { status: "active", endsAt: { gt: new Date() } },
-      include: { card: { select: AUCTION_CARD_SELECT }, _count: { select: { bids: true } } },
-      orderBy: { endsAt: "asc" },
-      take:    5,
-    });
+      // Auctions Ending Soon: 5 active auctions with the earliest end time.
+      // Mirrors GET /api/auctions?expiringSoon=true so HomeFeatured can render
+      // the auction row immediately without a separate client-side fetch.
+      prisma.auction.findMany({
+        where:   { status: "active", endsAt: { gt: new Date() } },
+        include: { card: { select: AUCTION_CARD_SELECT }, _count: { select: { bids: true } } },
+        orderBy: { endsAt: "asc" },
+        take:    5,
+      }),
+    ]);
 
     return NextResponse.json({
       bestSellers,
