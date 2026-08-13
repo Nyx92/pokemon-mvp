@@ -20,6 +20,7 @@ import { getTimeLeft, pad } from "./tileHelpers";
 import type { CardItem } from "@/types/card";
 import type { AuctionItem } from "@/types/auction";
 import OfferCountdown from "./OfferCountdown";
+import { formatPrice } from "@/lib/money";
 
 type GradeCompany = "Raw" | "PSA" | "Beckett" | "CGC" | "SGC";
 const GRADE_COMPANIES: GradeCompany[] = ["Raw", "PSA", "Beckett", "CGC", "SGC"];
@@ -298,7 +299,7 @@ export default function BuyBox({
             color: isCurrent ? primaryBlue : hasListing ? "#111" : "#d1d5db",
           }}
         >
-          {listing?.price != null ? `S$${listing.price.toFixed(2)}` : "—"}
+          {formatPrice(listing?.price)}
         </Typography>
       </Box>
     );
@@ -452,7 +453,7 @@ export default function BuyBox({
                 severity="success"
                 sx={{ py: 0.5, fontSize: 12 }}
               >
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong>{" "}
+                Your offer of <strong>{formatPrice(activeOffer.price)}</strong>{" "}
                 was accepted and payment is being processed.
               </Alert>
             )}
@@ -463,7 +464,7 @@ export default function BuyBox({
                 severity="info"
                 sx={{ py: 0.5, fontSize: 12 }}
               >
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong>{" "}
+                Your offer of <strong>{formatPrice(activeOffer.price)}</strong>{" "}
                 is pending — funds are authorised and held.
                 {activeOffer.expiresAt && (
                   <Box sx={{ mt: 0.4 }}>
@@ -475,7 +476,7 @@ export default function BuyBox({
             {/* Rejected: seller declined; PI was cancelled, no charge */}
             {offerIsRejected && (
               <Alert severity="error" sx={{ py: 0.5, fontSize: 12 }}>
-                Your offer of <strong>S${activeOffer.price!.toFixed(2)}</strong>{" "}
+                Your offer of <strong>{formatPrice(activeOffer.price)}</strong>{" "}
                 was declined. No charge was made.
               </Alert>
             )}
@@ -516,7 +517,7 @@ export default function BuyBox({
                 <Typography
                   sx={{ fontSize: { xs: 22, sm: 26 }, fontWeight: 700, lineHeight: 1.05, color: "#111" }}
                 >
-                  S${(auction.currentBid ?? 0).toFixed(2)}
+                  {formatPrice(auction.currentBid ?? 0)}
                 </Typography>
                 {/* Bid count */}
                 <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.3 }}>
@@ -614,7 +615,7 @@ export default function BuyBox({
                   }}
                 >
                   {auction.buyOutPrice !== null
-                    ? `Buy Now S$${auction.buyOutPrice.toFixed(2)}`
+                    ? `Buy Now ${formatPrice(auction.buyOutPrice)}`
                     : "No Buy-out"}
                 </Button>
               </Box>
@@ -637,7 +638,7 @@ export default function BuyBox({
                     borderRadius: 1.5,
                   }}
                 >
-                  Accept S${auction.currentBid.toFixed(2)}
+                  Accept {formatPrice(auction.currentBid)}
                 </Button>
                 <Button
                   fullWidth
@@ -681,7 +682,7 @@ export default function BuyBox({
                 <Box key={label}>
                   <Typography sx={{ fontSize: 10, color: "#6b7280", mb: 0.25 }}>{label}</Typography>
                   <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
-                    {value !== null ? `S$${value.toFixed(2)}` : "—"}
+                    {formatPrice(value)}
                   </Typography>
                 </Box>
               ))}
@@ -868,7 +869,7 @@ export default function BuyBox({
                     </Typography>
                     {lowestOther !== null && (
                       <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.15 }}>
-                        As low as S${lowestOther.toFixed(2)}
+                        As low as {formatPrice(lowestOther)}
                       </Typography>
                     )}
                   </>

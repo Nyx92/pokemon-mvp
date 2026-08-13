@@ -34,3 +34,24 @@ export function dollarsToCents(dollars: number): number {
 export function centsToDollars(cents: number): number {
   return cents / 100;
 }
+
+/**
+ * Formats a dollar amount for display as "S$X.XX". This is the UI-layer
+ * formatting `centsToDollars`'s docblock always said belonged here, but
+ * never actually provided — every call site had been hand-rolling
+ * `S$${dollars.toFixed(2)}` independently, with inconsistent null handling
+ * ("—" vs "S$ -" vs no guard at all).
+ *
+ * Takes DOLLARS, not cents — by the time a value reaches a component, it has
+ * already been through `centsToDollars` at the API response boundary.
+ *
+ * WHEN TO USE:
+ * - Any time a dollar amount is rendered directly in JSX as a price string.
+ */
+export function formatPrice(
+  dollars: number | null | undefined,
+  opts: { fallback?: string } = {}
+): string {
+  if (dollars == null) return opts.fallback ?? "—";
+  return `S$${dollars.toFixed(2)}`;
+}

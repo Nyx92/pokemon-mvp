@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { dollarsToCents, centsToDollars } from "@/lib/money";
+import { dollarsToCents, centsToDollars, formatPrice } from "@/lib/money";
 
 /**
  * money.test.ts — unit tests for the price conversion utilities.
@@ -62,5 +62,25 @@ describe("centsToDollars", () => {
 
   it("handles zero", () => {
     expect(centsToDollars(0)).toBe(0);
+  });
+});
+
+// ── formatPrice ────────────────────────────────────────────────────────────────
+// What's being tested: does your code correctly format a dollar amount for
+// display as "S$X.XX", and fall back to a placeholder for null/undefined?
+
+describe("formatPrice", () => {
+  it("formats a dollar amount as a S$ string with two decimal places", () => {
+    expect(formatPrice(19.99)).toBe("S$19.99");
+    expect(formatPrice(5)).toBe("S$5.00");
+  });
+
+  it("returns the fallback for null/undefined", () => {
+    expect(formatPrice(null)).toBe("—");
+    expect(formatPrice(undefined)).toBe("—");
+  });
+
+  it("accepts a custom fallback", () => {
+    expect(formatPrice(null, { fallback: "N/A" })).toBe("N/A");
   });
 });

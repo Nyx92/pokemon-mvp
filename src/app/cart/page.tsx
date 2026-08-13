@@ -33,12 +33,9 @@ import ConditionBadge from "@/app/shared-components/cards/ConditionBadge";
 import PlaceOfferDialog from "@/app/shared-components/cards/PlaceOfferDialog";
 import ErrorState from "@/app/shared-components/ErrorState";
 import { type CartItemData, type CartResponse } from "@/types/cart";
+import { formatPrice } from "@/lib/money";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmt(dollars: number) {
-  return `S$${dollars.toFixed(2)}`;
-}
 
 // Matches the chip style used in CardListItem
 function getLanguageChip(language?: string | null) {
@@ -205,7 +202,7 @@ function CartItemFolder({
               <Box sx={{ mt: 1 }}>
                 {card.forSale && card.price != null ? (
                   <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1, fontSize: "1.05rem" }}>
-                    {fmt(card.price)}
+                    {formatPrice(card.price)}
                   </Typography>
                 ) : (
                   <Typography sx={{ fontSize: 12, color: "#ef4444", fontWeight: 600 }}>
@@ -233,13 +230,13 @@ function CartItemFolder({
                 Package Subtotal
               </Typography>
               <Typography sx={{ fontSize: 14, fontWeight: 700, color: "#0053ff" }}>
-                {card.price != null ? fmt(card.price) : "—"}
+                {formatPrice(card.price)}
               </Typography>
             </Box>
 
             {/* Row list */}
             {[
-              { label: "Item Price", value: card.price != null ? fmt(card.price) : "—" },
+              { label: "Item Price", value: formatPrice(card.price) },
               { label: "Quantity", value: "1" },
             ].map(({ label, value }) => (
               <Box key={label} sx={{ display: "flex", justifyContent: "space-between", mb: 0.7 }}>
@@ -607,7 +604,7 @@ export default function CartPage() {
               {/* Summary rows */}
               {([
                 { label: "Items", value: String(summary.itemCount) },
-                { label: "Items Total", value: fmt(summary.itemsTotal) },
+                { label: "Items Total", value: formatPrice(summary.itemsTotal) },
               ] as { label: string; value: string }[]).map(({ label, value }) => (
                 <Box key={label} sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
                   <Typography sx={{ fontSize: 13, color: "#6b7280" }}>{label}</Typography>
@@ -623,7 +620,7 @@ export default function CartPage() {
                   Cart Subtotal
                 </Typography>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, color: "#0053ff" }}>
-                  {fmt(summary.itemsTotal)}
+                  {formatPrice(summary.itemsTotal)}
                 </Typography>
               </Box>
 
