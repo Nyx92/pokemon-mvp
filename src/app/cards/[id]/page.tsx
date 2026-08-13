@@ -85,15 +85,17 @@ export default function CardDetailPage() {
           // 3. Classify the error so the render branch shows the right message.
           const data = await res.json().catch(() => ({}));
           console.error("Error loading card:", data.error ?? res.status);
-          setCardErrorType(res.status === 404 ? "not_found" : "error");
+          if (isCurrent) setCardErrorType(res.status === 404 ? "not_found" : "error");
           return;
         }
         const data = await res.json();
         const fetchedCard: CardItem = data.card;
-        // 4. Set card state.
-        setCard(fetchedCard);
-        setWatchlisted(fetchedCard.watchlistedByUser ?? false);
-        setWatchlistCount(fetchedCard.watchlistCount ?? 0);
+        if (isCurrent) {
+          // 4. Set card state.
+          setCard(fetchedCard);
+          setWatchlisted(fetchedCard.watchlistedByUser ?? false);
+          setWatchlistCount(fetchedCard.watchlistCount ?? 0);
+        }
         // 5. If the card is in an auction, fetch it now (same tick → no flicker).
         if (fetchedCard.inAuction === true) {
           const aRes = await fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`);
@@ -105,8 +107,9 @@ export default function CardDetailPage() {
         console.error("Failed to fetch card:", err);
         setCardErrorType("error");
       } finally {
-        // 6. Always clear loading once all fetches are done, but only for
-        //    the id this effect run was fetching.
+        // 6. Always clear loading once all fetches are done.
+        // Guarded so a stale (superseded) fetch's completion doesn't
+        // clear loading for the card the user has since navigated to.
         if (isCurrent) setLoading(false);
       }
     };
