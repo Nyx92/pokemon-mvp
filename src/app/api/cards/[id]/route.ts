@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions, isAdminOrOwner } from "@/lib/auth";
 import { dollarsToCents, centsToDollars } from "@/lib/money";
 
 const supabase = createClient(
@@ -76,9 +76,8 @@ export async function PUT(
     }
 
     const isAdmin = session.user.role === "admin";
-    const isOwner = card.ownerId === session.user.id;
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdminOrOwner(session, card.ownerId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

@@ -365,3 +365,24 @@ export const authOptions: NextAuthOptions = {
     },
   },
 };
+
+/**
+ * isAdminOrOwner — the "can this user touch this resource" check used by
+ * routes where BOTH an admin and the resource's owner may act (currently
+ * just the owner/admin split in cards/[id]/route.ts PUT). Centralized so a
+ * future route with the same admin-or-owner shape can reuse it instead of
+ * hand-copying `session.user.role === "admin" || card.ownerId === session.user.id`
+ * a third time — that hand-copying pattern is exactly how the two prior auth
+ * gaps (commits f034471, 6410447) happened.
+ *
+ * NOT a drop-in replacement for owner-only checks (e.g. offers/[id]/route.ts's
+ * accept/reject, which intentionally has no admin bypass) — only use this
+ * where admin access is already an intended behavior.
+ */
+export function isAdminOrOwner(
+  session: { user?: { id?: string; role?: string | null } } | null | undefined,
+  ownerId: string
+): boolean {
+  if (!session?.user?.id) return false;
+  return session.user.role === "admin" || session.user.id === ownerId;
+}

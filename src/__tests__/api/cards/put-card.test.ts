@@ -18,7 +18,13 @@ const mockGetServerSession = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("next-auth", () => ({ getServerSession: mockGetServerSession }));
-vi.mock("@/lib/auth", () => ({ authOptions: {} }));
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    authOptions: {},
+  };
+});
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => ({ storage: { from: vi.fn() } })),
 }));
