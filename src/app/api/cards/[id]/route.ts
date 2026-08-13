@@ -103,6 +103,13 @@ export async function PUT(
       );
     }
 
+    if (forSale && (price == null || price <= 0)) {
+      return NextResponse.json(
+        { error: "Price must be greater than $0 when listing a card for sale" },
+        { status: 400 }
+      );
+    }
+
     // Owner: only price + forSale
     if (!isAdmin) {
       const updated = await prisma.card.update({

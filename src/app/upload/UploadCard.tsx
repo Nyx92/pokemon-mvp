@@ -146,7 +146,8 @@ export default function UploadCard({ initialData }: UploadCardProps) {
     e.preventDefault();
 
     const priceRequiredButMissing =
-      form.forSale && (!form.price || Number.isNaN(Number(form.price)));
+      form.forSale &&
+      (!form.price || Number.isNaN(Number(form.price)) || Number(form.price) <= 0);
 
     if (
       !form.title ||

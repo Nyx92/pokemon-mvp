@@ -39,8 +39,8 @@ export default function EditPriceDialog({
   const [error, setError] = useState("");
 
   const handleSave = async () => {
-    if (forSale && (!price || Number.isNaN(Number(price)))) {
-      setError("Enter a valid price.");
+    if (forSale && (!price || Number.isNaN(Number(price)) || Number(price) <= 0)) {
+      setError("Enter a valid price greater than $0.");
       return;
     }
     setSaving(true);

@@ -85,6 +85,21 @@ describe("PUT /api/cards/[id] — owner update", () => {
       data: { price: 1500, forSale: true },
     });
   });
+
+  it("returns 400 when forSale is true and price is zero", async () => {
+    const res = await PUT(putRequest({ price: "0", forSale: "true" }), { params: { id: "card-1" } });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({
+      error: "Price must be greater than $0 when listing a card for sale",
+    });
+    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when forSale is true and price is negative", async () => {
+    const res = await PUT(putRequest({ price: "-5", forSale: "true" }), { params: { id: "card-1" } });
+    expect(res.status).toBe(400);
+    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("PUT /api/cards/[id] — admin update with shared guard", () => {
