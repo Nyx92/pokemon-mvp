@@ -167,12 +167,23 @@ describe("POST /api/stripe/webhook", () => {
         data: expect.objectContaining({ status: "PAID", stripePaymentIntentId: "pi_123" }),
       })
     );
-    expect(mockTx.card.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "card-1", reservedById: "buyer-1" }),
-        data: expect.objectContaining({ ownerId: "buyer-1", forSale: false }),
-      })
-    );
+    expect(mockTx.card.updateMany).toHaveBeenCalledWith({
+      where: {
+        id: "card-1",
+        reservedCheckoutSessionId: "cs_test_123",
+        reservedById: "buyer-1",
+        forSale: true,
+      },
+      data: {
+        ownerId: "buyer-1",
+        forSale: false,
+        price: null,
+        reservedById: null,
+        reservedUntil: null,
+        reservedCheckoutSessionId: null,
+        binderId: null,
+      },
+    });
     expect(mockTx.cardTransaction.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ orderId: "order-1", cardId: "card-1", stripeEventId: "evt_1" }),
