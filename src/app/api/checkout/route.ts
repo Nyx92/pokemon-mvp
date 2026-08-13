@@ -64,6 +64,9 @@ export async function POST(req: NextRequest) {
       const buyer = await prisma.user.findUnique({
         where: { id: buyerId! },
       });
+      if (!buyer) {
+        throw new Error("Authenticated buyer not found in database");
+      }
       // 2. The "Atomic Reservation"
       // We don't just find the card; we try to UPDATE it only if it's currently available.
       const updated = await tx.card.updateMany({

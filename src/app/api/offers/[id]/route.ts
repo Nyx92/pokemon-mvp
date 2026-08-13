@@ -167,7 +167,7 @@ export async function PATCH(
       // ── 5. Atomic DB transaction ───────────────────────────────────────────
       // Everything below must either all succeed or all roll back.
       // We cannot have money captured but the card not transferred.
-      let order;
+      let order: { id: string };
       try {
         const result = await prisma.$transaction(async (tx) => {
           // 5a. Create an Order record to represent this sale.

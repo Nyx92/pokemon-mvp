@@ -119,6 +119,8 @@ export async function GET(req: NextRequest) {
  *    - durationDays must be 1–6
  *    - buyOutPrice > reservePrice if both supplied
  * 3. Load the card — must be owned by the seller and not already in auction.
+ *    3b. Guard: card must not have a pending offer.
+ *    3c. Guard: card must not have an active Buy Now reservation.
  * 4. Create the Auction record.
  * 5. Mark Card.inAuction = true and Card.forSale = false so offers and Buy Now
  *    are blocked while the auction is running.
@@ -212,7 +214,7 @@ export async function POST(req: NextRequest) {
     // ── 3. Verify the card belongs to the seller and is not in auction ───────
     const card = await prisma.card.findUnique({
       where:  { id: cardId },
-      select: { ownerId: true, inAuction: true, title: true },
+      select: { ownerId: true, inAuction: true, title: true, reservedById: true, reservedUntil: true },
     });
 
     if (!card) {
@@ -240,6 +242,24 @@ export async function POST(req: NextRequest) {
     if (pendingOffer) {
       return NextResponse.json(
         { error: "This card has a pending offer — resolve it before starting an auction" },
+        { status: 409 }
+      );
+    }
+
+    // ── 3c. Guard: check card doesn't have an active Buy Now reservation ────
+    // The checkout flow sets reservedById + reservedUntil but leaves forSale:
+    // true until the webhook fires. If an auction is allowed to start during
+    // that window, auction creation flips forSale to false, and the webhook's
+    // card-transfer updateMany (which requires forSale: true) later fails for
+    // the buyer who already paid — mirrors the same guard in
+    // offers/[id]/route.ts's accept flow.
+    if (
+      card.reservedById &&
+      card.reservedUntil &&
+      card.reservedUntil > new Date()
+    ) {
+      return NextResponse.json(
+        { error: "Card is currently reserved by a pending checkout" },
         { status: 409 }
       );
     }

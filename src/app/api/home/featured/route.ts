@@ -52,7 +52,7 @@ const cardInclude = {
   // rationale as src/app/api/cards/route.ts and cards/[id]/route.ts.
   owner: { select: { id: true, username: true } },
   binder: true,
-};
+} as const;
 
 export async function GET() {
   try {

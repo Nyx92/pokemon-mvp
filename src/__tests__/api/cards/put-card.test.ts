@@ -19,7 +19,7 @@ const mockGetServerSession = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 vi.mock("next-auth", () => ({ getServerSession: mockGetServerSession }));
 vi.mock("@/lib/auth", async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
   return {
     ...actual,
     authOptions: {},

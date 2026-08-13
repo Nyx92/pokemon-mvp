@@ -165,6 +165,7 @@ export function WatchlistAnimationProvider({
 
       let cancelled = false;
       let fired = false;
+      let rolledBack = false;
       // Increment count after the animation completes (~700 ms)
       const timer = setTimeout(() => {
         fired = true;
@@ -178,7 +179,12 @@ export function WatchlistAnimationProvider({
         // caller cancels AFTER the 750ms increment already happened (e.g. a
         // slow watchlist POST that fails after the animation finished), roll
         // the increment back explicitly so the badge count doesn't drift.
-        if (fired) setCount((prev) => Math.max(0, prev - 1));
+        // rolledBack guards against a second invocation of this same closure
+        // double-decrementing the count (mirrors the firedRef guard above).
+        if (fired && !rolledBack) {
+          rolledBack = true;
+          setCount((prev) => Math.max(0, prev - 1));
+        }
       };
     },
     []

@@ -119,10 +119,34 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
           const grade = mapping.grade;
           const gradeData = cardData?.ebay?.grades?.[grade];
 
-          historyRaw = (gradeData?.history ?? []) as any[];
-          marketPrice =
-            typeof gradeData?.market === "number" ? gradeData.market : null;
-          conditionLabel = card.condition || `PSA ${grade}`;
+          // PSA grades are bare numbers (e.g. "10", "9", "8.5") and are keyed
+          // directly into cardData.ebay.grades — that lookup already works
+          // and is left untouched below. CGC/SGC/Beckett grades are the full
+          // lowercased condition string (e.g. "cgc 10 pristine"), which never
+          // matches the PSA-style numeric keys the eBay pricing data uses, so
+          // gradeData is always undefined for them. Without a fallback the
+          // chart would silently render with no data for those three
+          // companies — fall back to the RAW "Near Mint" data instead,
+          // mirroring the raw branch's own no-data fallback below.
+          const isPsaGrade = /^\d+(\.\d+)?$/.test(grade);
+          const hasGradeHistory =
+            Array.isArray(gradeData?.history) && gradeData.history.length > 0;
+
+          if (!isPsaGrade && !hasGradeHistory) {
+            const nmHistory = cardData?.priceHistory?.conditions?.["Near Mint"]
+              ?.history as any[] | undefined;
+            const nmPrice = cardData?.prices?.conditions?.["Near Mint"]
+              ?.market as number | undefined;
+
+            historyRaw = nmHistory ?? [];
+            marketPrice = typeof nmPrice === "number" ? nmPrice : null;
+            conditionLabel = `${card.condition} (no graded data, showing Near Mint)`;
+          } else {
+            historyRaw = (gradeData?.history ?? []) as any[];
+            marketPrice =
+              typeof gradeData?.market === "number" ? gradeData.market : null;
+            conditionLabel = card.condition || `PSA ${grade}`;
+          }
         } else {
           const key = mapping.key;
           const historyByCond = cardData?.priceHistory?.conditions ?? {};

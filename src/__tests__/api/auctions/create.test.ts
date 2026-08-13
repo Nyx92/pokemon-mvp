@@ -7,7 +7,8 @@ import { NextRequest } from "next/server";
  * Sequence:
  *   1. Auth check
  *   2. Validate inputs (startingBid, durationDays, reservePrice, buyOutPrice)
- *   3. Load card — must be owned by seller, not already in auction
+ *   3. Load card — must be owned by seller, not already in auction, not
+ *      have a pending offer, and not have an active Buy Now reservation
  *   4. Create Auction + lock card in prisma.$transaction
  *   5. Return 201 with formatted auction (prices in dollars)
  *
@@ -17,6 +18,8 @@ import { NextRequest } from "next/server";
  *   - 400 missing/invalid inputs
  *   - 403 card owned by someone else
  *   - 409 card already in auction
+ *   - 409 card has a pending offer
+ *   - 409 card has an active Buy Now reservation
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -55,7 +58,7 @@ const SELLER_SESSION = { user: { id: "seller-1" } };
 
 const CARD = {
   id: "card-1", title: "Charizard", ownerId: "seller-1",
-  inAuction: false,
+  inAuction: false, reservedById: null, reservedUntil: null,
 };
 
 // A minimal DB Auction row returned by prisma.auction.create
@@ -243,6 +246,47 @@ describe("POST /api/auctions", () => {
     expect(body.error).toMatch(/pending offer/i);
 
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // What's being tested: a card with an active Buy Now reservation (from the
+  // checkout flow — reservedById + reservedUntil in the future, forSale still
+  // true) must not also be auctionable. Auction creation flips forSale to
+  // false, so if a paying buyer's checkout completes after this, the
+  // webhook's card-transfer updateMany (which requires forSale: true) fails
+  // and the buyer gets wrongly refunded — the other half of the double-sale
+  // race fixed via the sibling guard in offers/[id]/route.ts.
+
+  it("returns 409 when card has an active Buy Now reservation", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue({
+      ...CARD,
+      reservedById: "buyer-1",
+      reservedUntil: new Date(Date.now() + 10 * 60_000),
+    });
+
+    const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/reserved/i);
+
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // An expired reservation (reservedUntil in the past) must not block auction
+  // creation — the checkout window has lapsed and the card is free again.
+
+  it("allows auction creation when reservation has expired", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.card.findUnique.mockResolvedValue({
+      ...CARD,
+      reservedById: "buyer-1",
+      reservedUntil: new Date(Date.now() - 10 * 60_000),
+    });
+    const dbAuction = makeDbAuction({ startingBid: 500 });
+    mockPrisma.$transaction.mockResolvedValue([dbAuction]);
+
+    const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
+    expect(res.status).toBe(201);
   });
 
   it("creates auction and returns 201 with prices in dollars", async () => {

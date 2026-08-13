@@ -125,6 +125,11 @@ describe("POST /api/checkout", () => {
     // Default: card found and for sale
     mockPrisma.card.findUnique.mockResolvedValue(CARD);
 
+    // Default: buyer exists. The route's transaction callback calls
+    // prisma.user.findUnique (module-level client, not tx) to double-check
+    // the authenticated buyer is a real DB user before reserving the card.
+    mockPrisma.user.findUnique.mockResolvedValue({ id: "buyer-1" });
+
     // Default: $transaction calls the callback (interactive form) or resolves array
     mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
       if (typeof fnOrOps === "function") {
