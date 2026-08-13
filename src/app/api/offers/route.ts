@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars, dollarsToCents } from "@/lib/money";
 import { notifyAsync } from "@/lib/notifications";
+import { verifyPaymentIntentAmountOrRespond } from "@/lib/paymentIntentGuard";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -263,21 +264,14 @@ export async function POST(req: NextRequest) {
     // POST /api/offers/payment-intent, then submit an arbitrarily larger
     // `price` here — the offer would be stored/shown to the seller at the
     // larger amount while Stripe only ever holds/captures the smaller one.
-    if (pi.amount !== priceInCents) {
-      try {
-        await stripe.paymentIntents.cancel(paymentIntentId);
-      } catch (cancelErr) {
-        console.warn(
-          "[offers POST] Could not cancel mismatched PI:",
-          paymentIntentId,
-          cancelErr
-        );
-      }
-      return NextResponse.json(
-        { error: "Offer amount does not match the authorised payment amount" },
-        { status: 400 }
-      );
-    }
+    const amountMismatch = await verifyPaymentIntentAmountOrRespond(
+      stripe,
+      paymentIntentId,
+      pi.amount,
+      priceInCents,
+      "Offer"
+    );
+    if (amountMismatch) return amountMismatch;
 
     // ── 5. Check for existing live offer from this buyer ─────────────────────
     // A buyer can only have ONE active offer per card at a time.

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { dollarsToCents } from "@/lib/money";
 import { settleAuction, cancelBidPI } from "@/lib/auctionSettlement";
 import { notifyAsync } from "@/lib/notifications";
+import { verifyPaymentIntentAmountOrRespond } from "@/lib/paymentIntentGuard";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -126,13 +127,14 @@ export async function POST(
     // POST /api/auctions/[id]/bid/intent, then submit an arbitrarily larger
     // `amount` here — currentBid/Bid.amount would record the larger figure
     // while Stripe only ever holds/captures the smaller one.
-    if (pi.amount !== amountCents) {
-      await cancelSafely(paymentIntentId);
-      return NextResponse.json(
-        { error: "Bid amount does not match the authorised payment amount" },
-        { status: 400 }
-      );
-    }
+    const amountMismatch = await verifyPaymentIntentAmountOrRespond(
+      stripe,
+      paymentIntentId,
+      pi.amount,
+      amountCents,
+      "Bid"
+    );
+    if (amountMismatch) return amountMismatch;
 
     // ── 4. Snapshot the current highest bid before writing ───────────────────
     // We need its PI id to cancel it after winning the lock.
