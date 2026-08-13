@@ -164,14 +164,21 @@ export function WatchlistAnimationProvider({
       setFlies((prev) => [...prev, { id, imageUrl, sourceRect }]);
 
       let cancelled = false;
+      let fired = false;
       // Increment count after the animation completes (~700 ms)
       const timer = setTimeout(() => {
+        fired = true;
         if (!cancelled) setCount((prev) => prev + 1);
       }, 750);
 
       return () => {
         cancelled = true;
         clearTimeout(timer);
+        // clearTimeout is a no-op once the timer has already fired — if the
+        // caller cancels AFTER the 750ms increment already happened (e.g. a
+        // slow watchlist POST that fails after the animation finished), roll
+        // the increment back explicitly so the badge count doesn't drift.
+        if (fired) setCount((prev) => Math.max(0, prev - 1));
       };
     },
     []

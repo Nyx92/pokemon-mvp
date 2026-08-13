@@ -31,6 +31,10 @@ import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
 import GavelIcon from "@mui/icons-material/Gavel";
 import SellOutlinedIcon from "@mui/icons-material/SellOutlined";
 import CloseIcon from "@mui/icons-material/Close";
+import TrendingDownIcon from "@mui/icons-material/TrendingDown";
+import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
+import TimerOffIcon from "@mui/icons-material/TimerOff";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import { useNotifications } from "@/app/context/NotificationContext";
@@ -65,11 +69,17 @@ function timeAgo(iso: string): string {
 // Icon and colour for each notification type
 function typeConfig(type: string): { Icon: React.ElementType; color: string } {
   switch (type) {
-    case "offer_received": return { Icon: GavelIcon,              color: "#f59e0b" };
-    case "offer_accepted": return { Icon: CheckCircleOutlineIcon, color: "#10b981" };
-    case "offer_rejected": return { Icon: CancelOutlinedIcon,     color: "#ef4444" };
-    case "card_sold":      return { Icon: SellOutlinedIcon,       color: "#6366f1" };
-    default:               return { Icon: NotificationsNoneIcon,  color: "#6b7280" };
+    case "offer_received":          return { Icon: GavelIcon,              color: "#f59e0b" };
+    case "offer_accepted":          return { Icon: CheckCircleOutlineIcon, color: "#10b981" };
+    case "offer_rejected":          return { Icon: CancelOutlinedIcon,     color: "#ef4444" };
+    case "card_sold":               return { Icon: SellOutlinedIcon,       color: "#6366f1" };
+    case "bid_received":            return { Icon: GavelIcon,              color: "#f59e0b" };
+    case "outbid":                  return { Icon: TrendingDownIcon,       color: "#ef4444" };
+    case "auction_won":             return { Icon: EmojiEventsIcon,        color: "#10b981" };
+    case "auction_sold":            return { Icon: SellOutlinedIcon,       color: "#6366f1" };
+    case "auction_decision_needed": return { Icon: HourglassEmptyIcon,     color: "#f59e0b" };
+    case "auction_expired":         return { Icon: TimerOffIcon,           color: "#6b7280" };
+    default:                        return { Icon: NotificationsNoneIcon,  color: "#6b7280" };
   }
 }
 
