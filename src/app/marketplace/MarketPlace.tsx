@@ -95,6 +95,7 @@ export default function Marketplace() {
         variant="error"
         title="Couldn't load the marketplace"
         action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+        dark
       />
     );
   }
@@ -124,7 +125,11 @@ export default function Marketplace() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: { xs: "100%", sm: 480, md: 600 } }}
+          sx={{
+            width: { xs: "100%", sm: 480, md: 600 },
+            backgroundColor: "rgba(255,255,255,0.95)",
+            borderRadius: 1,
+          }}
         />
       </Box>
 
@@ -155,9 +160,8 @@ export default function Marketplace() {
               <motion.div variants={cardVariants} style={{ width: "100%" }}>
                 <Typography
                   variant="body1"
-                  color="text.secondary"
                   textAlign="center"
-                  sx={{ mt: 4 }}
+                  sx={{ mt: 4, color: "rgba(255,255,255,0.6)" }}
                 >
                   No cards match your filters.
                 </Typography>

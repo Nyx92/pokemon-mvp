@@ -5,6 +5,7 @@ import { Box, Typography, Button } from "@mui/material";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { pageBackgroundSx } from "@/app/utils/pageBackground";
 
 export default function DuckReveal() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,7 +59,7 @@ export default function DuckReveal() {
           alignItems: "center",
           justifyContent: "center",
           overflow: "hidden",
-          bgcolor: "#f8f9fb",
+          ...pageBackgroundSx("/collateral/Riftbound_BG.jpg"),
         }}
       >
         {/* Revealed centre text */}
@@ -90,7 +91,7 @@ export default function DuckReveal() {
               alt="MXYYC logo"
               width={160}
               height={160}
-              style={{ mixBlendMode: "multiply" }}
+              style={{ filter: "brightness(0) invert(1)" }}
             />
 
             <Typography
@@ -99,7 +100,7 @@ export default function DuckReveal() {
                 fontSize: { xs: "3.6rem", sm: "5rem" },
                 fontWeight: 700,
                 letterSpacing: "0.04em",
-                color: "#1a1a2e",
+                color: "#fff",
                 lineHeight: 1,
                 fontFamily: "'Segoe UI', system-ui, sans-serif",
               }}
@@ -113,7 +114,7 @@ export default function DuckReveal() {
             sx={{
               fontSize: { xs: "1.4rem", sm: "1.75rem", md: "2rem" },
               fontWeight: 700,
-              color: "#1a1a2e",
+              color: "#fff",
               mb: 1.5,
               lineHeight: 1.25,
               fontFamily: "'Segoe UI', system-ui, sans-serif",
@@ -125,7 +126,7 @@ export default function DuckReveal() {
           <Typography
             sx={{
               fontSize: { xs: "0.9rem", sm: "1rem" },
-              color: "#555",
+              color: "rgba(255,255,255,0.7)",
               mb: 2,
               lineHeight: 1.6,
             }}
@@ -138,7 +139,8 @@ export default function DuckReveal() {
             startIcon={<ShoppingCartIcon />}
             onClick={() => router.push("/marketplace")}
             sx={{
-              bgcolor: "black",
+              bgcolor: "#fff",
+              color: "#000",
               borderRadius: "10px",
               px: 4,
               py: 1.4,
@@ -146,7 +148,7 @@ export default function DuckReveal() {
               fontWeight: 600,
               textTransform: "none",
               pointerEvents: "auto",
-              "&:hover": { bgcolor: "#4a6fd4" },
+              "&:hover": { bgcolor: "#e5e5e5" },
             }}
           >
             Go to Marketplace

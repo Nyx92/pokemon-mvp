@@ -50,14 +50,13 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
         <Typography
           variant="h5"
           fontWeight={700}
-          sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
+          sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#fff" }}
         >
           {title}{" "}
           <Typography
             component="span"
             fontWeight={400}
-            color="text.secondary"
-            sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+            sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" }, color: "rgba(255,255,255,0.6)" }}
           >
             {subtitle}
           </Typography>
@@ -65,7 +64,7 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
       </motion.div>
 
       {cards.length === 0 ? (
-        <Typography color="text.secondary">No cards available yet.</Typography>
+        <Typography sx={{ color: "rgba(255,255,255,0.6)" }}>No cards available yet.</Typography>
       ) : (
         <Box
           sx={{
@@ -146,14 +145,13 @@ function AuctionRow({ auctions, watchlistedIds, onCardClick }: { auctions: Aucti
         <Typography
           variant="h5"
           fontWeight={700}
-          sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#444" }}
+          sx={{ mb: 2, fontSize: { xs: "1.15rem", md: "1.35rem" }, color: "#fff" }}
         >
           Auction.{" "}
           <Typography
             component="span"
             fontWeight={400}
-            color="text.secondary"
-            sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" } }}
+            sx={{ fontSize: { xs: "0.85rem", md: "0.95rem" }, color: "rgba(255,255,255,0.6)" }}
           >
             Live auctions closing shortly.
           </Typography>
@@ -235,6 +233,7 @@ export default function HomeFeatured() {
         variant="error"
         title="Couldn't load featured cards"
         action={{ label: "Refresh page", onClick: () => window.location.reload() }}
+        dark
       />
     );
   }

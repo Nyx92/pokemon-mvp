@@ -54,6 +54,11 @@ interface ErrorStateProps {
     href?:    string;
     onClick?: () => void;
   };
+  // Set when rendering over a dark page background (e.g. marketplace, auctions,
+  // home) — switches the heading/subtext/button to light colors so they stay
+  // legible. The icon badge is unaffected since it already carries its own
+  // solid background.
+  dark?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -65,6 +70,7 @@ export default function ErrorState({
   title,
   subtitle,
   action,
+  dark = false,
 }: ErrorStateProps) {
   const { Icon, iconColor, iconBg, defaultTitle, defaultSubtitle } =
     VARIANTS[variant];
@@ -113,7 +119,7 @@ export default function ErrorState({
             sx={{
               fontSize:   { xs: 20, md: 22 },
               fontWeight: 700,
-              color:      "#111",
+              color:      dark ? "#fff" : "#111",
               mb:         1,
               lineHeight: 1.25,
             }}
@@ -127,7 +133,7 @@ export default function ErrorState({
           <Typography
             sx={{
               fontSize: 14,
-              color:    "#6b7280",
+              color:    dark ? "rgba(255,255,255,0.65)" : "#6b7280",
               mb:       action ? 3.5 : 0,
               lineHeight: 1.6,
             }}
@@ -147,9 +153,11 @@ export default function ErrorState({
                 sx={{
                   textTransform: "none",
                   fontWeight:    600,
-                  borderColor:   "#d1d5db",
-                  color:         "#111",
-                  "&:hover":     { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+                  borderColor:   dark ? "rgba(255,255,255,0.4)" : "#d1d5db",
+                  color:         dark ? "#fff" : "#111",
+                  "&:hover":     dark
+                    ? { borderColor: "rgba(255,255,255,0.6)", backgroundColor: "rgba(255,255,255,0.08)" }
+                    : { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
                   borderRadius:  1.5,
                   px:            3,
                 }}
@@ -163,9 +171,11 @@ export default function ErrorState({
                 sx={{
                   textTransform: "none",
                   fontWeight:    600,
-                  borderColor:   "#d1d5db",
-                  color:         "#111",
-                  "&:hover":     { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+                  borderColor:   dark ? "rgba(255,255,255,0.4)" : "#d1d5db",
+                  color:         dark ? "#fff" : "#111",
+                  "&:hover":     dark
+                    ? { borderColor: "rgba(255,255,255,0.6)", backgroundColor: "rgba(255,255,255,0.08)" }
+                    : { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
                   borderRadius:  1.5,
                   px:            3,
                 }}

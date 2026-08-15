@@ -10,6 +10,7 @@ import ThemeRegistry from "@/providers/ThemeRegistry";
 import { WatchlistAnimationProvider } from "@/app/context/WatchlistAnimationContext";
 import { CartProvider } from "@/app/context/CartContext";
 import { NotificationProvider } from "@/app/context/NotificationContext";
+import { NAVBAR_HEIGHT } from "@/app/utils/navChrome";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -53,7 +54,7 @@ export default async function RootLayout({
                 {/* Global navigation bar */}
                 <NavBar />
                 {/* Main content area with top padding to clear the fixed navbar */}
-                <main style={{ flex: 1, paddingTop: "64px" }}>
+                <main style={{ flex: 1, paddingTop: `${NAVBAR_HEIGHT}px` }}>
                   <div
                     style={{
                       maxWidth: "1700px",

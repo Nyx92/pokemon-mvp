@@ -10,13 +10,23 @@ import CollectionsIcon from "@mui/icons-material/Collections";
 import GavelIcon from "@mui/icons-material/Gavel";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import UploadIcon from "@mui/icons-material/Upload";
+import { pageBackgroundSx } from "@/app/utils/pageBackground";
+import { NAVBAR_HEIGHT, frostedTabsSx } from "@/app/utils/navChrome";
 
 export default function MarketplacePage() {
   const pathname = usePathname();
   const { isLoggedIn, isAdmin } = useAuth();
 
   return (
-    <main>
+    <Box
+      component="main"
+      sx={{
+        ...pageBackgroundSx("/collateral/Riftbound_BG_Market.jpg"),
+        mt: `-${NAVBAR_HEIGHT}px`,
+        pt: { xs: "88px", md: "112px" },
+        minHeight: "100vh",
+      }}
+    >
       <Box sx={{ mt: 4, px: { xs: 2, md: 4 } }}>
         <Box sx={{ display: "flex", justifyContent: "center" }}>
           <Tabs
@@ -25,25 +35,7 @@ export default function MarketplacePage() {
             indicatorColor="primary"
             variant="scrollable"
             scrollButtons="auto"
-            sx={{
-              "& .MuiTabs-flexContainer": {
-                justifyContent: "center",
-              },
-              "& .MuiTab-root": {
-                fontWeight: 600,
-                fontSize: "1.05rem",
-                letterSpacing: "0.5px",
-                textTransform: "none",
-                color: "#333",
-                minHeight: 50,
-              },
-              "& .Mui-selected": { color: "black" },
-              "& .MuiTabs-indicator": {
-                backgroundColor: "black",
-                height: 3,
-                borderRadius: 2,
-              },
-            }}
+            sx={frostedTabsSx}
           >
             {isLoggedIn && (
               <Tab
@@ -92,10 +84,10 @@ export default function MarketplacePage() {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <Box sx={{ mb: 4 }}>
-              <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1 }}>
+              <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
                 Marketplace
               </Typography>
-              <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.25 }}>
+              <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.6)", mt: 0.25 }}>
                 Browse and buy Pokémon cards listed by other collectors.
               </Typography>
             </Box>
@@ -104,6 +96,6 @@ export default function MarketplacePage() {
           <Marketplace />
         </Box>
       </Box>
-    </main>
+    </Box>
   );
 }

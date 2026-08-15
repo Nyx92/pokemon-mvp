@@ -28,6 +28,7 @@ import SellOutlinedIcon from "@mui/icons-material/SellOutlined";
 import LogoutIcon from "@mui/icons-material/Logout";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import { NAVBAR_HEIGHT } from "@/app/utils/navChrome";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
@@ -87,7 +88,7 @@ export default function Navbar() {
       position="fixed"
       elevation={0}
       sx={{
-        height: 64,
+        height: NAVBAR_HEIGHT,
         backgroundColor: "#000000",
         boxShadow: "0 2px 20px rgba(0, 0, 0, 0.40)",
         zIndex: 1300,
