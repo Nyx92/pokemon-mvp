@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, Tabs, Tab } from "@mui/material";
@@ -32,87 +31,7 @@ export default function Home() {
       }}
     >
       {/* Hero Carousel */}
-      <Box sx={{ position: "relative" }}>
-        <Carousell />
-
-        {/* Decorative poro perched on the top-left corner, overlapping the card */}
-        <Box
-          sx={{
-            position: "absolute",
-            top: { xs: 2, md: 0 },
-            left: "50%",
-            transform: {
-              xs: "translateX(calc(-50% - 140px)) rotate(-4deg)",
-              md: "translateX(calc(-50% - 280px)) rotate(-4deg)",
-            },
-            width: { xs: 44, md: 66 },
-            height: "auto",
-            zIndex: 2,
-            pointerEvents: "none",
-            filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.4))",
-          }}
-        >
-          <Image
-            src="/collateral/poro-happy.png"
-            alt=""
-            width={491}
-            height={348}
-            style={{ width: "100%", height: "auto" }}
-          />
-        </Box>
-
-        {/* Decorative poro lying on the bottom-right corner of the card */}
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: { xs: 6, md: 26 },
-            left: "50%",
-            transform: {
-              xs: "translateX(calc(-50% - 130px)) rotate(5deg)",
-              md: "translateX(calc(-50% - 260px)) rotate(5deg)",
-            },
-            width: { xs: 53, md: 78 },
-            height: "auto",
-            zIndex: 2,
-            pointerEvents: "none",
-            filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.4))",
-          }}
-        >
-          <Image
-            src="/collateral/poro-sleepy.png"
-            alt=""
-            width={558}
-            height={307}
-            style={{ width: "100%", height: "auto" }}
-          />
-        </Box>
-
-        {/* Decorative poro hanging off the bottom-left corner of the card */}
-        <Box
-          sx={{
-            position: "absolute",
-            bottom: { xs: -14, md: -38 },
-            left: "50%",
-            transform: {
-              xs: "translateX(calc(-50% + 195px)) rotate(-6deg)",
-              md: "translateX(calc(-50% + 390px)) rotate(-6deg)",
-            },
-            width: { xs: 41, md: 58 },
-            height: "auto",
-            zIndex: 2,
-            pointerEvents: "none",
-            filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.4))",
-          }}
-        >
-          <Image
-            src="/collateral/poro-hanging.png"
-            alt=""
-            width={384}
-            height={509}
-            style={{ width: "100%", height: "auto" }}
-          />
-        </Box>
-      </Box>
+      <Carousell />
 
       {/* Tab Bar Section */}
       <motion.div
