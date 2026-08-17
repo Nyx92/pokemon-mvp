@@ -4,6 +4,7 @@ import {
   resolveListingDisplay,
   withListingDisplay,
   findOrCreatePokemonCatalogEntry,
+  updatePokemonCatalogEntry,
 } from "@/lib/listingDisplay";
 
 const POKEMON_LISTING = {
@@ -161,6 +162,49 @@ describe("findOrCreatePokemonCatalogEntry", () => {
     await findOrCreatePokemonCatalogEntry(tx as any, { ...fields, cardNumber: "" });
 
     expect(tx.pokemonCardCatalog.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ localId: null }) })
+    );
+  });
+});
+
+describe("updatePokemonCatalogEntry", () => {
+  it("updates the existing catalog row by id with the submitted fields", async () => {
+    const updated = { id: "pkc-1", nameEn: "New Title" };
+    const tx = {
+      pokemonCardCatalog: {
+        update: vi.fn().mockResolvedValue(updated),
+      },
+    };
+
+    const result = await updatePokemonCatalogEntry(tx as any, "pkc-1", {
+      title: "New Title",
+      setName: "New Set",
+      rarity: "Rare",
+      tcgPlayerId: "tcg-5",
+      language: "English",
+      cardNumber: "010",
+    });
+
+    expect(result).toBe(updated);
+    expect(tx.pokemonCardCatalog.update).toHaveBeenCalledWith({
+      where: { id: "pkc-1" },
+      data: {
+        nameEn: "New Title",
+        setNameEn: "New Set",
+        rarity: "Rare",
+        language: "English",
+        localId: "010",
+        tcgPlayerId: "tcg-5",
+      },
+    });
+  });
+
+  it("stores a null localId when cardNumber is empty", async () => {
+    const tx = { pokemonCardCatalog: { update: vi.fn().mockResolvedValue({ id: "pkc-1" }) } };
+    await updatePokemonCatalogEntry(tx as any, "pkc-1", {
+      title: "T", setName: "S", rarity: "R", tcgPlayerId: "tcg-1", language: "English", cardNumber: "",
+    });
+    expect(tx.pokemonCardCatalog.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ localId: null }) })
     );
   });

@@ -12,6 +12,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockPrisma = vi.hoisted(() => ({
   listing: { findUnique: vi.fn(), update: vi.fn() },
+  pokemonCardCatalog: { update: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -135,5 +136,85 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
       error: "Cannot list a card for sale while it is in an active auction",
     });
     expect(mockPrisma.listing.update).not.toHaveBeenCalled();
+  });
+
+  it("updates the linked catalog row in place for a POKEMON listing and returns resolved display fields", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      ...LISTING, game: "POKEMON", pokemonCardId: "pkc-1", riftboundCardId: null,
+    });
+    mockPrisma.pokemonCardCatalog.update.mockResolvedValue({ id: "pkc-1" });
+    mockPrisma.listing.update.mockResolvedValue({
+      ...LISTING,
+      price: 10000,
+      pokemonCard: {
+        nameEn: "Charizard Holo", rarity: "Mint", setNameEn: "Base Set",
+        language: "English", localId: "004", tcgPlayerId: "base1-4",
+      },
+      riftboundCard: null,
+    });
+
+    const res = await PUT(
+      putRequest({
+        title: "Charizard Holo",
+        condition: "Mint",
+        ownerId: "owner-1",
+        setName: "Base Set",
+        rarity: "Mint",
+        tcgPlayerId: "base1-4",
+        language: "English",
+        cardNumber: "004",
+        forSale: "true",
+        price: "100",
+        keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
+      }),
+      { params: { id: "card-1" } }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.pokemonCardCatalog.update).toHaveBeenCalledWith({
+      where: { id: "pkc-1" },
+      data: {
+        nameEn: "Charizard Holo",
+        setNameEn: "Base Set",
+        rarity: "Mint",
+        language: "English",
+        localId: "004",
+        tcgPlayerId: "base1-4",
+      },
+    });
+    expect(body.card.title).toBe("Charizard Holo");
+  });
+
+  it("leaves the catalog reference untouched for a RIFTBOUND listing", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      ...LISTING, game: "RIFTBOUND", pokemonCardId: null, riftboundCardId: "rbc-1",
+    });
+    mockPrisma.listing.update.mockResolvedValue({
+      ...LISTING,
+      price: 10000,
+      pokemonCard: null,
+      riftboundCard: {
+        name: "Vi - Peacekeeper", rarity: "Rare", setLabel: "Unleashed",
+        collectorNumber: "176", tcgPlayerId: null,
+      },
+    });
+
+    const res = await PUT(
+      putRequest({
+        title: "Ignored",
+        condition: "NM",
+        ownerId: "owner-1",
+        forSale: "true",
+        price: "100",
+        keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
+      }),
+      { params: { id: "card-1" } }
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.pokemonCardCatalog.update).not.toHaveBeenCalled();
+    expect(body.card.title).toBe("Vi - Peacekeeper");
   });
 });

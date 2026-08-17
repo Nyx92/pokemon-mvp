@@ -182,11 +182,12 @@ export async function POST(req: Request) {
         description,
         imageUrls,
         forSale,
-        owner: { connect: { id: ownerId } },
+        ownerId,
       },
+      include: listingCatalogInclude,
     });
 
-    return NextResponse.json({ card: listing });
+    return NextResponse.json({ card: withListingDisplay(listing) });
   } catch (error: any) {
     console.error("❌ Error creating card:", error);
     return NextResponse.json(

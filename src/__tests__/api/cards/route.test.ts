@@ -103,6 +103,15 @@ describe("POST /api/cards", () => {
     mockPrisma.listing.create.mockResolvedValue({
       id: "listing-1",
       ownerId: "target-user-1",
+      pokemonCard: {
+        nameEn: "Charizard",
+        rarity: "Rare Holo",
+        setNameEn: "Base Set",
+        language: "English",
+        localId: "004",
+        tcgPlayerId: "tcg-1",
+      },
+      riftboundCard: null,
     });
 
     const res = await POST(postRequest(buildFormData()));
@@ -120,17 +129,35 @@ describe("POST /api/cards", () => {
         data: expect.objectContaining({
           game: "POKEMON",
           pokemonCardId: "catalog-1",
-          owner: { connect: { id: "target-user-1" } },
+          ownerId: "target-user-1",
         }),
       })
     );
+
+    // Regression guard: the response must include resolved catalog display
+    // fields, not just the raw Listing row — the admin upload UI reads
+    // data.card.title directly for its success message.
+    const body = await res.json();
+    expect(body.card.title).toBe("Charizard");
   });
 
   it("creates a new catalog row when no existing one matches the submitted tcgPlayerId", async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
     mockPrisma.pokemonCardCatalog.findFirst.mockResolvedValue(null);
     mockPrisma.pokemonCardCatalog.create.mockResolvedValue({ id: "catalog-new" });
-    mockPrisma.listing.create.mockResolvedValue({ id: "listing-1", ownerId: "target-user-1" });
+    mockPrisma.listing.create.mockResolvedValue({
+      id: "listing-1",
+      ownerId: "target-user-1",
+      pokemonCard: {
+        nameEn: "Charizard",
+        rarity: "Rare Holo",
+        setNameEn: "Base Set",
+        language: "English",
+        localId: "004",
+        tcgPlayerId: "tcg-1",
+      },
+      riftboundCard: null,
+    });
 
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(200);

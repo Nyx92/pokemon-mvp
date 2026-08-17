@@ -7,7 +7,7 @@ import { dollarsToCents, centsToDollars } from "@/lib/money";
 import {
   listingCatalogInclude,
   withListingDisplay,
-  findOrCreatePokemonCatalogEntry,
+  updatePokemonCatalogEntry,
 } from "@/lib/listingDisplay";
 
 const supabase = createClient(
@@ -133,9 +133,15 @@ export async function PUT(
       });
     }
 
-    // Admin: full update — same find-or-create catalog reuse as POST
-    // /api/cards, since the admin edit form still submits flat identity
-    // fields rather than a catalog id.
+    // Admin: full update. Card-identity fields (title/setName/rarity/etc.)
+    // only apply when this listing already points at a POKEMON catalog row
+    // — editing here updates that row directly (catalog data is shared
+    // across every listing of the same card, so the edit is visible to
+    // every other seller's listing of it too), rather than reassigning
+    // which catalog row the listing points to. RIFTBOUND listings have no
+    // identity fields in this form yet (out of scope — see the schema
+    // design's non-goals), so their catalog reference is left untouched;
+    // only the marketplace fields below (price/condition/etc.) apply.
     const title = formData.get("title") as string;
     const condition = formData.get("condition") as string;
     const description = (formData.get("description") as string) || "";
@@ -177,32 +183,35 @@ export async function PUT(
       );
     }
 
-    const catalogEntry = await findOrCreatePokemonCatalogEntry(prisma, {
-      title,
-      setName,
-      rarity,
-      tcgPlayerId,
-      language,
-      cardNumber,
-    });
+    if (listing.game === "POKEMON" && listing.pokemonCardId) {
+      await updatePokemonCatalogEntry(prisma, listing.pokemonCardId, {
+        title,
+        setName,
+        rarity,
+        tcgPlayerId,
+        language,
+        cardNumber,
+      });
+    }
 
     const updated = await prisma.listing.update({
       where: { id: params.id },
       data: {
-        pokemonCardId: catalogEntry.id,
         price,
         condition,
         description,
         imageUrls,
         forSale,
-        owner: { connect: { id: ownerId } },
+        ownerId,
       },
+      include: listingCatalogInclude,
     });
 
+    const withDisplay = withListingDisplay(updated);
     return NextResponse.json({
       card: {
-        ...updated,
-        price: updated.price != null ? centsToDollars(updated.price) : null,
+        ...withDisplay,
+        price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
       },
     });
   } catch (error: any) {

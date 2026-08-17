@@ -114,3 +114,34 @@ export async function findOrCreatePokemonCatalogEntry(
     },
   });
 }
+
+// Admin edit (PUT /api/cards/[id]) for an existing POKEMON listing updates
+// the catalog row directly by id, rather than re-running the find-or-create
+// lookup — the listing already has a pokemonCardId, and catalog data is
+// shared across every listing of that card, so an identity edit here is
+// meant to update the canonical row (visible to every other seller's
+// listing of the same card), not spawn or silently ignore a second one.
+export async function updatePokemonCatalogEntry(
+  prismaOrTx: Prisma.TransactionClient,
+  catalogId: string,
+  fields: {
+    title: string;
+    setName: string;
+    rarity: string;
+    tcgPlayerId: string;
+    language: string;
+    cardNumber: string;
+  }
+) {
+  return prismaOrTx.pokemonCardCatalog.update({
+    where: { id: catalogId },
+    data: {
+      nameEn: fields.title,
+      setNameEn: fields.setName,
+      rarity: fields.rarity,
+      language: fields.language,
+      localId: fields.cardNumber || null,
+      tcgPlayerId: fields.tcgPlayerId,
+    },
+  });
+}
