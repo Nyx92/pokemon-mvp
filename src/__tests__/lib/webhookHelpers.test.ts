@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockPrisma = vi.hoisted(() => ({
-  card: { findUnique: vi.fn() },
+  listing: { findUnique: vi.fn() },
 }));
 const mockNotifyAsync = vi.hoisted(() => vi.fn());
 
@@ -12,18 +12,18 @@ import { transferCardOwnership, notifySellerCardSold } from "@/lib/webhookHelper
 
 describe("transferCardOwnership", () => {
   it("runs the concurrency-guarded updateMany with the expected where/data shape", async () => {
-    const tx = { card: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } };
+    const tx = { listing: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } };
 
     const count = await transferCardOwnership(tx as any, {
-      cardId: "card-1",
+      listingId: "listing-1",
       checkoutSessionId: "cs_123",
       buyerId: "buyer-1",
     });
 
     expect(count).toBe(1);
-    expect(tx.card.updateMany).toHaveBeenCalledWith({
+    expect(tx.listing.updateMany).toHaveBeenCalledWith({
       where: {
-        id: "card-1",
+        id: "listing-1",
         reservedCheckoutSessionId: "cs_123",
         reservedById: "buyer-1",
         forSale: true,
@@ -41,10 +41,10 @@ describe("transferCardOwnership", () => {
   });
 
   it("returns 0 when the card was already transferred/released by another process", async () => {
-    const tx = { card: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) } };
+    const tx = { listing: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) } };
 
     const count = await transferCardOwnership(tx as any, {
-      cardId: "card-1",
+      listingId: "listing-1",
       checkoutSessionId: "cs_123",
       buyerId: "buyer-1",
     });
@@ -56,26 +56,53 @@ describe("transferCardOwnership", () => {
 describe("notifySellerCardSold", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("looks up the card title and fires a card_sold notification", async () => {
-    mockPrisma.card.findUnique.mockResolvedValue({ title: "Charizard" });
+  it("resolves the listing's title via the catalog relation and fires a card_sold notification", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      id: "listing-1",
+      pokemonCard: {
+        nameEn: "Charizard",
+        rarity: "Rare Holo",
+        setNameEn: "Base Set",
+        language: "English",
+        localId: "004",
+        tcgPlayerId: "tcg-1",
+      },
+      riftboundCard: null,
+    });
 
-    notifySellerCardSold({ sellerId: "seller-1", cardId: "card-1", orderId: "order-1" });
+    notifySellerCardSold({ sellerId: "seller-1", listingId: "listing-1", orderId: "order-1" });
     await new Promise((r) => setTimeout(r, 0)); // let the fire-and-forget chain resolve
 
+    expect(mockPrisma.listing.findUnique).toHaveBeenCalledWith({
+      where: { id: "listing-1" },
+      include: { pokemonCard: true, riftboundCard: true },
+    });
     expect(mockNotifyAsync).toHaveBeenCalledWith({
       userId: "seller-1",
       type: "card_sold",
       title: "Your card was sold",
       body: 'Your card "Charizard" was purchased via Buy Now.',
-      cardId: "card-1",
+      cardId: "listing-1",
       orderId: "order-1",
     });
   });
 
-  it("never throws even if the card lookup fails", async () => {
-    mockPrisma.card.findUnique.mockRejectedValue(new Error("db down"));
+  it("falls back to 'a card' when the listing can no longer be found", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue(null);
+
+    notifySellerCardSold({ sellerId: "seller-1", listingId: "listing-1", orderId: "order-1" });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(mockNotifyAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'Your card "a card" was purchased via Buy Now.' })
+    );
+  });
+
+  it("never throws even if the listing lookup fails", async () => {
+    mockPrisma.listing.findUnique.mockRejectedValue(new Error("db down"));
+
     expect(() =>
-      notifySellerCardSold({ sellerId: "seller-1", cardId: "card-1", orderId: "order-1" })
+      notifySellerCardSold({ sellerId: "seller-1", listingId: "listing-1", orderId: "order-1" })
     ).not.toThrow();
   });
 });
