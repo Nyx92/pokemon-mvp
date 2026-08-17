@@ -130,6 +130,74 @@ model Binder {
   updatedAt DateTime @updatedAt
 }
 
+// One row per real, canonical Pokémon card — shared by every seller who
+// lists that card. This is "what card is this," not "this seller's copy of
+// it" (that's Listing, below). externalId is required+unique but has no
+// real source data yet — seed data uses invented "mock-*" slugs until a
+// real card-index import exists.
+model PokemonCardCatalog {
+  id               String   @id @default(uuid())
+  externalId       String   @unique   // stable id from the source card index, e.g. "sv3pt5-016"
+  nameEn           String
+  nameJa           String?
+  hp               Int?
+  stage            String?
+  types            String[]
+  dexIds           Int[]
+  illustrator      String?
+  isFirstEdition   Boolean  @default(false)
+  language         String   // print-language classification; carried through
+                             // as-is from the source index alongside the
+                             // separate nameEn/nameJa fields
+  regulationMark   String?
+  localId          String?  // card number within its set, e.g. "016" or "SV107"
+  setId            String
+  setNameEn        String
+  setNameJa        String?
+  setReleaseDate   DateTime?
+  setTotal         Int?
+  rarity           String
+  year             Int?
+  tcgPlayerId      String?
+  listings         Listing[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([setId])
+}
+
+// One row per real, canonical Riftbound card. Same role as
+// PokemonCardCatalog above, for the other game.
+model RiftboundCardCatalog {
+  id               String   @id @default(uuid())
+  riftboundId      String   @unique   // e.g. "unl-176-219" — set + collector number + set total
+  name             String
+  type             String   // e.g. "Unit"
+  supertype        String   // e.g. "Champion"
+  rarity           String
+  domain           String?
+  energy           Int?
+  might            Int?
+  power            Int?
+  artist           String?
+  alternateArt     Boolean  @default(false)
+  signature        Boolean  @default(false)
+  overnumbered     Boolean  @default(false)
+  tags             String[]
+  textFlavour      String?
+  textPlain        String?
+  setId            String
+  setLabel         String
+  collectorNumber  String   // string, not Int — overnumbered variants carry a suffix
+  imageUrl         String
+  tcgPlayerId      String?
+  listings         Listing[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([setId])
+}
+
 // 🃏 Card — represents a single Pokémon card in a user's collection
 model Card {
   id           String     @id @default(uuid())
