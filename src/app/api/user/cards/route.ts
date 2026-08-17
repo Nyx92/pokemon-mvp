@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 // GET /api/user/cards
 export async function GET(_req: Request) {
@@ -13,13 +14,16 @@ export async function GET(_req: Request) {
   }
 
   try {
-    const cards = await prisma.card.findMany({
+    const listings = await prisma.listing.findMany({
       where: { ownerId: session.user.id },
       include: {
         binder: true,
+        ...listingCatalogInclude,
       },
       orderBy: { createdAt: "desc" },
     });
+
+    const cards = listings.map((listing) => withListingDisplay(listing));
 
     return NextResponse.json({ cards });
   } catch (error: any) {
