@@ -1,30 +1,30 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars } from "@/lib/money";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
-function mapCard(c: any) {
-  return { ...c, price: c.price != null ? centsToDollars(c.price) : null };
+function mapCard(listing: any) {
+  const withDisplay = withListingDisplay(listing);
+  return {
+    ...withDisplay,
+    price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
+  };
 }
 
 // ── Converts a DB Auction row to the API response shape ──────────────────────
 // Mirrors the formatAuction function in /api/auctions/route.ts.
 function formatAuction(auction: {
-  id: string; cardId: string; sellerId: string;
+  id: string; listingId: string; sellerId: string;
   startingBid: number; reservePrice: number | null; buyOutPrice: number | null;
   currentBid: number | null; highestBidderId: string | null;
   status: string; endsAt: Date; sellerDecisionDeadline: Date | null;
   version: number;
   _count: { bids: number };
-  card: {
-    id: string; title: string; imageUrls: string[]; condition: string;
-    setName: string | null; language: string; cardNumber: string | null;
-    rarity: string | null; tcgPlayerId: string; inAuction: boolean;
-    owner: { id: string; username: string | null };
-  };
+  listing: any;
 }) {
   return {
     id:                     auction.id,
-    cardId:                 auction.cardId,
+    cardId:                 auction.listingId,
     sellerId:               auction.sellerId,
     startingBid:            centsToDollars(auction.startingBid),
     reservePrice:           auction.reservePrice   != null ? centsToDollars(auction.reservePrice)   : null,
@@ -36,22 +36,23 @@ function formatAuction(auction: {
     sellerDecisionDeadline: auction.sellerDecisionDeadline?.toISOString() ?? null,
     version:                auction.version,
     bidCount:               auction._count.bids,
-    card:                   auction.card,
+    card:                   withListingDisplay(auction.listing),
   };
 }
 
-const AUCTION_CARD_SELECT = {
-  id: true, title: true, imageUrls: true, condition: true,
-  setName: true, language: true, cardNumber: true, rarity: true,
-  tcgPlayerId: true, inAuction: true,
+const AUCTION_LISTING_SELECT = {
+  id: true, imageUrls: true, condition: true, inAuction: true,
   owner: { select: { id: true, username: true } },
+  pokemonCard: true,
+  riftboundCard: true,
 } as const;
 
-const cardInclude = {
+const listingInclude = {
   // Public, unauthenticated endpoint — email deliberately excluded, same
   // rationale as src/app/api/cards/route.ts and cards/[id]/route.ts.
   owner: { select: { id: true, username: true } },
   binder: true,
+  ...listingCatalogInclude,
 } as const;
 
 export async function GET() {
@@ -67,9 +68,15 @@ export async function GET() {
         return (
           await Promise.all(
             bestSellerRows.map(({ tcgPlayerId }) =>
-              prisma.card.findFirst({
-                where: { tcgPlayerId, forSale: true },
-                include: cardInclude,
+              prisma.listing.findFirst({
+                where: {
+                  forSale: true,
+                  OR: [
+                    { pokemonCard: { tcgPlayerId } },
+                    { riftboundCard: { tcgPlayerId } },
+                  ],
+                },
+                include: listingInclude,
                 orderBy: { price: "asc" },
               })
             )
@@ -80,25 +87,32 @@ export async function GET() {
           .map(mapCard);
       })(),
 
-      // Highest Transacted: group transactions by tcgPlayerId (via card join),
-      // then fetch the cheapest forSale listing for each.
+      // Highest Transacted: group transactions by tcgPlayerId — already a
+      // denormalized column on CardTransaction, no join needed — then fetch
+      // the cheapest forSale listing for each.
       (async () => {
         const topTcgPlayerIds = await prisma.$queryRaw<
           Array<{ tcgPlayerId: string; count: bigint }>
         >`
-          SELECT c."tcgPlayerId", COUNT(*) AS count
+          SELECT ct."tcgPlayerId", COUNT(*) AS count
           FROM "CardTransaction" ct
-          JOIN "Card" c ON ct."cardId" = c.id
-          GROUP BY c."tcgPlayerId"
+          WHERE ct."tcgPlayerId" IS NOT NULL
+          GROUP BY ct."tcgPlayerId"
           ORDER BY count DESC
           LIMIT 5
         `;
         return (
           await Promise.all(
             topTcgPlayerIds.map(({ tcgPlayerId }) =>
-              prisma.card.findFirst({
-                where: { tcgPlayerId, forSale: true },
-                include: cardInclude,
+              prisma.listing.findFirst({
+                where: {
+                  forSale: true,
+                  OR: [
+                    { pokemonCard: { tcgPlayerId } },
+                    { riftboundCard: { tcgPlayerId } },
+                  ],
+                },
+                include: listingInclude,
                 orderBy: { price: "asc" },
               })
             )
@@ -108,10 +122,10 @@ export async function GET() {
           .map(mapCard);
       })(),
 
-      // Newly Listed: 5 most recent forSale cards
-      prisma.card.findMany({
+      // Newly Listed: 5 most recent forSale listings
+      prisma.listing.findMany({
         where: { forSale: true },
-        include: cardInclude,
+        include: listingInclude,
         orderBy: { createdAt: "desc" },
         take: 5,
       }),
@@ -121,7 +135,7 @@ export async function GET() {
       // the auction row immediately without a separate client-side fetch.
       prisma.auction.findMany({
         where:   { status: "active", endsAt: { gt: new Date() } },
-        include: { card: { select: AUCTION_CARD_SELECT }, _count: { select: { bids: true } } },
+        include: { listing: { select: AUCTION_LISTING_SELECT }, _count: { select: { bids: true } } },
         orderBy: { endsAt: "asc" },
         take:    5,
       }),
