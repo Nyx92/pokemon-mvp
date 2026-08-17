@@ -57,8 +57,13 @@ export async function createNotification(
   const { userId, type, title, body, offerId, cardId, orderId } = input;
 
   // Step 1: Persist the notification so it appears in the bell/page.
+  // The Notification model's FK column is `listingId` (renamed from `cardId`
+  // when Card became Listing) — this function's own external parameter name
+  // stays `cardId` so its many callers across offers/auctions/checkout don't
+  // need to change; only this internal write needs to know about the
+  // renamed column.
   await prisma.notification.create({
-    data: { userId, type, title, body, offerId, cardId, orderId },
+    data: { userId, type, title, body, offerId, listingId: cardId, orderId },
   });
 
   // Step 2: Look up the recipient's email and send — fire-and-forget.
