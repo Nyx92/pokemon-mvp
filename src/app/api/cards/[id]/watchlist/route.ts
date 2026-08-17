@@ -5,7 +5,7 @@ import { authOptions } from "@/lib/auth";
 
 /**
  * POST /api/cards/[id]/watchlist
- * Toggles the watchlist status for the current user on a specific card.
+ * Toggles the watchlist status for the current user on a specific listing.
  * Returns { watchlisted: boolean, count: number }.
  */
 export async function POST(
@@ -17,21 +17,21 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cardId = params.id;
+  const listingId = params.id;
   const userId = session.user.id;
 
-  // Check if the user already has this card watchlisted
+  // Check if the user already has this listing watchlisted
   const existing = await prisma.cardWatchlist.findUnique({
-    where: { cardId_userId: { cardId, userId } },
+    where: { listingId_userId: { listingId, userId } },
   });
 
   if (existing) {
     await prisma.cardWatchlist.delete({ where: { id: existing.id } });
   } else {
-    await prisma.cardWatchlist.create({ data: { cardId, userId } });
+    await prisma.cardWatchlist.create({ data: { listingId, userId } });
   }
 
-  const count = await prisma.cardWatchlist.count({ where: { cardId } });
+  const count = await prisma.cardWatchlist.count({ where: { listingId } });
 
   // watchlisted: true if we just added it (existing was null), false if we just removed it
   return NextResponse.json({ watchlisted: !existing, count });

@@ -4,9 +4,10 @@ import { NextRequest } from "next/server";
 /**
  * POST /api/cards/[id]/watchlist
  *
- * Toggles the watchlist status for the authenticated user on a specific card.
- * If the user has not watchlisted the card, it adds it. If they have, it removes it.
- * Returns { watchlisted: boolean, count: number } in both cases.
+ * Toggles the watchlist status for the authenticated user on a specific
+ * listing. If the user has not watchlisted the listing, it adds it. If they
+ * have, it removes it. Returns { watchlisted: boolean, count: number } in
+ * both cases.
  */
 
 // ── STEP 1: Create mock objects ───────────────────────────────────────────────
@@ -61,7 +62,7 @@ describe("POST /api/cards/[id]/watchlist", () => {
 
   // What's being tested: the add path.
   //
-  // When the user has not watchlisted the card (findUnique returns null),
+  // When the user has not watchlisted the listing (findUnique returns null),
   // the route must create a new entry and return watchlisted: true.
 
   it("adds the card when not already watchlisted", async () => {
@@ -75,18 +76,18 @@ describe("POST /api/cards/[id]/watchlist", () => {
     expect(res.status).toBe(200);
     expect(body).toEqual({ watchlisted: true, count: 5 });
     expect(mockPrisma.cardWatchlist.create).toHaveBeenCalledWith({
-      data: { cardId: "card-1", userId: "user-1" },
+      data: { listingId: "card-1", userId: "user-1" },
     });
     expect(mockPrisma.cardWatchlist.delete).not.toHaveBeenCalled();
   });
 
   // What's being tested: the remove path.
   //
-  // When the user has already watchlisted the card (findUnique returns a row),
-  // the route must delete that row and return watchlisted: false.
+  // When the user has already watchlisted the listing (findUnique returns a
+  // row), the route must delete that row and return watchlisted: false.
 
   it("removes the card when already watchlisted", async () => {
-    const existing = { id: "wl-entry-1", cardId: "card-1", userId: "user-1" };
+    const existing = { id: "wl-entry-1", listingId: "card-1", userId: "user-1" };
     mockPrisma.cardWatchlist.findUnique.mockResolvedValueOnce(existing);
     mockPrisma.cardWatchlist.delete.mockResolvedValueOnce({});
     mockPrisma.cardWatchlist.count.mockResolvedValueOnce(4);
