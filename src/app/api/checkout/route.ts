@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma"; // adjust to your path
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -22,35 +23,38 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    /** * 1) Security & Validation: Fetch authoritative card data from DB.
+    /** * 1) Security & Validation: Fetch authoritative listing data from DB.
      * Prevents buying unlisted items or price manipulation via client-side request.
      */
-    const card = await prisma.card.findUnique({ where: { id: cardId } });
-    if (!card)
+    const listing = await prisma.listing.findUnique({
+      where: { id: cardId },
+      include: listingCatalogInclude,
+    });
+    if (!listing)
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
 
-    if (!card.forSale) {
+    if (!listing.forSale) {
       return NextResponse.json(
         { error: "Card is not for sale" },
         { status: 409 }
       );
     }
 
-    if (card.ownerId === buyerId) {
+    if (listing.ownerId === buyerId) {
       return NextResponse.json(
         { error: "You cannot buy your own card" },
         { status: 403 }
       );
     }
 
-    if (card.price == null || card.price <= 0) {
+    if (listing.price == null || listing.price <= 0) {
       return NextResponse.json(
         { error: "Card has invalid price" },
         { status: 400 }
       );
     }
 
-    const amount = card.price;
+    const amount = listing.price;
     // 15 minutes gives a buyer enough time to complete the Stripe Checkout
     // page without holding the card unreasonably long from other buyers.
     // Deliberately under Stripe's 30-minute expires_at minimum — see the
@@ -68,18 +72,18 @@ export async function POST(req: NextRequest) {
         throw new Error("Authenticated buyer not found in database");
       }
       // 2. The "Atomic Reservation"
-      // We don't just find the card; we try to UPDATE it only if it's currently available.
-      const updated = await tx.card.updateMany({
+      // We don't just find the listing; we try to UPDATE it only if it's currently available.
+      const updated = await tx.listing.updateMany({
         where: {
           id: cardId,
           forSale: true,
-          // A card is reservable only if it has never been reserved, or its
+          // A listing is reservable only if it has never been reserved, or its
           // previous reservation has expired. The old third branch
           // (`reservedCheckoutSessionId: null`) let a second buyer steal an
           // *active* reservation during the window between "reservedUntil
           // set" and "Stripe session created" (reservedCheckoutSessionId is
           // only stamped after the session.create() call below returns) —
-          // whoever's card.update ran last would win, and the webhook would
+          // whoever's update ran last would win, and the webhook would
           // later refund whichever buyer actually completed payment.
           OR: [
             { reservedUntil: null }, // Never reserved
@@ -91,15 +95,15 @@ export async function POST(req: NextRequest) {
           reservedUntil,
         },
       });
-      // 3. If updateMany affected 0 rows, it means the card is being reserved
+      // 3. If updateMany affected 0 rows, it means the listing is being reserved
       if (updated.count !== 1)
         throw new Error("Card just got reserved/sold by someone else");
 
       // 4. Create the formal Order record linked to this attempt
       return tx.order.create({
         data: {
-          cardId,
-          sellerId: card.ownerId,
+          listingId: cardId,
+          sellerId: listing.ownerId,
           buyerId,
           amount,
           currency: "sgd",
@@ -112,9 +116,11 @@ export async function POST(req: NextRequest) {
      * 3a) Formatting: Convert relative image paths to absolute URLs.
      * Stripe requires full 'http' paths to render images on the checkout page.
      */
-    const finalImageUrls = (card.imageUrls ?? [])
+    const finalImageUrls = (listing.imageUrls ?? [])
       .filter(Boolean)
       .map((url) => (url.startsWith("http") ? url : `${baseUrl}${url}`));
+
+    const title = withListingDisplay(listing).title;
 
     // 3) Create checkout session
     const checkoutSession = await stripe.checkout.sessions.create({
@@ -126,7 +132,7 @@ export async function POST(req: NextRequest) {
             currency: "sgd",
             unit_amount: amount,
             product_data: {
-              name: card.title,
+              name: title,
               images: finalImageUrls,
               metadata: { cardId },
             },
@@ -140,7 +146,7 @@ export async function POST(req: NextRequest) {
         orderId: order.id,
         cardId,
         buyerId,
-        sellerId: card.ownerId,
+        sellerId: listing.ownerId,
       },
       // expires_at intentionally omitted: Stripe requires it to be at least
       // 30 minutes from session creation, but our DB reservation
@@ -158,7 +164,7 @@ export async function POST(req: NextRequest) {
         where: { id: order.id },
         data: { stripeCheckoutSessionId: checkoutSession.id },
       }),
-      prisma.card.update({
+      prisma.listing.update({
         where: { id: cardId },
         data: { reservedCheckoutSessionId: checkoutSession.id },
       }),
