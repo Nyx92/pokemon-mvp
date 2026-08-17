@@ -54,6 +54,10 @@ model PokemonCardCatalog {
                              // one row or get separate rows) to be confirmed
                              // against real source data during implementation
   regulationMark   String?
+  localId          String?  // card number within its set, e.g. "016" or "SV107" —
+                             // the Pokémon equivalent of RiftboundCardCatalog's
+                             // collectorNumber below. Missing from the first draft
+                             // of this spec; added when mapping existing seed data.
   setId            String
   setNameEn        String
   setNameJa        String?
