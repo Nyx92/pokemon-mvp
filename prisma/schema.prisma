@@ -30,18 +30,18 @@ datasource db {
 // We added `password` so you can later support credentials-based login.
 // Relations: a user can have multiple accounts (e.g., Google, GitHub) and sessions.
 model User {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   // Standard NextAuth fields — required by PrismaAdapter for OAuth providers.
   name          String?
   image         String?
   firstName     String?
   lastName      String?
-  username      String?  @unique
-  email         String   @unique
+  username      String?   @unique
+  email         String    @unique
   password      String?
-  role          String   @default("user")
+  role          String    @default("user")
   emailVerified DateTime?
-  verified      Boolean  @default(false)
+  verified      Boolean   @default(false)
   country       String?
   sex           String?
   dob           DateTime? @db.Date
@@ -49,24 +49,24 @@ model User {
   phoneNumber   String?
 
   // 🔗  Relations
-  accounts      Account[]
-  sessions      Session[]
+  accounts           Account[]
+  sessions           Session[]
   // A user can own multiple cards and binders, make offers, send messages, and participate in conversations.
-  cards         Card[]
-  binders       Binder[]
-  offers        Offer[]          @relation("UserOffers")
-  receivedOffers Offer[]         @relation("OffersReceived")
-  sellerOrders  Order[] @relation("SellerOrders")
-  buyerOrders   Order[] @relation("BuyerOrders")
-  reservedCards Card[] @relation("CardReservations")
+  listings           Listing[]
+  binders            Binder[]
+  offers             Offer[]           @relation("UserOffers")
+  receivedOffers     Offer[]           @relation("OffersReceived")
+  sellerOrders       Order[]           @relation("SellerOrders")
+  buyerOrders        Order[]           @relation("BuyerOrders")
+  reservedListings   Listing[]         @relation("CardReservations")
   sellerTransactions CardTransaction[] @relation("SellerTransactions")
   buyerTransactions  CardTransaction[] @relation("BuyerTransactions")
-  watchlist     CardWatchlist[]
-  cart          Cart?
-  notifications Notification[]
-  auctions           Auction[]  @relation("SellerAuctions")
-  bids               Bid[]      @relation("UserBids")
-  highestBidAuctions Auction[]  @relation("AuctionHighestBidder")
+  watchlist          CardWatchlist[]
+  cart               Cart?
+  notifications      Notification[]
+  auctions           Auction[]         @relation("SellerAuctions")
+  bids               Bid[]             @relation("UserBids")
+  highestBidAuctions Auction[]         @relation("AuctionHighestBidder")
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -118,13 +118,13 @@ model VerificationToken {
 
 // 🗂️ Binder — represents a user's collection folder or grouping of cards
 model Binder {
-  id        String   @id @default(uuid())
-  name      String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  id     String @id @default(uuid())
+  name   String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
-  // Relation: A binder contains multiple cards
-  cards     Card[]
+  // Relation: A binder contains multiple listings
+  listings Listing[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -136,32 +136,32 @@ model Binder {
 // real source data yet — seed data uses invented "mock-*" slugs until a
 // real card-index import exists.
 model PokemonCardCatalog {
-  id               String   @id @default(uuid())
-  externalId       String   @unique   // stable id from the source card index, e.g. "sv3pt5-016"
-  nameEn           String
-  nameJa           String?
-  hp               Int?
-  stage            String?
-  types            String[]
-  dexIds           Int[]
-  illustrator      String?
-  isFirstEdition   Boolean  @default(false)
-  language         String   // print-language classification; carried through
-                             // as-is from the source index alongside the
-                             // separate nameEn/nameJa fields
-  regulationMark   String?
-  localId          String?  // card number within its set, e.g. "016" or "SV107"
-  setId            String
-  setNameEn        String
-  setNameJa        String?
-  setReleaseDate   DateTime?
-  setTotal         Int?
-  rarity           String
-  year             Int?
-  tcgPlayerId      String?
-  listings         Listing[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id             String    @id @default(uuid())
+  externalId     String    @unique // stable id from the source card index, e.g. "sv3pt5-016"
+  nameEn         String
+  nameJa         String?
+  hp             Int?
+  stage          String?
+  types          String[]
+  dexIds         Int[]
+  illustrator    String?
+  isFirstEdition Boolean   @default(false)
+  language       String // print-language classification; carried through
+  // as-is from the source index alongside the
+  // separate nameEn/nameJa fields
+  regulationMark String?
+  localId        String? // card number within its set, e.g. "016" or "SV107"
+  setId          String
+  setNameEn      String
+  setNameJa      String?
+  setReleaseDate DateTime?
+  setTotal       Int?
+  rarity         String
+  year           Int?
+  tcgPlayerId    String?
+  listings       Listing[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@index([setId])
 }
@@ -169,66 +169,69 @@ model PokemonCardCatalog {
 // One row per real, canonical Riftbound card. Same role as
 // PokemonCardCatalog above, for the other game.
 model RiftboundCardCatalog {
-  id               String   @id @default(uuid())
-  riftboundId      String   @unique   // e.g. "unl-176-219" — set + collector number + set total
-  name             String
-  type             String   // e.g. "Unit"
-  supertype        String   // e.g. "Champion"
-  rarity           String
-  domain           String?
-  energy           Int?
-  might            Int?
-  power            Int?
-  artist           String?
-  alternateArt     Boolean  @default(false)
-  signature        Boolean  @default(false)
-  overnumbered     Boolean  @default(false)
-  tags             String[]
-  textFlavour      String?
-  textPlain        String?
-  setId            String
-  setLabel         String
-  collectorNumber  String   // string, not Int — overnumbered variants carry a suffix
-  imageUrl         String
-  tcgPlayerId      String?
-  listings         Listing[]
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String    @id @default(uuid())
+  riftboundId     String    @unique // e.g. "unl-176-219" — set + collector number + set total
+  name            String
+  type            String // e.g. "Unit"
+  supertype       String // e.g. "Champion"
+  rarity          String
+  domain          String?
+  energy          Int?
+  might           Int?
+  power           Int?
+  artist          String?
+  alternateArt    Boolean   @default(false)
+  signature       Boolean   @default(false)
+  overnumbered    Boolean   @default(false)
+  tags            String[]
+  textFlavour     String?
+  textPlain       String?
+  setId           String
+  setLabel        String
+  collectorNumber String // string, not Int — overnumbered variants carry a suffix
+  imageUrl        String
+  tcgPlayerId     String?
+  listings        Listing[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@index([setId])
 }
 
-// 🃏 Card — represents a single Pokémon card in a user's collection
-model Card {
-  id           String     @id @default(uuid())
-  title        String
-  price        Int?
-  condition    String
-  description  String?
-  imageUrls    String[]   // URLs to Supabase Storage images
-  forSale      Boolean    @default(false)
+// 🃏 Listing — one seller's specific physical copy of a card, listed for
+// sale. Renamed from Card. Exactly one of pokemonCardId/riftboundCardId is
+// set, matching `game` — enforced by assertValidListingCatalogRefs() in
+// src/lib/listingCatalog.ts (Task 3), not a database CHECK constraint,
+// since this project has no migration history to hand-write one into.
+model Listing {
+  id   String @id @default(uuid())
+  game String // "POKEMON" | "RIFTBOUND"
+
+  pokemonCard     PokemonCardCatalog?   @relation(fields: [pokemonCardId], references: [id])
+  pokemonCardId   String?
+  riftboundCard   RiftboundCardCatalog? @relation(fields: [riftboundCardId], references: [id])
+  riftboundCardId String?
+
+  price       Int?
+  condition   String
+  description String?
+  imageUrls   String[] // URLs to Supabase Storage images — photos of this specific physical copy
+  forSale     Boolean  @default(false)
 
   // Reservation fields — used by the Buy Now Stripe Checkout flow to prevent
   // double-selling while the buyer is on Stripe's hosted payment page.
-  // When a buyer starts checkout, the card is locked for a short window
+  // When a buyer starts checkout, the listing is locked for a short window
   // (reservedUntil). On payment success the lock is cleared and ownership transfers.
   reservedBy                User?     @relation("CardReservations", fields: [reservedById], references: [id], onDelete: SetNull)
   reservedById              String?
   reservedUntil             DateTime?
-  // Multiple cards can share the same session ID (cart checkout).
+  // Multiple listings can share the same session ID (cart checkout).
   reservedCheckoutSessionId String?
 
-  // Optional enrichment fields (future-proof)
-  tcgPlayerId  String
-  language     String
-  cardNumber   String?
-  setName      String?
-  rarity       String?
-
   // Relations
-  binder       Binder?    @relation(fields: [binderId], references: [id], onDelete: SetNull)
+  binder       Binder?           @relation(fields: [binderId], references: [id], onDelete: SetNull)
   binderId     String?
-  owner        User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner        User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId      String
   offers       Offer[]
   transactions CardTransaction[]
@@ -236,61 +239,63 @@ model Card {
   watchlist    CardWatchlist[]
   cartItems    CartItem[]
   // Auction listings for this card (multiple allowed over time — one active at a time,
-  // enforced at the application layer via Card.inAuction).
-  inAuction    Boolean  @default(false)
+  // enforced at the application layer via Listing.inAuction).
+  inAuction    Boolean           @default(false)
   auctions     Auction[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([ownerId])
   @@index([forSale])
+  @@index([game])
+  @@index([pokemonCardId])
+  @@index([riftboundCardId])
 }
 
 model Order {
-  id                String   @id @default(uuid())
-  card              Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  cardId             String
+  id        String  @id @default(uuid())
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
 
-  seller             User     @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
-  sellerId           String
-  buyer              User     @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
-  buyerId            String
+  seller   User   @relation("SellerOrders", fields: [sellerId], references: [id], onDelete: Restrict)
+  sellerId String
+  buyer    User   @relation("BuyerOrders", fields: [buyerId], references: [id], onDelete: Restrict)
+  buyerId  String
 
-  amount             Int      // store cents
-  currency           String   @default("sgd")
-  status             String   @default("PENDING") // PENDING | PAID | EXPIRED | CANCELED | REFUNDED
+  amount   Int // store cents
+  currency String @default("sgd")
+  status   String @default("PENDING") // PENDING | PAID | EXPIRED | CANCELED | REFUNDED
 
   // Multiple orders can share the same session ID (cart checkout).
   stripeCheckoutSessionId String?
   // Multiple orders in a cart share one payment intent; uniqueness enforced by Stripe itself.
   stripePaymentIntentId   String?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  transactions       CardTransaction[]
-  offer              Offer?
+  transactions CardTransaction[]
+  offer        Offer?
 
   @@index([stripeCheckoutSessionId])
   @@index([buyerId])
   @@index([sellerId])
 }
 
-
 // 💸 Offer — represents an offer made by a buyer on a card
 model Offer {
-  id          String    @id @default(uuid())
-  price       Int?
-  message     String?
+  id      String  @id @default(uuid())
+  price   Int?
+  message String?
   // Lifecycle: pending → accepted → paid  (happy path)
   //            pending → rejected         (seller declines)
   //            pending → expired          (no seller response within 24h; PI cancelled by cron)
-  status      String    @default("pending")
+  status  String  @default("pending")
 
-  // Set when the card changes ownership (sold). New owner won't see archived offers,
+  // Set when the listing changes ownership (sold). New owner won't see archived offers,
   // but the historical record is preserved for buyers and admins.
-  archivedAt  DateTime?
+  archivedAt DateTime?
 
   // Stripe PaymentIntent ID for the authorised-but-not-captured charge.
   // Created when the buyer submits the offer form (capture_method: manual).
@@ -299,27 +304,27 @@ model Offer {
 
   // When this pending offer expires (24h from creation).
   // After this point the cron job will cancel the PI and mark status → "expired".
-  expiresAt   DateTime?
+  expiresAt DateTime?
 
   // Relations
-  card        Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  cardId      String
-  buyer       User      @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
-  buyerId     String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  buyer     User    @relation("UserOffers", fields: [buyerId], references: [id], onDelete: Cascade)
+  buyerId   String
   // Snapshot of who the seller was at offer-creation time.
-  // card.ownerId changes when the card is transferred, so we can't rely on it
+  // listing.ownerId changes when the listing is transferred, so we can't rely on it
   // to look up a seller's offer history after an accepted sale.
-  seller      User      @relation("OffersReceived", fields: [sellerId], references: [id], onDelete: Cascade)
-  sellerId    String
+  seller    User    @relation("OffersReceived", fields: [sellerId], references: [id], onDelete: Cascade)
+  sellerId  String
 
   // Linked to an Order when the accepted offer is paid
-  order       Order?    @relation(fields: [orderId], references: [id])
-  orderId     String?   @unique
+  order   Order?  @relation(fields: [orderId], references: [id])
+  orderId String? @unique
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([cardId])
+  @@index([listingId])
   @@index([buyerId])
   @@index([sellerId])
 }
@@ -327,7 +332,7 @@ model Offer {
 // 🌟 Admin-curated best sellers (by card type, not individual listing)
 model BestSeller {
   id          String   @id @default(uuid())
-  tcgPlayerId String   @unique // maps to Card.tcgPlayerId
+  tcgPlayerId String   @unique // maps to a catalog row's tcgPlayerId (PokemonCardCatalog or RiftboundCardCatalog) — loose string match, not a real relation; see spec's "Out of scope" section
   position    Int      @unique // display order 1–5
   createdAt   DateTime @default(now())
 }
@@ -335,13 +340,13 @@ model BestSeller {
 // 🔖 CardWatchlist — tracks which users have watchlisted which cards
 model CardWatchlist {
   id        String   @id @default(uuid())
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  cardId    String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
   createdAt DateTime @default(now())
 
-  @@unique([cardId, userId])
+  @@unique([listingId, userId])
 }
 
 // 🛒 Cart — one persistent cart per user; created lazily on first add
@@ -359,32 +364,32 @@ model CartItem {
   id        String   @id @default(uuid())
   cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
   cartId    String
-  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  cardId    String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
   // Whether this item is checked for checkout (user can uncheck individual items)
   selected  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  @@unique([cartId, cardId])
+  @@unique([cartId, listingId])
 }
 
 // 🔔 Notification — in-app + email alerts for offer and sale events
 model Notification {
-  id        String   @id @default(uuid())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  id     String @id @default(uuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
 
   // Notification category — drives the icon and email copy.
   // Values: "offer_received" | "offer_accepted" | "offer_rejected" | "card_sold"
-  type      String
-  title     String
-  body      String
+  type  String
+  title String
+  body  String
 
   // Optional IDs for deep-linking into the relevant page.
   // Stored as plain strings (no FK) so the notification survives if the
   // linked record is later deleted.
   offerId   String?
-  cardId    String?
+  listingId String?
   orderId   String?
 
   read      Boolean  @default(false)
@@ -394,19 +399,19 @@ model Notification {
 }
 
 model CardTransaction {
-  id            String @id @default(uuid())
+  id String @id @default(uuid())
 
-  order         Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId       String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
 
-  card          Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  cardId        String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
 
-  seller        User   @relation("SellerTransactions", fields: [sellerId], references: [id], onDelete: Restrict)
-  sellerId      String
+  seller   User   @relation("SellerTransactions", fields: [sellerId], references: [id], onDelete: Restrict)
+  sellerId String
 
-  buyer         User   @relation("BuyerTransactions", fields: [buyerId], references: [id], onDelete: Restrict)
-  buyerId       String
+  buyer   User   @relation("BuyerTransactions", fields: [buyerId], references: [id], onDelete: Restrict)
+  buyerId String
 
   amount        Int
   currency      String
@@ -414,7 +419,7 @@ model CardTransaction {
   stripeEventId String
   tcgPlayerId   String?
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // Composite: one stripe event may produce multiple transactions (one per order in cart checkout).
   @@unique([stripeEventId, orderId])
@@ -431,27 +436,27 @@ model CardTransaction {
 //   pending_seller_decision → sold    (seller accepts within the deadline)
 //   pending_seller_decision → expired (seller declines or deadline passes)
 //
-// One active auction per card is enforced at the application layer (Card.inAuction flag).
-// Historical auction rows are kept for audit/display after the card is sold.
+// One active auction per listing is enforced at the application layer (Listing.inAuction flag).
+// Historical auction rows are kept for audit/display after the listing is sold.
 model Auction {
-  id        String @id @default(uuid())
-  card      Card   @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  cardId    String
-  seller    User   @relation("SellerAuctions", fields: [sellerId], references: [id], onDelete: Restrict)
+  id        String  @id @default(uuid())
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listingId String
+  seller    User    @relation("SellerAuctions", fields: [sellerId], references: [id], onDelete: Restrict)
   sellerId  String
 
-  startingBid  Int   // minimum first bid (cents)
-  reservePrice Int?  // auto-accept floor checked at endsAt: if final bid >= RP the cron settles without seller action; does NOT end the auction early during bidding
-  buyOutPrice  Int?  // instant-purchase price: bid >= BO ends the auction immediately during bidding
+  startingBid  Int // minimum first bid (cents)
+  reservePrice Int? // auto-accept floor checked at endsAt: if final bid >= RP the cron settles without seller action; does NOT end the auction early during bidding
+  buyOutPrice  Int? // instant-purchase price: bid >= BO ends the auction immediately during bidding
 
-  currentBid      Int?    // current highest bid amount (cents); null = no bids yet
+  currentBid      Int? // current highest bid amount (cents); null = no bids yet
   highestBidder   User?   @relation("AuctionHighestBidder", fields: [highestBidderId], references: [id], onDelete: SetNull)
   highestBidderId String?
 
   // active | pending_seller_decision | sold | expired
   status String @default("active")
 
-  endsAt                 DateTime  // when the auction closes (1–6 days from creation)
+  endsAt                 DateTime // when the auction closes (1–6 days from creation)
   sellerDecisionDeadline DateTime? // set when → pending_seller_decision (+24h); null otherwise
 
   // Optimistic lock counter: every bid increments this.
@@ -484,7 +489,7 @@ model Bid {
   bidder    User    @relation("UserBids", fields: [bidderId], references: [id], onDelete: Restrict)
   bidderId  String
 
-  amount          Int    // bid amount in cents
+  amount          Int // bid amount in cents
   paymentIntentId String // Stripe PI with capture_method: "manual"
 
   // active | won | cancelled
@@ -495,4 +500,3 @@ model Bid {
   @@index([auctionId, status])
   @@index([bidderId])
 }
-
