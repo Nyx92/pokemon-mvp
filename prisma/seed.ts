@@ -39,16 +39,19 @@ async function main() {
   // ✅ Clean up (child tables first)
   // Bid references Auction
   await prisma.bid.deleteMany();
-  // CardTransaction references Order/Card/User
+  // CardTransaction references Order/Listing/User
   await prisma.cardTransaction.deleteMany();
-  // Offer references Card/User
+  // Offer references Listing/User
   await prisma.offer.deleteMany();
-  // Order references Card/User
+  // Order references Listing/User
   await prisma.order.deleteMany();
-  // Auction references Card/User
+  // Auction references Listing/User
   await prisma.auction.deleteMany();
-  // Card references Binder/User
-  await prisma.card.deleteMany();
+  // Listing references Binder/User/catalog tables
+  await prisma.listing.deleteMany();
+  // Catalog tables are standalone (only referenced by Listing, already cleared above)
+  await prisma.pokemonCardCatalog.deleteMany();
+  await prisma.riftboundCardCatalog.deleteMany();
   // Binder references User
   await prisma.binder.deleteMany();
   // User references Account/Session (if you have these tables populated in dev)
@@ -150,555 +153,566 @@ async function main() {
 
   console.log("✅ Uploaded all mock images");
 
+  // ── Pokémon catalog — one row per real card, shared by every listing of it ──
+  // externalId values are invented "mock-*" slugs: this seed data predates any
+  // real card-index import, so there's no real source-index id to carry over.
+  // setId is likewise an invented short set code (schema requires it as a
+  // non-nullable field alongside setNameEn) paired one-to-one with setNameEn,
+  // the same way the Riftbound catalog below pairs setId "UNL" with setLabel
+  // "Unleashed" — not sourced from a real card index.
+  const pokemonCatalog = {
+    charizardVmax: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-shining-fates-charizard-vmax",
+        nameEn: "Charizard VMAX",
+        localId: "SV107",
+        setId: "SHF",
+        setNameEn: "Shining Fates",
+        rarity: "Ultra Rare",
+        language: "English",
+        tcgPlayerId: "232496",
+      },
+    }),
+    venusaurV: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-champions-path-venusaur-v",
+        nameEn: "Venusaur V",
+        localId: "01/73",
+        setId: "CPA",
+        setNameEn: "Champion's Path",
+        rarity: "Rare",
+        language: "English",
+        tcgPlayerId: "222990",
+      },
+    }),
+    blastoiseHoloRare: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-base-set-blastoise-holo-rare",
+        nameEn: "Blastoise Holo Rare",
+        localId: "002/102",
+        setId: "BS",
+        setNameEn: "Base Set",
+        rarity: "Holo Rare",
+        language: "English",
+        tcgPlayerId: "42360",
+      },
+    }),
+    starmieGxEn: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-hidden-fates-starmie-gx-en",
+        nameEn: "Starmie GX",
+        localId: "14/68",
+        setId: "HIF",
+        setNameEn: "Hidden Fates",
+        rarity: "Ultra Rare",
+        language: "English",
+        tcgPlayerId: "197658",
+      },
+    }),
+    // Separate catalog row for the Japanese print — language is catalog-level
+    // (per the design spec), so a different-language print of the same card
+    // is a different catalog row, not a per-listing field.
+    starmieGxJp: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-hidden-fates-starmie-gx-jp",
+        nameEn: "Starmie GX",
+        localId: "14/68",
+        setId: "HIF",
+        setNameEn: "Hidden Fates",
+        rarity: "Ultra Rare",
+        language: "Japanese",
+        tcgPlayerId: "197659",
+      },
+    }),
+    psyduck: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-platinum-psyduck",
+        nameEn: "Psyduck",
+        localId: "87/127",
+        setId: "PL",
+        setNameEn: "Platinum",
+        rarity: "Common",
+        language: "English",
+        tcgPlayerId: "88439",
+      },
+    }),
+    gyaradosVmax: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-evolving-skies-gyarados-vmax",
+        nameEn: "Gyarados VMAX",
+        localId: "109/203",
+        setId: "EVS",
+        setNameEn: "Evolving Skies",
+        rarity: "Ultra Rare",
+        language: "English",
+        tcgPlayerId: "246724",
+      },
+    }),
+    shuckle: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-neo-revelation-shuckle",
+        nameEn: "Shuckle",
+        localId: "70/64",
+        setId: "NRV",
+        setNameEn: "Neo Revelation",
+        rarity: "Common",
+        language: "English",
+        tcgPlayerId: "14936",
+      },
+    }),
+    psyduckV: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-fusion-strike-psyduck-v",
+        nameEn: "Psyduck V",
+        localId: "062/100",
+        setId: "FST",
+        setNameEn: "Fusion Strike",
+        rarity: "Rare",
+        language: "Japanese",
+        tcgPlayerId: "441629",
+      },
+    }),
+    // The "quick-expiry test auctions" section (below) has three listings whose
+    // original tcgPlayerId/set/number didn't match any of the cards above —
+    // each becomes its own catalog row rather than silently pointing at the
+    // wrong card's identity now that identity is normalized.
+    psyduckBaseSet: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-base-set-psyduck",
+        nameEn: "Psyduck",
+        localId: "053/102",
+        setId: "BS",
+        setNameEn: "Base Set",
+        rarity: "Common",
+        language: "English",
+        tcgPlayerId: "88900",
+      },
+    }),
+    gyaradosVmaxVividVoltage: await prisma.pokemonCardCatalog.create({
+      data: {
+        externalId: "mock-vivid-voltage-gyarados-vmax",
+        nameEn: "Gyarados VMAX",
+        localId: "022/185",
+        setId: "VIV",
+        setNameEn: "Vivid Voltage",
+        rarity: "Ultra Rare",
+        language: "English",
+        tcgPlayerId: "246800",
+      },
+    }),
+  };
+
+  console.log("✅ Pokémon catalog created:", Object.keys(pokemonCatalog).length, "cards");
+
   // Ash’s Cards
-  // Create cards (use create() so we can capture ids easily)
-  const charizard = await prisma.card.create({
+  // Create listings (use create() so we can capture ids easily)
+  const charizard = await prisma.listing.create({
     data: {
-      title: "Charizard VMAX",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.charizardVmax.id,
       price: dollarsToCents(120),
       condition: "Mint",
       description: "A stunning Charizard VMAX with fiery holo effect.",
       imageUrls: [mockImageUrlOne],
       forSale: true,
-      setName: "Shining Fates",
-      rarity: "Ultra Rare",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "232496",
-      language: "English",
-      cardNumber: "SV107",
     },
   });
 
-  await prisma.card.createMany({
+  await prisma.listing.createMany({
     data: [
       // ── Venusaur V — raw grades ─────────────────────────────────────────────
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(120),
         condition: "Near Mint",
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(90),
         condition: "Lightly Played",
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(65),
         condition: "Moderately Played",
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(40),
         condition: "Heavily Played",
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: null,
         condition: "Damaged",
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: false,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       // ── Venusaur V — graded ─────────────────────────────────────────────────
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(380),
         condition: "PSA 10",
         description: "PSA 10 Gem Mint — flawless Grass-type classic.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(220),
         condition: "PSA 9",
         description: "PSA 9 Mint — near-perfect Grass-type classic.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       {
-        title: "Venusaur V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.venusaurV.id,
         price: dollarsToCents(290),
         condition: "Beckett 9.5 Gem Mint",
         description: "BGS 9.5 Gem Mint — stunning sub-grade Grass-type classic.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        setName: "Champion’s Path",
-        rarity: "Rare",
         binderId: grassBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "222990",
-        language: "English",
-        cardNumber: "01/73",
       },
       // ── Blastoise Holo Rare — raw grades ────────────────────────────────────
       {
-        title: "Blastoise Holo Rare",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
         price: dollarsToCents(120),
         condition: "Mint",
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        setName: "Base Set",
-        rarity: "Holo Rare",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "42360",
-        language: "English",
-        cardNumber: "002/102",
       },
       {
-        title: "Blastoise Holo Rare",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
         price: dollarsToCents(100),
         condition: "Near Mint",
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        setName: "Base Set",
-        rarity: "Holo Rare",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "42360",
-        language: "English",
-        cardNumber: "002/102",
       },
       {
-        title: "Blastoise Holo Rare",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
         price: dollarsToCents(50),
         condition: "Heavily Played",
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        setName: "Base Set",
-        rarity: "Holo Rare",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "42360",
-        language: "English",
-        cardNumber: "002/102",
       },
       // ── Blastoise Holo Rare — graded ────────────────────────────────────────
       {
-        title: "Blastoise Holo Rare",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
         price: dollarsToCents(480),
         condition: "PSA 8",
         description: "PSA 8 NM-MT — classic Blastoise holo in excellent shape.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        setName: "Base Set",
-        rarity: "Holo Rare",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "42360",
-        language: "English",
-        cardNumber: "002/102",
       },
       {
-        title: "Blastoise Holo Rare",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
         price: dollarsToCents(350),
         condition: "CGC 9 Mint",
         description: "CGC 9 Mint — classic Blastoise holo certified by CGC.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        setName: "Base Set",
-        rarity: "Holo Rare",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "42360",
-        language: "English",
-        cardNumber: "002/102",
       },
       {
-        title: "Blastoise Holo Rare",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
         price: null,
         condition: "SGC 9 Mint",
         description: "SGC 9 Mint — classic Blastoise holo certified by SGC.",
         imageUrls: [mockImageUrlThree],
         forSale: false,
-        setName: "Base Set",
-        rarity: "Holo Rare",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "42360",
-        language: "English",
-        cardNumber: "002/102",
       },
     ],
   });
 
   // Misty’s Cards 💧
-  await prisma.card.createMany({
+  await prisma.listing.createMany({
     data: [
       // ── Starmie GX — raw grades ─────────────────────────────────────────────
       {
-        title: "Starmie GX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.starmieGxEn.id,
         price: dollarsToCents(60),
         condition: "Mint",
-        description:
-          "Misty’s loyal Water-type partner with a dazzling spin attack.",
+        description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        setName: "Hidden Fates",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "197658",
-        language: "English",
-        cardNumber: "14/68",
       },
       {
-        title: "Starmie GX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.starmieGxEn.id,
         price: dollarsToCents(45),
         condition: "Near Mint",
-        description:
-          "Misty’s loyal Water-type partner with a dazzling spin attack.",
+        description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        setName: "Hidden Fates",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "197658",
-        language: "English",
-        cardNumber: "14/68",
       },
       {
-        title: "Starmie GX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.starmieGxEn.id,
         price: dollarsToCents(28),
         condition: "Lightly Played",
-        description:
-          "Misty’s loyal Water-type partner with a dazzling spin attack.",
+        description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        setName: "Hidden Fates",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "197658",
-        language: "English",
-        cardNumber: "14/68",
       },
       {
-        title: "Starmie GX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.starmieGxEn.id,
         price: null,
         condition: "Damaged",
-        description:
-          "Misty’s loyal Water-type partner with a dazzling spin attack.",
+        description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: false,
-        setName: "Hidden Fates",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "197658",
-        language: "English",
-        cardNumber: "14/68",
       },
       // ── Starmie GX — graded ─────────────────────────────────────────────────
       {
-        title: "Starmie GX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.starmieGxEn.id,
         price: dollarsToCents(180),
         condition: "PSA 9",
         description: "PSA 9 Mint — Misty’s Starmie GX in near-perfect shape.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        setName: "Hidden Fates",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "197658",
-        language: "English",
-        cardNumber: "14/68",
       },
       {
-        title: "Starmie GX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.starmieGxEn.id,
         price: dollarsToCents(140),
         condition: "Beckett 9.5 Gem Mint",
         description: "BGS 9.5 Gem Mint — beautifully graded Starmie GX.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        setName: "Hidden Fates",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "197658",
-        language: "English",
-        cardNumber: "14/68",
       },
       // ── Psyduck ─────────────────────────────────────────────────────────────
       {
-        title: "Psyduck",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.psyduck.id,
         price: null,
         condition: "Lightly Played",
         description: "A confused Psyduck that Misty adores.",
         imageUrls: [mockImageUrlFive],
         forSale: false,
-        setName: "Platinum",
-        rarity: "Common",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "88439",
-        language: "English",
-        cardNumber: "87/127",
       },
       {
-        title: "Psyduck",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.psyduck.id,
         price: dollarsToCents(8),
         condition: "Near Mint",
         description: "A confused Psyduck that Misty adores.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        setName: "Platinum",
-        rarity: "Common",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "88439",
-        language: "English",
-        cardNumber: "87/127",
       },
       {
-        title: "Psyduck",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.psyduck.id,
         price: dollarsToCents(120),
         condition: "PSA 10",
         description: "PSA 10 Gem Mint — a surprisingly valuable Psyduck.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        setName: "Platinum",
-        rarity: "Common",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "88439",
-        language: "English",
-        cardNumber: "87/127",
       },
       // ── Gyarados VMAX — raw grades ──────────────────────────────────────────
       {
-        title: "Gyarados VMAX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.gyaradosVmax.id,
         price: dollarsToCents(95),
         condition: "Near Mint",
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        setName: "Evolving Skies",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "246724",
-        language: "English",
-        cardNumber: "109/203",
       },
       {
-        title: "Gyarados VMAX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.gyaradosVmax.id,
         price: dollarsToCents(70),
         condition: "Lightly Played",
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        setName: "Evolving Skies",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "246724",
-        language: "English",
-        cardNumber: "109/203",
       },
       {
-        title: "Gyarados VMAX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.gyaradosVmax.id,
         price: dollarsToCents(35),
         condition: "Heavily Played",
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        setName: "Evolving Skies",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "246724",
-        language: "English",
-        cardNumber: "109/203",
       },
       // ── Gyarados VMAX — graded ──────────────────────────────────────────────
       {
-        title: "Gyarados VMAX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.gyaradosVmax.id,
         price: dollarsToCents(320),
         condition: "PSA 10",
         description: "PSA 10 Gem Mint — the apex predator, perfectly graded.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        setName: "Evolving Skies",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "246724",
-        language: "English",
-        cardNumber: "109/203",
       },
       {
-        title: "Gyarados VMAX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.gyaradosVmax.id,
         price: dollarsToCents(210),
         condition: "CGC 9.5 Gem Mint",
         description: "CGC 9.5 Gem Mint — top-tier Gyarados VMAX.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        setName: "Evolving Skies",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "246724",
-        language: "English",
-        cardNumber: "109/203",
       },
       {
-        title: "Gyarados VMAX",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.gyaradosVmax.id,
         price: dollarsToCents(175),
         condition: "SGC 9 Mint",
         description: "SGC 9 Mint — certified Gyarados VMAX.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        setName: "Evolving Skies",
-        rarity: "Ultra Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "246724",
-        language: "English",
-        cardNumber: "109/203",
       },
     ],
   });
 
-  console.log("✅ Cards created for Ash and Misty");
+  console.log("✅ Listings created for Ash and Misty");
 
-  // ── Extra best-seller cards ────────────────────────────────────────────────
-  // Two more cards to fill positions 6 and 7 in the Best Sellers row.
-  await prisma.card.createMany({
+  // ── Extra best-seller listings ─────────────────────────────────────────────
+  // Two more listings to fill positions 6 and 7 in the Best Sellers row.
+  await prisma.listing.createMany({
     data: [
       {
-        title: "Shuckle",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.shuckle.id,
         price: dollarsToCents(220),
         condition: "PSA 10",
         description: "PSA 10 Gem Mint — the rarest Shuckle you'll ever see.",
         imageUrls: [mockImageUrlShuckle],
         forSale: true,
-        setName: "Neo Revelation",
-        rarity: "Common",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "14936",
-        language: "English",
-        cardNumber: "70/64",
       },
       {
-        title: "Shuckle",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.shuckle.id,
         price: dollarsToCents(90),
         condition: "Near Mint",
         description: "Shuckle from Neo Revelation in great shape.",
         imageUrls: [mockImageUrlShuckle],
         forSale: true,
-        setName: "Neo Revelation",
-        rarity: "Common",
         binderId: rareBinder.id,
         ownerId: ash.id,
-        tcgPlayerId: "14936",
-        language: "English",
-        cardNumber: "70/64",
       },
       {
-        title: "Psyduck V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.psyduckV.id,
         price: dollarsToCents(55),
         condition: "Mint",
         description: "Psyduck V — a modern staple with confusing energy.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        setName: "Fusion Strike",
-        rarity: "Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "441629",
-        language: "Japanese",
-        cardNumber: "062/100",
       },
       {
-        title: "Psyduck V",
+        game: "POKEMON",
+        pokemonCardId: pokemonCatalog.psyduckV.id,
         price: dollarsToCents(40),
         condition: "Near Mint",
         description: "Psyduck V in near-mint condition.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        setName: "Fusion Strike",
-        rarity: "Rare",
         binderId: waterBinder.id,
         ownerId: misty.id,
-        tcgPlayerId: "441629",
-        language: "Japanese",
-        cardNumber: "062/100",
       },
     ],
   });
 
-  console.log("✅ Extra best-seller cards created");
+  console.log("✅ Extra best-seller listings created");
 
   // ── Auction cards — 6 cards in live auctions ──────────────────────────────
   // 3 ending soon (within 6h → appear in homepage "Ending Soon" row),
@@ -708,200 +722,160 @@ async function main() {
   const hours = (h: number) => new Date(nowMs + h * 60 * 60 * 1000);
   const days  = (d: number) => new Date(nowMs + d * 24 * 60 * 60 * 1000);
 
-  const auctionCard1 = await prisma.card.create({
+  const auctionCard1 = await prisma.listing.create({
     data: {
-      title: "Charizard VMAX",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.charizardVmax.id,
       price: null,
       condition: "Near Mint",
       description: "Auction-only Charizard VMAX — rare chance to own this fire holo.",
       imageUrls: [mockImageUrlOne],
       forSale: false,
       inAuction: true,
-      setName: "Shining Fates",
-      rarity: "Ultra Rare",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "232496",
-      language: "English",
-      cardNumber: "SV107",
     },
   });
 
-  const auctionCard2 = await prisma.card.create({
+  const auctionCard2 = await prisma.listing.create({
     data: {
-      title: "Blastoise Holo Rare",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
       price: null,
       condition: "Lightly Played",
       description: "Vintage Base Set Blastoise in auction — light play only.",
       imageUrls: [mockImageUrlThree],
       forSale: false,
       inAuction: true,
-      setName: "Base Set",
-      rarity: "Holo Rare",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "42360",
-      language: "English",
-      cardNumber: "002/102",
     },
   });
 
-  const auctionCard3 = await prisma.card.create({
+  const auctionCard3 = await prisma.listing.create({
     data: {
-      title: "Gyarados VMAX",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.gyaradosVmax.id,
       price: null,
       condition: "Mint",
       description: "Mint-condition Gyarados VMAX in auction — closing soon.",
       imageUrls: [mockImageUrlSix],
       forSale: false,
       inAuction: true,
-      setName: "Evolving Skies",
-      rarity: "Ultra Rare",
       binderId: waterBinder.id,
       ownerId: misty.id,
-      tcgPlayerId: "246724",
-      language: "English",
-      cardNumber: "109/203",
     },
   });
 
-  const auctionCard4 = await prisma.card.create({
+  const auctionCard4 = await prisma.listing.create({
     data: {
-      title: "Venusaur V",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.venusaurV.id,
       price: null,
       condition: "Near Mint",
       description: "Venusaur V — Grass-type powerhouse in a multi-day auction.",
       imageUrls: [mockImageUrlTwo],
       forSale: false,
       inAuction: true,
-      setName: "Champion's Path",
-      rarity: "Rare",
       binderId: grassBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "222990",
-      language: "English",
-      cardNumber: "01/73",
     },
   });
 
-  const auctionCard5 = await prisma.card.create({
+  const auctionCard5 = await prisma.listing.create({
     data: {
-      title: "Starmie GX",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.starmieGxJp.id,
       price: null,
       condition: "Mint",
       description: "Starmie GX in a 2-day auction — get your bids in early.",
       imageUrls: [mockImageUrlFour],
       forSale: false,
       inAuction: true,
-      setName: "Hidden Fates",
-      rarity: "Ultra Rare",
       binderId: waterBinder.id,
       ownerId: misty.id,
-      tcgPlayerId: "197658",
-      language: "Japanese",
-      cardNumber: "14/68",
     },
   });
 
-  const auctionCard6 = await prisma.card.create({
+  const auctionCard6 = await prisma.listing.create({
     data: {
-      title: "Shuckle",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.shuckle.id,
       price: null,
       condition: "PSA 10",
       description: "PSA 10 Shuckle in a 3-day auction — a true collector's gem.",
       imageUrls: [mockImageUrlShuckle],
       forSale: false,
       inAuction: true,
-      setName: "Neo Revelation",
-      rarity: "Common",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "14936",
-      language: "English",
-      cardNumber: "70/64",
     },
   });
 
   // ── Quick-expiry test auctions (5 / 6 / 7 / 10 min) ─────────────────────
   // All owned by Ash. Log in as Misty to place bids and test the different paths.
   //
-  //  Card 7  (10 min) — has RP $80, BO $150 → bid below RP → pending_seller_decision
-  //  Card 8  ( 5 min) — no RP, no BO        → let expire untouched → expiredNoBids
-  //  Card 9  ( 6 min) — has RP $50, BO $120 → bid above $50 RP → cron auto-settles
-  //  Card 10 ( 7 min) — has RP $80, no BO   → bid below $80 RP → pending_seller_decision
-  const auctionCard7 = await prisma.card.create({
+  //  Listing 7  (10 min) — has RP $80, BO $150 → bid below RP → pending_seller_decision
+  //  Listing 8  ( 5 min) — no RP, no BO        → let expire untouched → expiredNoBids
+  //  Listing 9  ( 6 min) — has RP $50, BO $120 → bid above $50 RP → cron auto-settles
+  //  Listing 10 ( 7 min) — has RP $80, no BO   → bid below $80 RP → pending_seller_decision
+  const auctionCard7 = await prisma.listing.create({
     data: {
-      title: "Blastoise Holo Rare",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.blastoiseHoloRare.id,
       price: null,
       condition: "Mint",
       description: "TEST (10 min) — bid below S$80 RP to trigger pending_seller_decision, or S$150 BO for instant win.",
       imageUrls: [mockImageUrlThree],
       forSale: false,
       inAuction: true,
-      setName: "Base Set",
-      rarity: "Holo Rare",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "42360",
-      language: "English",
-      cardNumber: "002/102",
     },
   });
 
-  const auctionCard8 = await prisma.card.create({
+  const auctionCard8 = await prisma.listing.create({
     data: {
-      title: "Psyduck",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.psyduckBaseSet.id,
       price: null,
       condition: "Near Mint",
       description: "TEST (5 min) — no RP, no BO. Leave it with zero bids and fire the cron to test the expiredNoBids path.",
       imageUrls: [mockImageUrlFive],
       forSale: false,
       inAuction: true,
-      setName: "Base Set",
-      rarity: "Common",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "232496",
-      language: "English",
-      cardNumber: "053/102",
     },
   });
 
-  const auctionCard9 = await prisma.card.create({
+  const auctionCard9 = await prisma.listing.create({
     data: {
-      title: "Gyarados VMAX",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.gyaradosVmaxVividVoltage.id,
       price: null,
       condition: "Near Mint",
       description: "TEST (6 min) — has RP $50, BO $120. Bid above S$50 RP (e.g. S$60) and let it expire — cron should auto-settle without seller action.",
       imageUrls: [mockImageUrlSix],
       forSale: false,
       inAuction: true,
-      setName: "Vivid Voltage",
-      rarity: "Ultra Rare",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "197658",
-      language: "English",
-      cardNumber: "022/185",
     },
   });
 
-  const auctionCard10 = await prisma.card.create({
+  const auctionCard10 = await prisma.listing.create({
     data: {
-      title: "Starmie GX",
+      game: "POKEMON",
+      pokemonCardId: pokemonCatalog.starmieGxEn.id,
       price: null,
       condition: "Mint",
       description: "TEST (7 min) — has RP $80, no BO. Bid below S$80 RP (e.g. S$40) and let it expire — cron should move to pending_seller_decision.",
       imageUrls: [mockImageUrlFour],
       forSale: false,
       inAuction: true,
-      setName: "Hidden Fates",
-      rarity: "Ultra Rare",
       binderId: rareBinder.id,
       ownerId: ash.id,
-      tcgPlayerId: "14936",
-      language: "English",
-      cardNumber: "014/068",
     },
   });
 
@@ -909,7 +883,7 @@ async function main() {
     data: [
       // ── Ending soon (≤6 h) — appear in homepage row ───────────────────────
       {
-        cardId:       auctionCard1.id,
+        listingId:    auctionCard1.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(80),
         reservePrice: dollarsToCents(150),
@@ -918,7 +892,7 @@ async function main() {
         endsAt:       hours(2),
       },
       {
-        cardId:       auctionCard2.id,
+        listingId:    auctionCard2.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(60),
         buyOutPrice:  dollarsToCents(200),
@@ -926,7 +900,7 @@ async function main() {
         endsAt:       hours(4),
       },
       {
-        cardId:       auctionCard3.id,
+        listingId:    auctionCard3.id,
         sellerId:     misty.id,
         startingBid:  dollarsToCents(50),
         reservePrice: dollarsToCents(100),
@@ -935,7 +909,7 @@ async function main() {
       },
       // ── Ending later — only on /auctions page ─────────────────────────────
       {
-        cardId:       auctionCard4.id,
+        listingId:    auctionCard4.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(40),
         reservePrice: dollarsToCents(80),
@@ -944,7 +918,7 @@ async function main() {
         endsAt:       days(1),
       },
       {
-        cardId:       auctionCard5.id,
+        listingId:    auctionCard5.id,
         sellerId:     misty.id,
         startingBid:  dollarsToCents(30),
         buyOutPrice:  dollarsToCents(120),
@@ -952,7 +926,7 @@ async function main() {
         endsAt:       days(2),
       },
       {
-        cardId:       auctionCard6.id,
+        listingId:    auctionCard6.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(80),
         reservePrice: dollarsToCents(160),
@@ -962,7 +936,7 @@ async function main() {
       // ── Quick-expiry test auctions (5–10 min) — all owned by Ash ────────────
       // Card 7 (10 min): bid below S$80 RP → pending_seller_decision, or S$150 BO → instant win
       {
-        cardId:       auctionCard7.id,
+        listingId:    auctionCard7.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(20),
         reservePrice: dollarsToCents(80),
@@ -972,7 +946,7 @@ async function main() {
       },
       // Card 8 (5 min): no RP, no BO — leave with zero bids → expiredNoBids
       {
-        cardId:       auctionCard8.id,
+        listingId:    auctionCard8.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(10),
         reservePrice: null,
@@ -982,7 +956,7 @@ async function main() {
       },
       // Card 9 (6 min): bid above S$50 RP (e.g. S$60) → cron auto-settles at endsAt
       {
-        cardId:       auctionCard9.id,
+        listingId:    auctionCard9.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(20),
         reservePrice: dollarsToCents(50),
@@ -992,7 +966,7 @@ async function main() {
       },
       // Card 10 (7 min): bid below S$80 RP (e.g. S$40) → pending_seller_decision
       {
-        cardId:       auctionCard10.id,
+        listingId:    auctionCard10.id,
         sellerId:     ash.id,
         startingBid:  dollarsToCents(30),
         reservePrice: dollarsToCents(80),
@@ -1011,7 +985,7 @@ async function main() {
       price: dollarsToCents(100),
       message: null,
       status: "pending",
-      cardId: charizard.id,
+      listingId: charizard.id,
       buyerId: misty.id,
       sellerId: ash.id,
     },
@@ -1019,7 +993,7 @@ async function main() {
 
   console.log(
     "✅ Offer created from Misty on:",
-    charizard.title,
+    pokemonCatalog.charizardVmax.nameEn,
     "Offer:",
     offer.id
   );
@@ -1028,7 +1002,7 @@ async function main() {
   // Useful to test your "purchases" UI
   const order = await prisma.order.create({
     data: {
-      cardId: charizard.id,
+      listingId: charizard.id,
       sellerId: ash.id,
       buyerId: misty.id,
       amount: charizard.price ?? dollarsToCents(120),
@@ -1042,7 +1016,7 @@ async function main() {
   await prisma.cardTransaction.create({
     data: {
       orderId: order.id,
-      cardId: charizard.id,
+      listingId: charizard.id,
       sellerId: ash.id,
       buyerId: misty.id,
       amount: order.amount,
@@ -1053,7 +1027,7 @@ async function main() {
   });
 
   await prisma.$transaction([
-    prisma.card.update({
+    prisma.listing.update({
       where: { id: charizard.id },
       data: {
         ownerId: misty.id,
@@ -1074,40 +1048,42 @@ async function main() {
   console.log("✅ Seeded sample Order + CardTransaction");
 
   // ── Additional transactions so Highest Transacted has data ──────────────────
-  // Look up one card per tcgPlayerId to use as the sold card reference
-  const venusaurCard = await prisma.card.findFirst({
-    where: { tcgPlayerId: "222990", ownerId: ash.id },
+  // Look up one listing per catalog card to use as the sold-listing reference.
+  // tcgPlayerId now lives on the catalog row, so the filter reaches it through
+  // the pokemonCard relation instead of a flat column on Listing.
+  const venusaurListing = await prisma.listing.findFirst({
+    where: { pokemonCard: { tcgPlayerId: "222990" }, ownerId: ash.id },
   });
-  const blastoiseCard = await prisma.card.findFirst({
-    where: { tcgPlayerId: "42360", ownerId: ash.id },
+  const blastoiseListing = await prisma.listing.findFirst({
+    where: { pokemonCard: { tcgPlayerId: "42360" }, ownerId: ash.id },
   });
-  const starmieCard = await prisma.card.findFirst({
-    where: { tcgPlayerId: "197658", ownerId: misty.id },
+  const starmieListing = await prisma.listing.findFirst({
+    where: { pokemonCard: { tcgPlayerId: "197658" }, ownerId: misty.id },
   });
-  const gyaradosCard = await prisma.card.findFirst({
-    where: { tcgPlayerId: "246724", ownerId: misty.id },
+  const gyaradosListing = await prisma.listing.findFirst({
+    where: { pokemonCard: { tcgPlayerId: "246724" }, ownerId: misty.id },
   });
 
   const extraTransactions = [
     // Venusaur V — 4 transactions (most transacted)
-    { card: venusaurCard, tcgPlayerId: "222990", seller: ash, buyer: misty, events: ["evt_seed_ven_1", "evt_seed_ven_2", "evt_seed_ven_3", "evt_seed_ven_4"] },
+    { listing: venusaurListing, tcgPlayerId: "222990", seller: ash, buyer: misty, events: ["evt_seed_ven_1", "evt_seed_ven_2", "evt_seed_ven_3", "evt_seed_ven_4"] },
     // Blastoise — 3 transactions
-    { card: blastoiseCard, tcgPlayerId: "42360", seller: ash, buyer: misty, events: ["evt_seed_bla_1", "evt_seed_bla_2", "evt_seed_bla_3"] },
+    { listing: blastoiseListing, tcgPlayerId: "42360", seller: ash, buyer: misty, events: ["evt_seed_bla_1", "evt_seed_bla_2", "evt_seed_bla_3"] },
     // Starmie GX — 2 transactions
-    { card: starmieCard, tcgPlayerId: "197658", seller: misty, buyer: ash, events: ["evt_seed_sta_1", "evt_seed_sta_2"] },
+    { listing: starmieListing, tcgPlayerId: "197658", seller: misty, buyer: ash, events: ["evt_seed_sta_1", "evt_seed_sta_2"] },
     // Gyarados VMAX — 2 transactions
-    { card: gyaradosCard, tcgPlayerId: "246724", seller: misty, buyer: ash, events: ["evt_seed_gya_1", "evt_seed_gya_2"] },
+    { listing: gyaradosListing, tcgPlayerId: "246724", seller: misty, buyer: ash, events: ["evt_seed_gya_1", "evt_seed_gya_2"] },
   ];
 
-  for (const { card, tcgPlayerId, seller, buyer, events } of extraTransactions) {
-    if (!card) continue;
+  for (const { listing, tcgPlayerId, seller, buyer, events } of extraTransactions) {
+    if (!listing) continue;
     for (const stripeEventId of events) {
       const extraOrder = await prisma.order.create({
         data: {
-          cardId: card.id,
+          listingId: listing.id,
           sellerId: seller.id,
           buyerId: buyer.id,
-          amount: card.price ?? dollarsToCents(50),
+          amount: listing.price ?? dollarsToCents(50),
           currency: "sgd",
           status: "PAID",
         },
@@ -1115,7 +1091,7 @@ async function main() {
       await prisma.cardTransaction.create({
         data: {
           orderId: extraOrder.id,
-          cardId: card.id,
+          listingId: listing.id,
           sellerId: seller.id,
           buyerId: buyer.id,
           amount: extraOrder.amount,
@@ -1128,6 +1104,49 @@ async function main() {
   }
 
   console.log("✅ Seeded extra transactions for Highest Transacted");
+
+  // ── Riftbound catalog + listing ──────────────────────────────────────────
+  // Real card data (not invented) — matches the sample row used when
+  // designing the catalog schema. No flavour/rules text is seeded since none
+  // was available; textFlavour/textPlain stay null.
+  const riftboundVi = await prisma.riftboundCardCatalog.create({
+    data: {
+      riftboundId: "unl-176-219",
+      name: "Vi - Peacekeeper",
+      type: "Unit",
+      supertype: "Champion",
+      rarity: "Rare",
+      domain: "Order",
+      energy: 5,
+      might: 5,
+      power: 1,
+      artist: "Envar Studio",
+      alternateArt: false,
+      signature: false,
+      overnumbered: false,
+      tags: ["Vi", "Piltover"],
+      setId: "UNL",
+      setLabel: "Unleashed",
+      collectorNumber: "176",
+      imageUrl:
+        "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/51610bbdecd77b15f58b9a968611e536ebdf445e-744x1039.png",
+    },
+  });
+
+  await prisma.listing.create({
+    data: {
+      game: "RIFTBOUND",
+      riftboundCardId: riftboundVi.id,
+      price: dollarsToCents(15),
+      condition: "Near Mint",
+      description: "Vi - Peacekeeper from the Unleashed set.",
+      imageUrls: [riftboundVi.imageUrl],
+      forSale: true,
+      ownerId: ash.id,
+    },
+  });
+
+  console.log("✅ Riftbound catalog + listing created");
 
   // ── Best Sellers (admin-curated) ─────────────────────────────────────────────
   await prisma.bestSeller.createMany({
