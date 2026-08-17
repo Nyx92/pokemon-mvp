@@ -3,8 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 /**
  * GET /api/watchlist
  *
- * Returns all cards the authenticated user has watchlisted, newest first.
- * Prices are stored in cents in the DB and converted to dollars in the response.
+ * Returns all listings the authenticated user has watchlisted, newest first.
+ * Prices are stored in cents in the DB and converted to dollars in the
+ * response. Card identity is resolved from whichever catalog relation
+ * (pokemonCard/riftboundCard) is populated on the listing.
  */
 
 // ── STEP 1: Create mock objects ───────────────────────────────────────────────
@@ -31,23 +33,26 @@ import { GET } from "@/app/api/watchlist/route";
 
 const SESSION = { user: { id: "user-1" } };
 
-function makeWatchlistEntry(cardId: string, priceInCents: number | null) {
+function makeWatchlistEntry(listingId: string, priceInCents: number | null) {
   return {
-    card: {
-      id: cardId,
-      title: `Card ${cardId}`,
+    listing: {
+      id: listingId,
       price: priceInCents,
       condition: "NM",
       forSale: true,
       imageUrls: [],
-      setName: "Base Set",
-      rarity: "Rare",
-      tcgPlayerId: null,
-      language: "English",
-      cardNumber: "001",
       status: "available",
       description: "",
       binderId: null,
+      pokemonCard: {
+        nameEn: `Card ${listingId}`,
+        rarity: "Rare",
+        setNameEn: "Base Set",
+        language: "English",
+        localId: "001",
+        tcgPlayerId: null,
+      },
+      riftboundCard: null,
       // No email here: a mocked findMany call bypasses Prisma's `select`
       // entirely, so this fixture must mirror what the corrected
       // { id, username } select actually returns in production.
@@ -82,7 +87,7 @@ describe("GET /api/watchlist", () => {
   // What's being tested: price conversion and response shape.
   //
   // The DB stores prices in cents; the API must return them as dollars.
-  // Cards with null prices must pass through as null (not 0 or undefined).
+  // Listings with null prices must pass through as null (not 0 or undefined).
 
   it("returns watchlisted cards with prices converted from cents to dollars", async () => {
     mockPrisma.cardWatchlist.findMany.mockResolvedValueOnce([
@@ -97,6 +102,7 @@ describe("GET /api/watchlist", () => {
     expect(body.cards).toHaveLength(2);
     expect(body.cards[0].id).toBe("c1");
     expect(body.cards[0].price).toBe(10);
+    expect(body.cards[0].title).toBe("Card c1");
     expect(body.cards[1].price).toBeNull();
   });
 
@@ -130,12 +136,12 @@ describe("GET /api/watchlist", () => {
     expect(body.cards).toEqual([]);
   });
 
-  // What's being tested: the card owner's email must never reach the
+  // What's being tested: the listing owner's email must never reach the
   // response. Commit 6410447 already fixed this for /api/cards and
   // /api/cards/[id] — this route was missed. Watchlisting a card requires
   // no relationship with the seller, so there's no reason to expose it.
 
-  it("never includes the card owner's email in the response", async () => {
+  it("never includes the listing owner's email in the response", async () => {
     mockPrisma.cardWatchlist.findMany.mockResolvedValueOnce([
       makeWatchlistEntry("c1", 1000),
     ]);
@@ -152,7 +158,7 @@ describe("GET /api/watchlist", () => {
     // back to including `email: true` would still pass them. Assert on the
     // call arguments themselves so this test fails if that select is widened.
     const findManyArgs = mockPrisma.cardWatchlist.findMany.mock.calls[0][0];
-    expect(findManyArgs.include.card.include.owner).toEqual({
+    expect(findManyArgs.include.listing.include.owner).toEqual({
       select: { id: true, username: true },
     });
   });
