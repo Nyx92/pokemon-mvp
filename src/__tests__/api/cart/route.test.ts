@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
  * Tests for GET, POST, and DELETE /api/cart.
  *
  * GET  → groups cart items into packages by seller; includes userAddress.
- * POST → adds a card (idempotent), rejects self-adds and non-for-sale cards.
+ * POST → adds a listing (idempotent — adding the same listing twice is safe).
  * DELETE → clears all items or only selected ones (?selected=true).
  */
 
@@ -22,7 +22,7 @@ const mockPrisma = vi.hoisted(() => ({
     count: vi.fn(),
     deleteMany: vi.fn(),
   },
-  card: {
+  listing: {
     findUnique: vi.fn(),
   },
   user: {
@@ -50,6 +50,26 @@ function makeRequest(url = "http://localhost/api/cart", init?: ConstructorParame
   return new NextRequest(url, init);
 }
 
+function listingFixture(owner: { id: string; username: string | null }) {
+  return {
+    id: "listing-1",
+    price: 5000,
+    condition: "NM",
+    imageUrls: [],
+    forSale: true,
+    pokemonCard: {
+      nameEn: "Charizard",
+      rarity: "Rare",
+      setNameEn: "Base Set",
+      language: "English",
+      localId: "4/102",
+      tcgPlayerId: "tcg-1",
+    },
+    riftboundCard: null,
+    owner,
+  };
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // GET /api/cart
 // ═════════════════════════════════════════════════════════════════════════════
@@ -67,29 +87,16 @@ describe("GET /api/cart", () => {
     expect(res.status).toBe(401);
   });
 
-  // What's being tested: items are grouped by seller and prices are converted
-  // from cents (DB storage) to dollars (API response).
-  it("groups items by seller and converts price from cents to dollars", async () => {
-    const owner = { id: "seller-1", username: "seller", email: "seller@test.com" };
-    const card = {
-      id: "card-1",
-      title: "Charizard",
-      price: 500, // cents → should become 5.00
-      condition: "NM",
-      imageUrls: [],
-      language: "English",
-      setName: "Base Set",
-      rarity: "Rare",
-      cardNumber: "4/102",
-      forSale: true,
-      tcgPlayerId: "tcg-1",
-      owner,
-    };
+  // What's being tested: items are grouped by seller, prices are converted
+  // from cents (DB storage) to dollars (API response), and card identity
+  // fields are resolved via the catalog relation.
+  it("groups items by seller, converts price from cents to dollars, and resolves catalog fields", async () => {
+    const owner = { id: "seller-1", username: "seller" };
     const item = {
       id: "item-1",
       selected: true,
       createdAt: new Date("2024-01-01"),
-      card,
+      listing: listingFixture(owner),
     };
 
     mockPrisma.cart.upsert.mockResolvedValueOnce({ id: "cart-1", items: [item] });
@@ -107,7 +114,8 @@ describe("GET /api/cart", () => {
     expect(res.status).toBe(200);
     expect(body.packages).toHaveLength(1);
     expect(body.packages[0].sellerId).toBe("seller-1");
-    expect(body.packages[0].items[0].card.price).toBe(5); // cents → dollars
+    expect(body.packages[0].items[0].card.price).toBe(50); // cents → dollars
+    expect(body.packages[0].items[0].card.title).toBe("Charizard");
     expect(body.userAddress?.name).toBe("John Doe");
   });
 
@@ -123,7 +131,7 @@ describe("GET /api/cart", () => {
     expect(body.packages).toEqual([]);
   });
 
-  // What's being tested: the card owner's email must never reach the
+  // What's being tested: the listing owner's email must never reach the
   // response, and the query itself must not select it — asserting only on
   // the response body isn't enough here, since the mock below already
   // returns an email-free owner regardless of what select we pass Prisma;
@@ -135,24 +143,11 @@ describe("GET /api/cart", () => {
       id: "item-1",
       selected: true,
       createdAt: new Date("2025-01-01"),
-      card: {
-        id: "card-1",
-        title: "Charizard",
-        price: 5000,
-        condition: "NM",
-        imageUrls: [],
-        language: "English",
-        setName: "Base Set",
-        rarity: "Rare",
-        cardNumber: "004",
-        forSale: true,
-        tcgPlayerId: null,
-        owner,
-      },
+      listing: listingFixture(owner),
     };
   }
 
-  it("never includes the card owner's email in the response or the query", async () => {
+  it("never includes the listing owner's email in the response or the query", async () => {
     mockPrisma.cart.upsert.mockResolvedValue({
       items: [cartItemFixture({ id: "owner-1", username: "Ash" })],
     });
@@ -166,15 +161,15 @@ describe("GET /api/cart", () => {
     expect(body.packages[0].sellerName).toBe("Ash");
 
     const upsertArgs = mockPrisma.cart.upsert.mock.calls[0][0];
-    expect(upsertArgs.include.items.include.card.include.owner).toEqual({
+    expect(upsertArgs.include.items.include.listing.include.owner).toEqual({
       select: { id: true, username: true },
     });
   });
 
-  // What's being tested: the actual behavior change in this task — the
-  // sellerName fallback used to read `owner.email` when `username` was
-  // missing; now that email is no longer selected, it must fall back to
-  // the literal string "Seller" instead of silently becoming undefined.
+  // What's being tested: the sellerName fallback used to read `owner.email`
+  // when `username` was missing; now that email is no longer selected, it
+  // must fall back to the literal string "Seller" instead of silently
+  // becoming undefined.
 
   it("falls back sellerName to 'Seller' when the owner has no username", async () => {
     mockPrisma.cart.upsert.mockResolvedValue({
@@ -209,7 +204,7 @@ describe("POST /api/cart", () => {
   // What's being tested: the auth gate.
   it("returns 401 when not authenticated", async () => {
     mockGetServerSession.mockResolvedValueOnce(null);
-    const res = await POST(postRequest({ cardId: "card-1" }));
+    const res = await POST(postRequest({ cardId: "listing-1" }));
     expect(res.status).toBe(401);
   });
 
@@ -219,32 +214,32 @@ describe("POST /api/cart", () => {
     expect(res.status).toBe(400);
   });
 
-  // What's being tested: a user cannot add their own card.
+  // What's being tested: a user cannot add their own listing.
   it("returns 400 when the user tries to add their own card", async () => {
-    mockPrisma.card.findUnique.mockResolvedValueOnce({
-      id: "card-1",
+    mockPrisma.listing.findUnique.mockResolvedValueOnce({
+      id: "listing-1",
       forSale: true,
       ownerId: "user-1", // same as session user
     });
-    const res = await POST(postRequest({ cardId: "card-1" }));
+    const res = await POST(postRequest({ cardId: "listing-1" }));
     expect(res.status).toBe(400);
   });
 
-  // What's being tested: a non-for-sale card is rejected.
+  // What's being tested: a non-for-sale listing is rejected.
   it("returns 400 when the card is not for sale", async () => {
-    mockPrisma.card.findUnique.mockResolvedValueOnce({
-      id: "card-1",
+    mockPrisma.listing.findUnique.mockResolvedValueOnce({
+      id: "listing-1",
       forSale: false,
       ownerId: "seller-1",
     });
-    const res = await POST(postRequest({ cardId: "card-1" }));
+    const res = await POST(postRequest({ cardId: "listing-1" }));
     expect(res.status).toBe(400);
   });
 
-  // What's being tested: a new card is added and count is returned.
+  // What's being tested: a new listing is added and count is returned.
   it("creates a cart item and returns alreadyInCart: false", async () => {
-    mockPrisma.card.findUnique.mockResolvedValueOnce({
-      id: "card-1",
+    mockPrisma.listing.findUnique.mockResolvedValueOnce({
+      id: "listing-1",
       forSale: true,
       ownerId: "seller-1",
     });
@@ -253,21 +248,24 @@ describe("POST /api/cart", () => {
     mockPrisma.cartItem.create.mockResolvedValueOnce({ id: "item-1" });
     mockPrisma.cartItem.count.mockResolvedValueOnce(1);
 
-    const res = await POST(postRequest({ cardId: "card-1" }));
+    const res = await POST(postRequest({ cardId: "listing-1" }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.alreadyInCart).toBe(false);
     expect(body.count).toBe(1);
-    expect(mockPrisma.cartItem.create).toHaveBeenCalledOnce();
+    expect(mockPrisma.cartItem.create).toHaveBeenCalledWith({
+      data: { cartId: "cart-1", listingId: "listing-1", selected: true },
+    });
   });
 
-  // What's being tested: adding a card that's already in the cart returns
-  // alreadyInCart: true without creating a duplicate row.
+  // What's being tested: adding a listing that's already in the cart returns
+  // alreadyInCart: true without creating a duplicate row, and the lookup
+  // uses the renamed cartId_listingId compound key.
   it("returns alreadyInCart: true when card is already in cart", async () => {
-    mockPrisma.card.findUnique.mockResolvedValueOnce({
-      id: "card-1",
+    mockPrisma.listing.findUnique.mockResolvedValueOnce({
+      id: "listing-1",
       forSale: true,
       ownerId: "seller-1",
     });
@@ -275,12 +273,15 @@ describe("POST /api/cart", () => {
     mockPrisma.cartItem.findUnique.mockResolvedValueOnce({ id: "item-1" }); // already present
     mockPrisma.cartItem.count.mockResolvedValueOnce(3);
 
-    const res = await POST(postRequest({ cardId: "card-1" }));
+    const res = await POST(postRequest({ cardId: "listing-1" }));
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.alreadyInCart).toBe(true);
     expect(mockPrisma.cartItem.create).not.toHaveBeenCalled();
+    expect(mockPrisma.cartItem.findUnique).toHaveBeenCalledWith({
+      where: { cartId_listingId: { cartId: "cart-1", listingId: "listing-1" } },
+    });
   });
 });
 

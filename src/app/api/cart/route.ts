@@ -3,7 +3,7 @@
 // Three operations on the user's cart:
 //
 //   GET  /api/cart          → return the full cart grouped into packages by seller
-//   POST /api/cart          → add a card (idempotent — adding the same card twice is safe)
+//   POST /api/cart          → add a listing (idempotent — adding the same listing twice is safe)
 //   DELETE /api/cart        → clear all items (or only selected items with ?selected=true)
 
 import { NextResponse } from "next/server";
@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { centsToDollars } from "@/lib/money";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
@@ -30,11 +31,12 @@ export async function GET() {
     include: {
       items: {
         include: {
-          card: {
+          listing: {
             include: {
               // Adding to cart requires no relationship with the seller yet —
               // email deliberately excluded, same rationale as cards/route.ts.
               owner: { select: { id: true, username: true } },
+              ...listingCatalogInclude,
             },
           },
         },
@@ -62,8 +64,8 @@ export async function GET() {
   >();
 
   for (const item of cart.items) {
-    const sellerId = item.card.owner.id;
-    const sellerName = item.card.owner.username ?? "Seller";
+    const sellerId = item.listing.owner.id;
+    const sellerName = item.listing.owner.username ?? "Seller";
     if (!sellerMap.has(sellerId)) {
       sellerMap.set(sellerId, { sellerName, items: [] });
     }
@@ -74,25 +76,28 @@ export async function GET() {
     ([sellerId, { sellerName, items }]) => ({
       sellerId,
       sellerName,
-      items: items.map((item) => ({
-        id: item.id,
-        selected: item.selected,
-        createdAt: item.createdAt.toISOString(),
-        card: {
-          id: item.card.id,
-          title: item.card.title,
-          price: item.card.price != null ? centsToDollars(item.card.price) : null,
-          condition: item.card.condition,
-          imageUrls: item.card.imageUrls,
-          language: item.card.language,
-          setName: item.card.setName,
-          rarity: item.card.rarity,
-          cardNumber: item.card.cardNumber,
-          forSale: item.card.forSale,
-          tcgPlayerId: item.card.tcgPlayerId,
-          owner: item.card.owner,
-        },
-      })),
+      items: items.map((item) => {
+        const display = withListingDisplay(item.listing);
+        return {
+          id: item.id,
+          selected: item.selected,
+          createdAt: item.createdAt.toISOString(),
+          card: {
+            id: display.id,
+            title: display.title,
+            price: display.price != null ? centsToDollars(display.price) : null,
+            condition: display.condition,
+            imageUrls: display.imageUrls,
+            language: display.language,
+            setName: display.setName,
+            rarity: display.rarity,
+            cardNumber: display.cardNumber,
+            forSale: display.forSale,
+            tcgPlayerId: display.tcgPlayerId,
+            owner: display.owner,
+          },
+        };
+      }),
     })
   );
 
@@ -119,22 +124,24 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json().catch(() => null);
-  const cardId = typeof body?.cardId === "string" ? body.cardId : null;
-  if (!cardId) {
+  // Wire contract unchanged — the request body still uses `cardId`, even
+  // though it now maps to a Listing row.
+  const listingId = typeof body?.cardId === "string" ? body.cardId : null;
+  if (!listingId) {
     return NextResponse.json({ error: "cardId is required" }, { status: 400 });
   }
 
   const userId = session.user.id;
 
-  // Validate the card exists, is for sale, and doesn't belong to the buyer
-  const card = await prisma.card.findUnique({ where: { id: cardId } });
-  if (!card) {
+  // Validate the listing exists, is for sale, and doesn't belong to the buyer
+  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+  if (!listing) {
     return NextResponse.json({ error: "Card not found" }, { status: 404 });
   }
-  if (!card.forSale) {
+  if (!listing.forSale) {
     return NextResponse.json({ error: "Card is not for sale" }, { status: 400 });
   }
-  if (card.ownerId === userId) {
+  if (listing.ownerId === userId) {
     return NextResponse.json(
       { error: "You cannot add your own card to your cart" },
       { status: 400 }
@@ -150,7 +157,7 @@ export async function POST(req: Request) {
 
   // Check if already in cart before creating (so we can tell the caller)
   const existing = await prisma.cartItem.findUnique({
-    where: { cartId_cardId: { cartId: cart.id, cardId } },
+    where: { cartId_listingId: { cartId: cart.id, listingId } },
   });
 
   if (existing) {
@@ -164,7 +171,7 @@ export async function POST(req: Request) {
   }
 
   const item = await prisma.cartItem.create({
-    data: { cartId: cart.id, cardId, selected: true },
+    data: { cartId: cart.id, listingId, selected: true },
   });
 
   const count = await prisma.cartItem.count({ where: { cartId: cart.id } });
