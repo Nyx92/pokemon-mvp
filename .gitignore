@@ -45,3 +45,6 @@ stripe.tar.gz
 
 # superpowers subagent-driven-development scratch workspace (ledgers, briefs, reports)
 /.superpowers/
+
+# superpowers isolated worktrees
+/.worktrees/
