@@ -53,10 +53,7 @@ export async function POST(_req: NextRequest) {
     const listingIds = cart.items.map((i) => i.listingId);
     const freshListings = await prisma.listing.findMany({
       where: { id: { in: listingIds } },
-      select: {
-        id: true, price: true, forSale: true, ownerId: true, imageUrls: true,
-        ...listingCatalogInclude,
-      },
+      include: listingCatalogInclude,
     });
     const listingMap = new Map(freshListings.map((l) => [l.id, withListingDisplay(l)]));
 
