@@ -9,17 +9,23 @@ import { NextRequest } from "next/server";
  * client-supplied so an admin can pick any user from a dropdown). Because
  * ownerId is trusted input, this route must be restricted to admins only.
  *
+ * The route now creates a Listing pointed at a PokemonCardCatalog row
+ * (found-or-created by tcgPlayerId) instead of storing identity fields
+ * directly on the card row.
+ *
  * Tests cover:
  *   - 401 unauthenticated
  *   - 403 authenticated but not an admin
  *   - 201 admin can still create a card (happy path, proves the auth gate
- *     doesn't break the legitimate flow)
+ *     doesn't break the legitimate flow), reusing an existing catalog row
+ *   - creates a new catalog row when no existing one matches
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
 
 const mockPrisma = vi.hoisted(() => ({
-  card: { create: vi.fn() },
+  listing: { create: vi.fn() },
+  pokemonCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
 }));
 
 const mockSupabaseInstance = vi.hoisted(() => ({
@@ -81,34 +87,58 @@ describe("POST /api/cards", () => {
     mockGetServerSession.mockResolvedValue(null);
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(401);
-    expect(mockPrisma.card.create).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.create).not.toHaveBeenCalled();
   });
 
   it("returns 403 when authenticated but not an admin", async () => {
     mockGetServerSession.mockResolvedValue(USER_SESSION);
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(403);
-    expect(mockPrisma.card.create).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.create).not.toHaveBeenCalled();
   });
 
-  it("lets an admin create a card owned by a different user", async () => {
+  it("lets an admin create a card owned by a different user, reusing an existing catalog row", async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
-    mockPrisma.card.create.mockResolvedValue({
-      id: "card-1",
-      title: "Charizard",
+    mockPrisma.pokemonCardCatalog.findFirst.mockResolvedValue({ id: "catalog-1", tcgPlayerId: "tcg-1" });
+    mockPrisma.listing.create.mockResolvedValue({
+      id: "listing-1",
       ownerId: "target-user-1",
     });
 
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(200);
 
+    expect(mockPrisma.pokemonCardCatalog.findFirst).toHaveBeenCalledWith({
+      where: { tcgPlayerId: "tcg-1" },
+    });
+    expect(mockPrisma.pokemonCardCatalog.create).not.toHaveBeenCalled();
+
     // The admin's own id must NOT silently override the chosen ownerId —
     // this route intentionally lets an admin assign the card to anyone.
-    expect(mockPrisma.card.create).toHaveBeenCalledWith(
+    expect(mockPrisma.listing.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          game: "POKEMON",
+          pokemonCardId: "catalog-1",
           owner: { connect: { id: "target-user-1" } },
         }),
+      })
+    );
+  });
+
+  it("creates a new catalog row when no existing one matches the submitted tcgPlayerId", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    mockPrisma.pokemonCardCatalog.findFirst.mockResolvedValue(null);
+    mockPrisma.pokemonCardCatalog.create.mockResolvedValue({ id: "catalog-new" });
+    mockPrisma.listing.create.mockResolvedValue({ id: "listing-1", ownerId: "target-user-1" });
+
+    const res = await POST(postRequest(buildFormData()));
+    expect(res.status).toBe(200);
+
+    expect(mockPrisma.pokemonCardCatalog.create).toHaveBeenCalled();
+    expect(mockPrisma.listing.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ pokemonCardId: "catalog-new" }),
       })
     );
   });

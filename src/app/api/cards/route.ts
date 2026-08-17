@@ -4,6 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
 import { dollarsToCents, centsToDollars } from "@/lib/money";
+import {
+  listingCatalogInclude,
+  withListingDisplay,
+  findOrCreatePokemonCatalogEntry,
+} from "@/lib/listingDisplay";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -19,9 +24,17 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = {};
     if (forSaleParam === "true") where.forSale = true;
-    if (tcgPlayerIdParam) where.tcgPlayerId = tcgPlayerIdParam;
+    // tcgPlayerId now lives on whichever catalog a listing points to, not on
+    // Listing itself — match either catalog relation since the caller has no
+    // way to know which game a given tcgPlayerId belongs to.
+    if (tcgPlayerIdParam) {
+      where.OR = [
+        { pokemonCard: { tcgPlayerId: tcgPlayerIdParam } },
+        { riftboundCard: { tcgPlayerId: tcgPlayerIdParam } },
+      ];
+    }
 
-    const cards = await prisma.card.findMany({
+    const listings = await prisma.listing.findMany({
       where,
       include: {
         binder: true,
@@ -29,15 +42,18 @@ export async function GET(req: Request) {
         // frontend reads it here, and card owners' emails shouldn't be
         // exposed to anonymous marketplace visitors).
         owner: { select: { id: true, username: true } },
+        ...listingCatalogInclude,
       },
       orderBy: { createdAt: "desc" },
     });
 
-    const cardsForUi = cards.map((c) => ({
-      ...c,
-      // if c.price is cents-int or null
-      price: c.price != null ? centsToDollars(c.price) : null,
-    }));
+    const cardsForUi = listings.map((listing) => {
+      const withDisplay = withListingDisplay(listing);
+      return {
+        ...withDisplay,
+        price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
+      };
+    });
     return NextResponse.json({ cards: cardsForUi });
   } catch (error: any) {
     console.error("❌ Error fetching cards:", error);
@@ -66,7 +82,6 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
 
-    // ✅ Basic fields
     const title = formData.get("title") as string | null;
     const condition = formData.get("condition") as string | null;
     const description = (formData.get("description") as string | null) || "";
@@ -90,12 +105,10 @@ export async function POST(req: Request) {
     const priceRequiredButMissing =
       forSale && (price === null || Number.isNaN(price));
 
-    // ✅ Multiple image files
     const images = formData
       .getAll("images")
       .filter((v): v is File => v instanceof File);
 
-    // Validation
     if (
       !title ||
       !condition ||
@@ -121,7 +134,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ Upload all images to Supabase
     const imageUrls: string[] = [];
 
     for (const image of images) {
@@ -148,25 +160,33 @@ export async function POST(req: Request) {
       imageUrls.push(publicUrlData.publicUrl);
     }
 
-    // ✅ Save new card with multiple image URLs
-    const card = await prisma.card.create({
+    // The admin upload form only collects flat card-identity fields — it
+    // doesn't know about the PokemonCardCatalog table. Reuse a catalog row
+    // for repeated uploads of "the same" card (matched by tcgPlayerId), or
+    // create one, instead of creating an orphaned catalog-less listing.
+    const catalogEntry = await findOrCreatePokemonCatalogEntry(prisma, {
+      title,
+      setName,
+      rarity,
+      tcgPlayerId,
+      language,
+      cardNumber,
+    });
+
+    const listing = await prisma.listing.create({
       data: {
-        title,
+        game: "POKEMON",
+        pokemonCardId: catalogEntry.id,
         price,
         condition,
         description,
         imageUrls,
         forSale,
-        setName,
-        rarity,
-        tcgPlayerId,
-        language,
-        cardNumber,
         owner: { connect: { id: ownerId } },
       },
     });
 
-    return NextResponse.json({ card });
+    return NextResponse.json({ card: listing });
   } catch (error: any) {
     console.error("❌ Error creating card:", error);
     return NextResponse.json(
