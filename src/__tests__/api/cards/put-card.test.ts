@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
  */
 
 const mockPrisma = vi.hoisted(() => ({
-  card: { findUnique: vi.fn(), update: vi.fn() },
+  listing: { findUnique: vi.fn(), update: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -39,7 +39,7 @@ function putRequest(fields: Record<string, string>) {
   return new Request("http://localhost/api/cards/card-1", { method: "PUT", body });
 }
 
-const CARD = {
+const LISTING = {
   id: "card-1",
   ownerId: "owner-1",
   price: 1000,
@@ -51,12 +51,12 @@ describe("PUT /api/cards/[id] — owner update", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue(OWNER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
-    mockPrisma.card.update.mockResolvedValue({ ...CARD, price: 1500, forSale: true });
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
+    mockPrisma.listing.update.mockResolvedValue({ ...LISTING, price: 1500, forSale: true });
   });
 
   it("returns 409 when the owner tries to list a card for sale while it's in an active auction", async () => {
-    mockPrisma.card.findUnique.mockResolvedValue({ ...CARD, inAuction: true, forSale: false });
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true, forSale: false });
 
     const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: { id: "card-1" } });
 
@@ -64,23 +64,23 @@ describe("PUT /api/cards/[id] — owner update", () => {
     expect(await res.json()).toMatchObject({
       error: "Cannot list a card for sale while it is in an active auction",
     });
-    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 
   it("allows unlisting (forSale: false) even while in an active auction", async () => {
-    mockPrisma.card.findUnique.mockResolvedValue({ ...CARD, inAuction: true, forSale: false });
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true, forSale: false });
 
     const res = await PUT(putRequest({ price: "", forSale: "false" }), { params: { id: "card-1" } });
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.card.update).toHaveBeenCalled();
+    expect(mockPrisma.listing.update).toHaveBeenCalled();
   });
 
   it("allows the normal price/forSale update when not in an auction", async () => {
     const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: { id: "card-1" } });
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.card.update).toHaveBeenCalledWith({
+    expect(mockPrisma.listing.update).toHaveBeenCalledWith({
       where: { id: "card-1" },
       data: { price: 1500, forSale: true },
     });
@@ -92,13 +92,13 @@ describe("PUT /api/cards/[id] — owner update", () => {
     expect(await res.json()).toMatchObject({
       error: "Price must be greater than $0 when listing a card for sale",
     });
-    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 
   it("returns 400 when forSale is true and price is negative", async () => {
     const res = await PUT(putRequest({ price: "-5", forSale: "true" }), { params: { id: "card-1" } });
     expect(res.status).toBe(400);
-    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 });
 
@@ -108,15 +108,16 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
   });
 
   it("returns 409 when the admin tries to list a card for sale while it's in an active auction", async () => {
-    mockPrisma.card.findUnique.mockResolvedValue({ ...CARD, inAuction: true, forSale: false });
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true, forSale: false });
 
     // Admin request with full fields (title, condition, ownerId, etc.) — the
     // guard runs before admin-specific validation, so it should 409 before
-    // image validation matters, but we construct a realistic request anyway.
+    // image validation or catalog lookup matter, but we construct a
+    // realistic request anyway.
     const adminFields = {
       title: "Charizard Holo",
       condition: "Mint",
@@ -133,6 +134,6 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
     expect(await res.json()).toMatchObject({
       error: "Cannot list a card for sale while it is in an active auction",
     });
-    expect(mockPrisma.card.update).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 });

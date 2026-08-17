@@ -4,6 +4,11 @@ import { createClient } from "@supabase/supabase-js";
 import { getServerSession } from "next-auth";
 import { authOptions, isAdminOrOwner } from "@/lib/auth";
 import { dollarsToCents, centsToDollars } from "@/lib/money";
+import {
+  listingCatalogInclude,
+  withListingDisplay,
+  findOrCreatePokemonCatalogEntry,
+} from "@/lib/listingDisplay";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -17,8 +22,8 @@ export async function GET(
   try {
     const session = await getServerSession(authOptions);
 
-const [card, watchlistEntry] = await Promise.all([
-      prisma.card.findUnique({
+    const [listing, watchlistEntry] = await Promise.all([
+      prisma.listing.findUnique({
         where: { id: params.id },
         include: {
           binder: true,
@@ -27,29 +32,30 @@ const [card, watchlistEntry] = await Promise.all([
           // exposed to anonymous visitors).
           owner: { select: { id: true, username: true } },
           _count: { select: { watchlist: true } },
+          ...listingCatalogInclude,
         },
       }),
       session?.user?.id
         ? prisma.cardWatchlist.findUnique({
             where: {
-              cardId_userId: { cardId: params.id, userId: session.user.id },
+              listingId_userId: { listingId: params.id, userId: session.user.id },
             },
           })
         : Promise.resolve(null),
     ]);
 
-    if (!card) {
+    if (!listing) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
     // Check if the requesting user has this card watchlisted
     const watchlistedByUser = !!watchlistEntry;
 
-    const { _count, ...rest } = card;
+    const { _count, ...rest } = withListingDisplay(listing);
     return NextResponse.json({
       card: {
         ...rest,
-        price: card.price != null ? centsToDollars(card.price) : null,
+        price: rest.price != null ? centsToDollars(rest.price) : null,
         watchlistCount: _count.watchlist,
         watchlistedByUser,
       },
@@ -73,14 +79,14 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const card = await prisma.card.findUnique({ where: { id: params.id } });
-    if (!card) {
+    const listing = await prisma.listing.findUnique({ where: { id: params.id } });
+    if (!listing) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
     const isAdmin = session.user.role === "admin";
 
-    if (!isAdminOrOwner(session, card.ownerId)) {
+    if (!isAdminOrOwner(session, listing.ownerId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -99,7 +105,7 @@ export async function PUT(
     // lock it. Allowing forSale: true here would let Buy Now/offers run
     // concurrently with live bids (the same double-sale class of bug fixed
     // in the offer-accept and auction-creation guards).
-    if (forSale && card.inAuction) {
+    if (forSale && listing.inAuction) {
       return NextResponse.json(
         { error: "Cannot list a card for sale while it is in an active auction" },
         { status: 409 }
@@ -115,7 +121,7 @@ export async function PUT(
 
     // Owner: only price + forSale
     if (!isAdmin) {
-      const updated = await prisma.card.update({
+      const updated = await prisma.listing.update({
         where: { id: params.id },
         data: { price, forSale },
       });
@@ -127,7 +133,9 @@ export async function PUT(
       });
     }
 
-    // Admin: full update
+    // Admin: full update — same find-or-create catalog reuse as POST
+    // /api/cards, since the admin edit form still submits flat identity
+    // fields rather than a catalog id.
     const title = formData.get("title") as string;
     const condition = formData.get("condition") as string;
     const description = (formData.get("description") as string) || "";
@@ -169,20 +177,24 @@ export async function PUT(
       );
     }
 
-    const updated = await prisma.card.update({
+    const catalogEntry = await findOrCreatePokemonCatalogEntry(prisma, {
+      title,
+      setName,
+      rarity,
+      tcgPlayerId,
+      language,
+      cardNumber,
+    });
+
+    const updated = await prisma.listing.update({
       where: { id: params.id },
       data: {
-        title,
+        pokemonCardId: catalogEntry.id,
         price,
         condition,
         description,
         imageUrls,
         forSale,
-        setName,
-        rarity,
-        tcgPlayerId,
-        language,
-        cardNumber,
         owner: { connect: { id: ownerId } },
       },
     });
