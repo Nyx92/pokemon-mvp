@@ -146,9 +146,9 @@ model PokemonCardCatalog {
   dexIds         Int[]
   illustrator    String?
   isFirstEdition Boolean   @default(false)
-  language       String // print-language classification; carried through
-  // as-is from the source index alongside the
-  // separate nameEn/nameJa fields
+  // Print-language classification; carried through as-is from the source
+  // index alongside the separate nameEn/nameJa fields.
+  language       String
   regulationMark String?
   localId        String? // card number within its set, e.g. "016" or "SV107"
   setId          String
@@ -207,9 +207,9 @@ model Listing {
   id   String @id @default(uuid())
   game String // "POKEMON" | "RIFTBOUND"
 
-  pokemonCard     PokemonCardCatalog?   @relation(fields: [pokemonCardId], references: [id])
+  pokemonCard     PokemonCardCatalog?   @relation(fields: [pokemonCardId], references: [id], onDelete: Restrict)
   pokemonCardId   String?
-  riftboundCard   RiftboundCardCatalog? @relation(fields: [riftboundCardId], references: [id])
+  riftboundCard   RiftboundCardCatalog? @relation(fields: [riftboundCardId], references: [id], onDelete: Restrict)
   riftboundCardId String?
 
   price       Int?

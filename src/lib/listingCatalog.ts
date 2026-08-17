@@ -29,12 +29,15 @@ export function assertValidListingCatalogRefs(refs: ListingCatalogRefs): void {
   }
   if (refs.game === "POKEMON" && !hasPokemon) {
     throw new Error(
-      'A listing with game "POKEMON" cannot reference both a Pokémon and a Riftbound catalog card — it must reference a PokemonCardCatalog row, not a RiftboundCardCatalog row.'
+      'A listing with game "POKEMON" must reference a PokemonCardCatalog row, but riftboundCardId was set instead.'
     );
   }
   if (refs.game === "RIFTBOUND" && !hasRiftbound) {
     throw new Error(
-      'A listing with game "RIFTBOUND" cannot reference both a Pokémon and a Riftbound catalog card — it must reference a RiftboundCardCatalog row, not a PokemonCardCatalog row.'
+      'A listing with game "RIFTBOUND" must reference a RiftboundCardCatalog row, but pokemonCardId was set instead.'
     );
+  }
+  if (refs.game !== "POKEMON" && refs.game !== "RIFTBOUND") {
+    throw new Error(`Unknown listing game: "${refs.game}".`);
   }
 }

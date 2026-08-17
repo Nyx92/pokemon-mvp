@@ -272,10 +272,16 @@ async function main() {
         tcgPlayerId: "441629",
       },
     }),
-    // The "quick-expiry test auctions" section (below) has three listings whose
-    // original tcgPlayerId/set/number didn't match any of the cards above —
-    // each becomes its own catalog row rather than silently pointing at the
-    // wrong card's identity now that identity is normalized.
+    // The "quick-expiry test auctions" section (below) originally had three
+    // listings whose tcgPlayerId/set/number didn't match any of the cards
+    // above. Two of them — Psyduck (Base Set) and Gyarados VMAX (Vivid
+    // Voltage), the two catalog rows below — get their own new catalog rows
+    // rather than silently pointing at the wrong card's identity now that
+    // identity is normalized. The third (the 7-minute test auction,
+    // auctionCard10, originally labeled "Starmie GX" with a stray
+    // tcgPlayerId that actually belonged to Shuckle) has set/card-number
+    // data that matches the existing starmieGxEn row exactly, so it's
+    // re-pointed at starmieGxEn instead, dropping the stray tcgPlayerId.
     psyduckBaseSet: await prisma.pokemonCardCatalog.create({
       data: {
         externalId: "mock-base-set-psyduck",

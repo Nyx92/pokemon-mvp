@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { assertValidListingCatalogRefs } from "@/lib/listingCatalog";
+import {
+  assertValidListingCatalogRefs,
+  type ListingGame,
+} from "@/lib/listingCatalog";
 
 describe("assertValidListingCatalogRefs", () => {
   it("passes for a valid POKEMON listing", () => {
@@ -33,12 +36,21 @@ describe("assertValidListingCatalogRefs", () => {
   it("throws when game is POKEMON but pokemonCardId is missing", () => {
     expect(() =>
       assertValidListingCatalogRefs({ game: "POKEMON", riftboundCardId: "rift-1" })
-    ).toThrow(/cannot reference both/i);
+    ).toThrow(/must reference a PokemonCardCatalog row/i);
   });
 
   it("throws when game is RIFTBOUND but riftboundCardId is missing", () => {
     expect(() =>
       assertValidListingCatalogRefs({ game: "RIFTBOUND", pokemonCardId: "poke-1" })
-    ).toThrow(/cannot reference both/i);
+    ).toThrow(/must reference a RiftboundCardCatalog row/i);
+  });
+
+  it("throws for an unrecognized game value", () => {
+    expect(() =>
+      assertValidListingCatalogRefs({
+        game: "pokemon" as ListingGame,
+        pokemonCardId: "poke-1",
+      })
+    ).toThrow(/unknown listing game/i);
   });
 });
