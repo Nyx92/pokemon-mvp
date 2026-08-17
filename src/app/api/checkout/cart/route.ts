@@ -3,15 +3,15 @@
 // Creates a single Stripe Checkout Session covering all selected cart items.
 //
 // Flow:
-//   1. Auth + fetch selected cart items with card data
-//   2. Validate every card (for sale, not own, price > 0)
-//   3. Atomically reserve all cards + create one Order per card (single DB transaction)
-//   4. Create one Stripe session with all cards as line items
-//   5. Stamp every Order and Card with the Stripe session ID
+//   1. Auth + fetch selected cart item listing ids
+//   2. Validate every listing (for sale, not own, price > 0) using fresh data
+//   3. Atomically reserve all listings + create one Order per listing (single DB transaction)
+//   4. Create one Stripe session with all listings as line items
+//   5. Stamp every Order and Listing with the Stripe session ID
 //   6. Return { url } — caller redirects window.location to the Stripe page
 //
 // Webhook counterpart: app/api/stripe/webhook/route.ts handles
-//   checkout.session.completed  → transfers all cards, cleans up cart
+//   checkout.session.completed  → transfers all listings, cleans up cart
 //   checkout.session.expired    → releases all reservations
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,6 +19,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -35,16 +36,11 @@ export async function POST(_req: NextRequest) {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   try {
-    // ── 1. Fetch selected items with full card data ───────────────────────────
+    // ── 1. Fetch selected items' listing ids ──────────────────────────────────
     const cart = await prisma.cart.findUnique({
       where: { userId: buyerId },
       include: {
-        items: {
-          where: { selected: true },
-          include: {
-            card: { select: { id: true, title: true, price: true, forSale: true, ownerId: true, imageUrls: true } },
-          },
-        },
+        items: { where: { selected: true } },
       },
     });
 
@@ -52,54 +48,57 @@ export async function POST(_req: NextRequest) {
       return NextResponse.json({ error: "No selected items in cart" }, { status: 400 });
     }
 
-    // ── 2. Validate every card using authoritative DB data ───────────────────
+    // ── 2. Validate every listing using authoritative DB data ───────────────
     // Fetch fresh copies to prevent stale-snapshot attacks (price manipulation, etc.)
-    const cardIds = cart.items.map((i) => i.cardId);
-    const freshCards = await prisma.card.findMany({
-      where: { id: { in: cardIds } },
-      select: { id: true, title: true, price: true, forSale: true, ownerId: true, imageUrls: true },
+    const listingIds = cart.items.map((i) => i.listingId);
+    const freshListings = await prisma.listing.findMany({
+      where: { id: { in: listingIds } },
+      select: {
+        id: true, price: true, forSale: true, ownerId: true, imageUrls: true,
+        ...listingCatalogInclude,
+      },
     });
-    const cardMap = new Map(freshCards.map((c) => [c.id, c]));
+    const listingMap = new Map(freshListings.map((l) => [l.id, withListingDisplay(l)]));
 
     for (const item of cart.items) {
-      const card = cardMap.get(item.cardId);
-      if (!card) {
-        return NextResponse.json({ error: `Card "${item.card.title}" no longer exists` }, { status: 404 });
+      const listing = listingMap.get(item.listingId);
+      if (!listing) {
+        return NextResponse.json({ error: `Card "${item.listingId}" no longer exists` }, { status: 404 });
       }
-      if (!card.forSale) {
-        return NextResponse.json({ error: `"${card.title}" is no longer for sale` }, { status: 409 });
+      if (!listing.forSale) {
+        return NextResponse.json({ error: `"${listing.title}" is no longer for sale` }, { status: 409 });
       }
-      if (card.ownerId === buyerId) {
+      if (listing.ownerId === buyerId) {
         return NextResponse.json({ error: "Cannot buy your own card" }, { status: 400 });
       }
-      if (!card.price || card.price <= 0) {
-        return NextResponse.json({ error: `"${card.title}" has no valid price` }, { status: 400 });
+      if (!listing.price || listing.price <= 0) {
+        return NextResponse.json({ error: `"${listing.title}" has no valid price` }, { status: 400 });
       }
     }
 
     const reservedUntil = new Date(Date.now() + 60_000); // 1-minute reservation window
 
-    // ── 3. Atomic multi-card reservation + order creation ────────────────────
-    // Each card is reserved only if currently unlocked.
+    // ── 3. Atomic multi-listing reservation + order creation ─────────────────
+    // Each listing is reserved only if currently unlocked.
     // Failure of any single reservation rolls back the entire transaction,
     // so we never partially-reserve a cart.
     const orders = await prisma.$transaction(async (tx) => {
-      const created: { orderId: string; cardId: string; sellerId: string; amount: number }[] = [];
+      const created: { orderId: string; listingId: string; sellerId: string; amount: number }[] = [];
 
       for (const item of cart.items) {
-        const card = cardMap.get(item.cardId)!;
+        const listing = listingMap.get(item.listingId)!;
 
-        const reserved = await tx.card.updateMany({
+        const reserved = await tx.listing.updateMany({
           where: {
-            id: card.id,
+            id: listing.id,
             forSale: true,
-            // A card is reservable only if it has never been reserved, or its
+            // A listing is reservable only if it has never been reserved, or its
             // previous reservation has expired. The old third branch
             // (`reservedCheckoutSessionId: null`) let a second buyer steal an
             // *active* reservation during the window between "reservedUntil
             // set" and "Stripe session created" (reservedCheckoutSessionId is
             // only stamped after the session.create() call below returns) —
-            // whoever's card.update ran last would win, and the webhook would
+            // whoever's update ran last would win, and the webhook would
             // later refund whichever buyer actually completed payment.
             OR: [
               { reservedUntil: null },
@@ -110,30 +109,30 @@ export async function POST(_req: NextRequest) {
         });
 
         if (reserved.count !== 1) {
-          throw new Error(`"${card.title}" was just reserved by another buyer. Please try again.`);
+          throw new Error(`"${listing.title}" was just reserved by another buyer. Please try again.`);
         }
 
         const order = await tx.order.create({
           data: {
-            cardId: card.id,
-            sellerId: card.ownerId,
+            listingId: listing.id,
+            sellerId: listing.ownerId,
             buyerId,
-            amount: card.price!,
+            amount: listing.price!,
             currency: "sgd",
             status: "PENDING",
           },
         });
 
-        created.push({ orderId: order.id, cardId: card.id, sellerId: card.ownerId, amount: card.price! });
+        created.push({ orderId: order.id, listingId: listing.id, sellerId: listing.ownerId, amount: listing.price! });
       }
 
       return created;
     });
 
     // ── 4. Build Stripe line items ────────────────────────────────────────────
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = orders.map(({ cardId, amount }) => {
-      const card = cardMap.get(cardId)!;
-      const imageUrls = (card.imageUrls ?? [])
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = orders.map(({ listingId, amount }) => {
+      const listing = listingMap.get(listingId)!;
+      const imageUrls = (listing.imageUrls ?? [])
         .filter(Boolean)
         .slice(0, 1) // Stripe allows up to 8; one is enough per line item
         .map((url) => (url.startsWith("http") ? url : `${baseUrl}${url}`));
@@ -143,9 +142,9 @@ export async function POST(_req: NextRequest) {
           currency: "sgd",
           unit_amount: amount,
           product_data: {
-            name: card.title,
+            name: listing.title,
             images: imageUrls,
-            metadata: { cardId },
+            metadata: { cardId: listingId },
           },
         },
         quantity: 1,
@@ -166,7 +165,7 @@ export async function POST(_req: NextRequest) {
       },
     });
 
-    // ── 6. Stamp Orders + Cards with the session ID ───────────────────────────
+    // ── 6. Stamp Orders + Listings with the session ID ────────────────────────
     await prisma.$transaction([
       ...orders.map(({ orderId }) =>
         prisma.order.update({
@@ -174,9 +173,9 @@ export async function POST(_req: NextRequest) {
           data: { stripeCheckoutSessionId: checkoutSession.id },
         })
       ),
-      ...orders.map(({ cardId }) =>
-        prisma.card.update({
-          where: { id: cardId },
+      ...orders.map(({ listingId }) =>
+        prisma.listing.update({
+          where: { id: listingId },
           data: { reservedCheckoutSessionId: checkoutSession.id },
         })
       ),

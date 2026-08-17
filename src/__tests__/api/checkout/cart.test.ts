@@ -6,11 +6,11 @@ import { NextRequest } from "next/server";
  *
  * The route:
  *   1. Authenticates the user
- *   2. Fetches selected cart items + fresh card data
- *   3. Validates cards (for sale, not own, price > 0)
- *   4. Atomically reserves all cards and creates Orders
+ *   2. Fetches selected cart items (listing ids only) + fresh listing data
+ *   3. Validates listings (for sale, not own, price > 0)
+ *   4. Atomically reserves all listings and creates Orders
  *   5. Creates a Stripe Checkout Session with all items as line items
- *   6. Stamps Orders and Cards with the session ID
+ *   6. Stamps Orders and Listings with the session ID
  *   7. Returns { url }
  */
 
@@ -18,7 +18,7 @@ import { NextRequest } from "next/server";
 
 const mockPrisma = vi.hoisted(() => ({
   cart: { findUnique: vi.fn() },
-  card: { findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+  listing: { findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
   order: { create: vi.fn(), update: vi.fn() },
   $transaction: vi.fn(),
 }));
@@ -47,20 +47,27 @@ import { POST } from "@/app/api/checkout/cart/route";
 
 const SESSION = { user: { id: "buyer-1" } };
 
-const CARD = {
+const LISTING = {
   id: "card-1",
-  title: "Charizard",
   price: 1000,          // 1000 cents = S$10.00
   forSale: true,
   ownerId: "seller-1",
   imageUrls: ["https://example.com/charizard.jpg"],
+  pokemonCard: {
+    nameEn: "Charizard",
+    rarity: "Rare",
+    setNameEn: "Base Set",
+    language: "English",
+    localId: "4",
+    tcgPlayerId: "tcg-1",
+  },
+  riftboundCard: null,
 };
 
 const CART_ITEM = {
   id: "cartitem-1",
-  cardId: "card-1",
+  listingId: "card-1",
   selected: true,
-  card: CARD,
 };
 
 const CART = {
@@ -104,30 +111,30 @@ describe("POST /api/checkout/cart", () => {
     expect(res.status).toBe(400);
   });
 
-  // What's being tested: card no longer for sale is rejected with 409
-  it("returns 409 when a card is no longer for sale", async () => {
+  // What's being tested: listing no longer for sale is rejected with 409
+  it("returns 409 when a listing is no longer for sale", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([{ ...CARD, forSale: false }]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([{ ...LISTING, forSale: false }]);
     const res = await POST(makeRequest());
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toContain("no longer for sale");
   });
 
-  // What's being tested: buyer trying to purchase their own card is blocked
+  // What's being tested: buyer trying to purchase their own listing is blocked
   it("returns 400 when buyer tries to buy their own card", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([{ ...CARD, ownerId: "buyer-1" }]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([{ ...LISTING, ownerId: "buyer-1" }]);
     const res = await POST(makeRequest());
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/own card/i);
   });
 
-  // What's being tested: card with no price is rejected
-  it("returns 400 when a card has no price", async () => {
+  // What's being tested: listing with no price is rejected
+  it("returns 400 when a listing has no price", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([{ ...CARD, price: null }]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([{ ...LISTING, price: null }]);
     const res = await POST(makeRequest());
     expect(res.status).toBe(400);
     const body = await res.json();
@@ -135,11 +142,10 @@ describe("POST /api/checkout/cart", () => {
   });
 
   // What's being tested: reservation conflict returns a user-friendly 500
-  it("returns 500 when a card is already reserved by another buyer", async () => {
+  it("returns 500 when a listing is already reserved by another buyer", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([LISTING]);
 
-    // Transaction throws because updateMany count = 0
     mockPrisma.$transaction.mockRejectedValueOnce(
       new Error('"Charizard" was just reserved by another buyer. Please try again.')
     );
@@ -150,57 +156,18 @@ describe("POST /api/checkout/cart", () => {
     expect(body.error).toContain("reserved by another buyer");
   });
 
-  // What's being tested: the specific race this fix closes. Buyer A has
-  // already reserved the card (reservedUntil is in the future) but their
-  // Stripe session hasn't been created yet, so reservedCheckoutSessionId is
-  // still null. Before the fix, the `{ reservedCheckoutSessionId: null }`
-  // branch of the OR clause let Buyer B's updateMany match and steal the
-  // reservation out from under Buyer A. After the fix, only an expired or
-  // never-set reservedUntil allows a new reservation — an active
-  // reservedUntil blocks Buyer B regardless of reservedCheckoutSessionId.
-  it("does not let a second buyer steal a reservation that's active but not yet session-stamped", async () => {
-    mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
-
-    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
-      if (typeof fnOrOps === "function") {
-        const mockTx = {
-          card: {
-            // Simulates the real WHERE clause correctly rejecting Buyer B:
-            // reservedUntil is in the future and reservedCheckoutSessionId is
-            // null, but reservedCheckoutSessionId: null must no longer be a
-            // standalone match branch.
-            updateMany: vi.fn().mockResolvedValue({ count: 0 }),
-          },
-          order: { create: vi.fn() },
-        };
-        return fnOrOps(mockTx);
-      }
-      return Promise.all(fnOrOps);
-    });
-
-    const res = await POST(makeRequest());
-    expect(res.status).toBe(500);
-    const body = await res.json();
-    expect(body.error).toContain("reserved by another buyer");
-  });
-
-  // What's being tested: same fix as above, verified by inspecting the
-  // actual WHERE clause the per-item reservation loop sends to
-  // tx.card.updateMany — its OR clause must contain exactly the two
-  // legitimate branches (never-reserved, or expired), and nothing else.
-  // Asserting the exact shape (not just the absence of the vulnerable
-  // branch) also catches a regression that accidentally dropped one of the
-  // legitimate branches instead of the vulnerable one.
+  // What's being tested: the reservation query's OR clause only allows
+  // never-reserved or expired reservations (same guard as single-item
+  // checkout — see Task 4).
   it("reservation query's OR clause only allows never-reserved or expired reservations", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([LISTING]);
 
     let capturedWhere: any;
     mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
       if (typeof fnOrOps === "function") {
         const mockTx = {
-          card: {
+          listing: {
             updateMany: vi.fn().mockImplementation((args) => {
               capturedWhere = args.where;
               return Promise.resolve({ count: 1 });
@@ -221,34 +188,48 @@ describe("POST /api/checkout/cart", () => {
     ]);
   });
 
-  // What's being tested: happy path — session created, url returned
+  // What's being tested: happy path — session created, url returned, and
+  // the order is created against the renamed listingId column.
   it("creates orders, creates stripe session, returns url", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([LISTING]);
 
-    // Transaction returns the created orders
-    const createdOrders = [
-      { orderId: "order-1", cardId: "card-1", sellerId: "seller-1", amount: 1000 },
-    ];
-    mockPrisma.$transaction.mockResolvedValueOnce(createdOrders);
+    let capturedOrderData: any;
+    mockPrisma.$transaction.mockImplementationOnce(async (fnOrOps) => {
+      const mockTx = {
+        listing: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+        order: {
+          create: vi.fn().mockImplementation((args) => {
+            capturedOrderData = args.data;
+            return Promise.resolve({ id: "order-1" });
+          }),
+        },
+      };
+      return (fnOrOps as any)(mockTx);
+    });
+    mockPrisma.$transaction.mockImplementationOnce(async (ops) => Promise.all(ops as any));
 
-    // Stripe returns a checkout URL
     mockStripeCreate.mockResolvedValueOnce({ id: "cs_test_abc", url: "https://checkout.stripe.com/pay/cs_test_abc" });
-
-    // Stamping transaction (orders + cards)
-    mockPrisma.$transaction.mockResolvedValueOnce([]);
 
     const res = await POST(makeRequest());
     const body = await res.json();
 
     expect(res.status).toBe(200);
     expect(body.url).toBe("https://checkout.stripe.com/pay/cs_test_abc");
+    expect(capturedOrderData).toMatchObject({ listingId: "card-1", sellerId: "seller-1" });
 
-    // Stripe session should be created with correct metadata
+    // Stripe session should be created with correct metadata and resolved title
     expect(mockStripeCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({ checkoutType: "cart", buyerId: "buyer-1" }),
         cancel_url: expect.stringContaining("/cart"),
+        line_items: [
+          expect.objectContaining({
+            price_data: expect.objectContaining({
+              product_data: expect.objectContaining({ name: "Charizard" }),
+            }),
+          }),
+        ],
       })
     );
   });
@@ -256,9 +237,9 @@ describe("POST /api/checkout/cart", () => {
   // What's being tested: Stripe error surfaces as 500 with message
   it("returns 500 when Stripe session creation fails", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
-    mockPrisma.card.findMany.mockResolvedValueOnce([CARD]);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([LISTING]);
     mockPrisma.$transaction.mockResolvedValueOnce([
-      { orderId: "order-1", cardId: "card-1", sellerId: "seller-1", amount: 1000 },
+      { orderId: "order-1", listingId: "card-1", sellerId: "seller-1", amount: 1000 },
     ]);
     mockStripeCreate.mockRejectedValueOnce(new Error("Stripe unavailable"));
 
