@@ -188,6 +188,45 @@ describe("POST /api/checkout/cart", () => {
     ]);
   });
 
+  // What's being tested: the reservation window matches single-item Buy Now
+  // checkout (15 minutes), not the previous 1-minute window this route used.
+  // A buyer filling out a multi-item Stripe checkout page needs at least as
+  // much time as a single-item buyer — there's no reason cart checkout should
+  // give them less, and the mismatch let a slow-but-legitimate cart buyer's
+  // reservation expire mid-payment, handing the item to another buyer and
+  // triggering a spurious auto-refund on the person who actually paid.
+  it("reserves listings for 15 minutes, matching single-item checkout", async () => {
+    mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
+    mockPrisma.listing.findMany.mockResolvedValueOnce([LISTING]);
+
+    let capturedReservedUntil: Date | undefined;
+    const before = Date.now();
+    mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
+      if (typeof fnOrOps === "function") {
+        const mockTx = {
+          listing: {
+            updateMany: vi.fn().mockImplementation((args) => {
+              capturedReservedUntil = args.data.reservedUntil;
+              return Promise.resolve({ count: 1 });
+            }),
+          },
+          order: { create: vi.fn().mockResolvedValue({ id: "order-1" }) },
+        };
+        return fnOrOps(mockTx);
+      }
+      return Promise.all(fnOrOps);
+    });
+
+    await POST(makeRequest());
+    const after = Date.now();
+
+    expect(capturedReservedUntil).toBeInstanceOf(Date);
+    const windowMs = capturedReservedUntil!.getTime() - before;
+    // Allow slack for test execution time either side of the 15-minute mark.
+    expect(windowMs).toBeGreaterThan(14 * 60_000);
+    expect(windowMs).toBeLessThanOrEqual(15 * 60_000 + (after - before));
+  });
+
   // What's being tested: happy path — session created, url returned, and
   // the order is created against the renamed listingId column.
   it("creates orders, creates stripe session, returns url", async () => {

@@ -73,7 +73,11 @@ export async function POST(_req: NextRequest) {
       }
     }
 
-    const reservedUntil = new Date(Date.now() + 60_000); // 1-minute reservation window
+    // 15 minutes matches single-item Buy Now checkout (see checkout/route.ts) —
+    // a multi-item Stripe checkout page takes at least as long to fill out as
+    // a single-item one, so there's no reason to give a cart buyer less time.
+    const reserveMinutes = 15;
+    const reservedUntil = new Date(Date.now() + reserveMinutes * 60_000);
 
     // ── 3. Atomic multi-listing reservation + order creation ─────────────────
     // Each listing is reserved only if currently unlocked.
