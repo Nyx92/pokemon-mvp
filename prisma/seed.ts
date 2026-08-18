@@ -1136,6 +1136,7 @@ async function main() {
       collectorNumber: "176",
       imageUrl:
         "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/51610bbdecd77b15f58b9a968611e536ebdf445e-744x1039.png",
+      tcgPlayerId: "685595",
     },
   });
 
