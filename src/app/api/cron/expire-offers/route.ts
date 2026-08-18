@@ -67,7 +67,7 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
       id: true,
       paymentIntentId: true,
       buyerId: true,
-      cardId: true,
+      listingId: true,
     },
   });
 
