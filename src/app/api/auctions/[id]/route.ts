@@ -56,7 +56,7 @@ export async function GET(
         sellerDecisionDeadline: auction.sellerDecisionDeadline?.toISOString() ?? null,
         version:         auction.version,
         bidCount:        auction._count.bids,
-        card:            withListingDisplay(auction.listing),
+        card:            withListingDisplay(auction.listing as any),
         bids: auction.bids.map((b) => ({
           ...b,
           amount:    centsToDollars(b.amount),
