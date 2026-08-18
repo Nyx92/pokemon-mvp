@@ -24,6 +24,7 @@
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { notifyAsync } from "@/lib/notifications";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -43,7 +44,7 @@ export async function settleAuction(auctionId: string): Promise<void> {
         orderBy: { amount: "desc" },
         take:    1,
       },
-      card: { select: { title: true, tcgPlayerId: true } },
+      listing: { select: { id: true, ...listingCatalogInclude } },
     },
   });
 
@@ -52,6 +53,9 @@ export async function settleAuction(auctionId: string): Promise<void> {
 
   const winningBid = auction.bids[0];
   if (!winningBid) throw new Error(`[auctionSettlement] No active bid on auction ${auctionId}`);
+
+  const listingTitle = withListingDisplay(auction.listing as any).title;
+  const listingTcgPlayerId = withListingDisplay(auction.listing as any).tcgPlayerId || undefined;
 
   // 2. Capture the winning PI. Money moves from buyer to platform.
   //    Capture first so the DB transaction can record the confirmed payment.
@@ -74,7 +78,7 @@ export async function settleAuction(auctionId: string): Promise<void> {
       // 4a. Create an Order record to represent this sale.
       const order = await tx.order.create({
         data: {
-          cardId:                 auction.cardId,
+          listingId:              auction.listingId,
           sellerId:               auction.sellerId,
           buyerId:                winningBid.bidderId,
           amount:                 winningBid.amount,
@@ -90,13 +94,13 @@ export async function settleAuction(auctionId: string): Promise<void> {
       await tx.cardTransaction.create({
         data: {
           orderId:      order.id,
-          cardId:       auction.cardId,
+          listingId:    auction.listingId,
           sellerId:     auction.sellerId,
           buyerId:      winningBid.bidderId,
           amount:       winningBid.amount,
           currency:     "sgd",
           stripeEventId: winningBid.paymentIntentId,
-          tcgPlayerId:  auction.card.tcgPlayerId ?? undefined,
+          tcgPlayerId:  listingTcgPlayerId,
         },
       });
 
@@ -116,8 +120,8 @@ export async function settleAuction(auctionId: string): Promise<void> {
       }
 
       // 4e. Transfer card ownership.
-      await tx.card.update({
-        where: { id: auction.cardId },
+      await tx.listing.update({
+        where: { id: auction.listingId },
         data:  { ownerId: winningBid.bidderId, inAuction: false, forSale: false },
       });
 
@@ -145,9 +149,9 @@ export async function settleAuction(auctionId: string): Promise<void> {
     notifyAsync({
       userId: bid.bidderId,
       type:   "auction_expired",
-      title:  `Auction ended for "${auction.card.title}"`,
-      body:   `The auction for "${auction.card.title}" has ended. You did not win this time.`,
-      cardId: auction.cardId,
+      title:  `Auction ended for "${listingTitle}"`,
+      body:   `The auction for "${listingTitle}" has ended. You did not win this time.`,
+      cardId: auction.listingId,
     });
   }
 
@@ -157,17 +161,17 @@ export async function settleAuction(auctionId: string): Promise<void> {
   notifyAsync({
     userId: winningBid.bidderId,
     type:   "auction_won",
-    title:  `You won "${auction.card.title}"!`,
-    body:   `Congratulations! You won the auction for "${auction.card.title}" at ${amountDisplay}. The card is now yours.`,
-    cardId: auction.cardId,
+    title:  `You won "${listingTitle}"!`,
+    body:   `Congratulations! You won the auction for "${listingTitle}" at ${amountDisplay}. The card is now yours.`,
+    cardId: auction.listingId,
   });
 
   notifyAsync({
     userId: auction.sellerId,
     type:   "auction_sold",
-    title:  `"${auction.card.title}" sold via auction`,
-    body:   `Your card "${auction.card.title}" was sold for ${amountDisplay}.`,
-    cardId: auction.cardId,
+    title:  `"${listingTitle}" sold via auction`,
+    body:   `Your card "${listingTitle}" was sold for ${amountDisplay}.`,
+    cardId: auction.listingId,
   });
 
   console.log(

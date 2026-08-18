@@ -7,25 +7,16 @@ import { NextRequest } from "next/server";
  * Sequence:
  *   1. Auth check
  *   2. Validate inputs (startingBid, durationDays, reservePrice, buyOutPrice)
- *   3. Load card — must be owned by seller, not already in auction, not
+ *   3. Load listing — must be owned by seller, not already in auction, not
  *      have a pending offer, and not have an active Buy Now reservation
- *   4. Create Auction + lock card in prisma.$transaction
+ *   4. Create Auction + lock listing in prisma.$transaction
  *   5. Return 201 with formatted auction (prices in dollars)
- *
- * Tests cover:
- *   - Success (no optional prices, with RP+BO)
- *   - 401 unauthenticated
- *   - 400 missing/invalid inputs
- *   - 403 card owned by someone else
- *   - 409 card already in auction
- *   - 409 card has a pending offer
- *   - 409 card has an active Buy Now reservation
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
 
 const mockPrisma = vi.hoisted(() => ({
-  card:    { findUnique: vi.fn(), update: vi.fn() },
+  listing: { findUnique: vi.fn(), update: vi.fn() },
   auction: { create: vi.fn() },
   offer:   { findFirst: vi.fn() },
   $transaction: vi.fn(),
@@ -56,8 +47,8 @@ function postReq(body: object) {
 
 const SELLER_SESSION = { user: { id: "seller-1" } };
 
-const CARD = {
-  id: "card-1", title: "Charizard", ownerId: "seller-1",
+const LISTING = {
+  id: "card-1", ownerId: "seller-1",
   inAuction: false, reservedById: null, reservedUntil: null,
 };
 
@@ -65,7 +56,7 @@ const CARD = {
 function makeDbAuction(overrides = {}) {
   return {
     id:             "auction-1",
-    cardId:         "card-1",
+    listingId:      "card-1",
     sellerId:       "seller-1",
     startingBid:    500,   // cents
     reservePrice:   null,
@@ -77,11 +68,14 @@ function makeDbAuction(overrides = {}) {
     sellerDecisionDeadline: null,
     version:        0,
     _count:         { bids: 0 },
-    card: {
-      id: "card-1", title: "Charizard", imageUrls: [], condition: "Raw NM",
-      setName: "Base Set", language: "English", cardNumber: "4/102",
-      rarity: "Holo Rare", tcgPlayerId: "tcg-1", inAuction: true,
+    listing: {
+      id: "card-1", imageUrls: [], condition: "Raw NM", inAuction: true,
       owner: { id: "seller-1", username: "ash" },
+      pokemonCard: {
+        nameEn: "Charizard", rarity: "Holo Rare", setNameEn: "Base Set",
+        language: "English", localId: "4/102", tcgPlayerId: "tcg-1",
+      },
+      riftboundCard: null,
     },
     ...overrides,
   };
@@ -116,11 +110,6 @@ describe("POST /api/auctions", () => {
     expect(res.status).toBe(400);
   });
 
-  // What's being tested: a non-numeric startingBid must be rejected with a
-  // clean 400, not silently become NaN and reach prisma.auction.create
-  // (which would throw a raw Prisma validation error, caught by the generic
-  // catch and surfaced as an unhelpful 500).
-
   it("returns 400 when startingBid is not a number", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
     const res = await POST(postReq({ cardId: "card-1", startingBid: "abc", durationDays: 3 }));
@@ -132,7 +121,7 @@ describe("POST /api/auctions", () => {
 
   it("returns 400 when reservePrice is not a number", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     const res = await POST(postReq({
       cardId: "card-1", startingBid: 5, reservePrice: "xyz", durationDays: 3,
     }));
@@ -142,7 +131,7 @@ describe("POST /api/auctions", () => {
 
   it("returns 400 when buyOutPrice is not a number", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     const res = await POST(postReq({
       cardId: "card-1", startingBid: 5, buyOutPrice: "xyz", durationDays: 3,
     }));
@@ -178,15 +167,9 @@ describe("POST /api/auctions", () => {
     expect(body.error).toMatch(/buy-out/i);
   });
 
-  // What's being tested: the existing buyOutPrice <= reservePrice check only
-  // runs when reservePrice is set. Without a reserve, buyOutPrice must still
-  // be validated against startingBid — otherwise the very first legal bid
-  // (>= startingBid) can force an instant settlement below the seller's
-  // intended buy-out floor.
-
   it("returns 400 when buyOutPrice is below startingBid and no reservePrice is set", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     const res = await POST(postReq({
       cardId: "card-1", startingBid: 50, buyOutPrice: 10, durationDays: 3,
     }));
@@ -198,7 +181,7 @@ describe("POST /api/auctions", () => {
 
   it("allows buyOutPrice equal to startingBid when no reservePrice is set", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     const dbAuction = makeDbAuction({ startingBid: 5000, buyOutPrice: 5000 });
     mockPrisma.$transaction.mockResolvedValue([dbAuction]);
     const res = await POST(postReq({
@@ -209,35 +192,30 @@ describe("POST /api/auctions", () => {
 
   it("returns 404 when card does not exist", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(null);
+    mockPrisma.listing.findUnique.mockResolvedValue(null);
     const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
     expect(res.status).toBe(404);
   });
 
   it("returns 403 when card is owned by someone else", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue({ ...CARD, ownerId: "other-user" });
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, ownerId: "other-user" });
     const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
     expect(res.status).toBe(403);
   });
 
   it("returns 409 when card is already in auction", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue({ ...CARD, inAuction: true });
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true });
     const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toMatch(/already.*auction/i);
   });
 
-  // What's being tested: a card with a pending offer must not also be
-  // auctionable — the seller could accept that offer mid-auction and
-  // settleAuction() would later overwrite the transfer when the auction ends
-  // (the other half of the double-sale bug fixed in offers/[id]/route.ts).
-
   it("returns 409 when card has a pending offer", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     mockPrisma.offer.findFirst.mockResolvedValue({ id: "offer-1" });
 
     const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
@@ -246,20 +224,16 @@ describe("POST /api/auctions", () => {
     expect(body.error).toMatch(/pending offer/i);
 
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    // The pending-offer guard must query by the renamed listingId field.
+    expect(mockPrisma.offer.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ listingId: "card-1" }) })
+    );
   });
-
-  // What's being tested: a card with an active Buy Now reservation (from the
-  // checkout flow — reservedById + reservedUntil in the future, forSale still
-  // true) must not also be auctionable. Auction creation flips forSale to
-  // false, so if a paying buyer's checkout completes after this, the
-  // webhook's card-transfer updateMany (which requires forSale: true) fails
-  // and the buyer gets wrongly refunded — the other half of the double-sale
-  // race fixed via the sibling guard in offers/[id]/route.ts.
 
   it("returns 409 when card has an active Buy Now reservation", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue({
-      ...CARD,
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      ...LISTING,
       reservedById: "buyer-1",
       reservedUntil: new Date(Date.now() + 10 * 60_000),
     });
@@ -272,13 +246,10 @@ describe("POST /api/auctions", () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
-  // An expired reservation (reservedUntil in the past) must not block auction
-  // creation — the checkout window has lapsed and the card is free again.
-
   it("allows auction creation when reservation has expired", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue({
-      ...CARD,
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      ...LISTING,
       reservedById: "buyer-1",
       reservedUntil: new Date(Date.now() - 10 * 60_000),
     });
@@ -289,9 +260,9 @@ describe("POST /api/auctions", () => {
     expect(res.status).toBe(201);
   });
 
-  it("creates auction and returns 201 with prices in dollars", async () => {
+  it("creates auction and returns 201 with prices in dollars and cardId (not listingId)", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     const dbAuction = makeDbAuction({ startingBid: 500 }); // 500 cents = S$5.00
     mockPrisma.$transaction.mockResolvedValue([dbAuction]);
 
@@ -299,16 +270,23 @@ describe("POST /api/auctions", () => {
     expect(res.status).toBe(201);
 
     const body = await res.json();
-    expect(body.auction.startingBid).toBe(5);       // cents → dollars
+    expect(body.auction.startingBid).toBe(5);
     expect(body.auction.reservePrice).toBeNull();
     expect(body.auction.buyOutPrice).toBeNull();
     expect(body.auction.status).toBe("active");
     expect(body.auction.bidCount).toBe(0);
+    expect(body.auction.cardId).toBe("card-1");
+    expect(body.auction).not.toHaveProperty("listingId");
+
+    // The auction is created against the renamed listingId column.
+    expect(mockPrisma.auction.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ listingId: "card-1" }) })
+    );
   });
 
   it("creates auction with reserve and buy-out prices", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
-    mockPrisma.card.findUnique.mockResolvedValue(CARD);
+    mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     const dbAuction = makeDbAuction({
       startingBid:  500,
       reservePrice: 1000,

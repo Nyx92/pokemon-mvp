@@ -4,17 +4,6 @@ import { NextRequest } from "next/server";
 /**
  * POST /api/auctions/[id]/bid/intent — buyer creates a Stripe PaymentIntent
  * for a bid (step 1 of 2, mirrors POST /api/offers/payment-intent).
- *
- * Tests cover:
- *   - 401 unauthenticated
- *   - 400 invalid amount
- *   - 404 auction not found
- *   - 409 auction not active
- *   - 409 auction ended
- *   - 403 seller bidding on own auction
- *   - 400 bid below startingBid
- *   - 400 bid not higher than currentBid
- *   - 200 success — creates a manual-capture PI with the right amount/metadata
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -65,7 +54,14 @@ const BASE_AUCTION = {
   sellerId: "seller-1",
   startingBid: 500, // S$5.00
   currentBid: null,
-  card: { id: "card-1", title: "Charizard" },
+  listing: {
+    id: "card-1",
+    pokemonCard: {
+      nameEn: "Charizard", rarity: "Rare Holo", setNameEn: "Base Set",
+      language: "English", localId: "4/102", tcgPlayerId: "tcg-1",
+    },
+    riftboundCard: null,
+  },
 };
 
 beforeEach(() => {
@@ -123,7 +119,6 @@ describe("POST /api/auctions/[id]/bid/intent", () => {
   it("returns 400 when bid is below startingBid", async () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION); // startingBid = 500 cents
-    // Bid S$4.00 = 400 cents < 500
     const res = await POST(postReq({ amount: 4 }), PARAMS);
     expect(res.status).toBe(400);
   });
@@ -131,12 +126,11 @@ describe("POST /api/auctions/[id]/bid/intent", () => {
   it("returns 400 when bid is not higher than currentBid", async () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue({ ...BASE_AUCTION, currentBid: 1000 });
-    // Bid S$10.00 = 1000 cents, exactly equal to currentBid — must be *higher*
     const res = await POST(postReq({ amount: 10 }), PARAMS);
     expect(res.status).toBe(400);
   });
 
-  it("creates a manual-capture PaymentIntent and returns its clientSecret", async () => {
+  it("creates a manual-capture PaymentIntent with the resolved card title and returns its clientSecret", async () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION);
     mockStripeInstance.paymentIntents.create.mockResolvedValue({

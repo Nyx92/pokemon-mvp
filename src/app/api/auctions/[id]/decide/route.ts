@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { settleAuction, cancelBidPI } from "@/lib/auctionSettlement";
 import { notifyAsync } from "@/lib/notifications";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 /**
  * POST /api/auctions/[id]/decide
@@ -19,7 +20,7 @@ import { notifyAsync } from "@/lib/notifications";
  * Reject flow:
  *   1. Verify auction state and deadline.
  *   2. Cancel highest bid PI (fire-and-forget).
- *   3. Mark auction "expired", clear Card.inAuction.
+ *   3. Mark auction "expired", clear Listing.inAuction.
  *   4. Notify bidder.
  *
  * Body: { action: "accept" | "reject" }
@@ -51,7 +52,7 @@ export async function POST(
           take:    1,
           select:  { id: true, paymentIntentId: true, bidderId: true, amount: true },
         },
-        card: { select: { id: true, title: true } },
+        listing: { select: { id: true, ...listingCatalogInclude } },
       },
     });
 
@@ -107,19 +108,20 @@ export async function POST(
         where: { id: params.id },
         data:  { status: "expired" },
       }),
-      prisma.card.update({
-        where: { id: auction.card.id },
+      prisma.listing.update({
+        where: { id: auction.listing.id },
         data:  { inAuction: false },
       }),
     ]);
 
     // 5. Notify the bidder that the seller declined.
+    const listingTitle = withListingDisplay(auction.listing as any).title;
     notifyAsync({
       userId: highestBid.bidderId,
       type:   "auction_expired",
-      title:  `Auction declined for "${auction.card.title}"`,
-      body:   `The seller chose not to accept the final bid on "${auction.card.title}". Your hold has been released.`,
-      cardId: auction.card.id,
+      title:  `Auction declined for "${listingTitle}"`,
+      body:   `The seller chose not to accept the final bid on "${listingTitle}". Your hold has been released.`,
+      cardId: auction.listing.id,
     });
 
     console.log(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { settleAuction, cancelBidPI } from "@/lib/auctionSettlement";
 import { notifyAsync } from "@/lib/notifications";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 /**
  * GET /api/cron/expire-auctions  ← called by Vercel Cron Jobs (vercel.json)
@@ -11,7 +12,7 @@ import { notifyAsync } from "@/lib/notifications";
  *
  * Pass 1 — Close active auctions whose endsAt has passed:
  *   a) No bids:
- *      → mark auction "expired", release Card.inAuction
+ *      → mark auction "expired", release Listing.inAuction
  *      → notify seller
  *   b) Highest bid >= reservePrice (or no RP set on the auction — auto-settle):
  *      Actually: if reservePrice is null, bid still goes to seller decision.
@@ -24,7 +25,7 @@ import { notifyAsync } from "@/lib/notifications";
  *
  * Pass 2 — Expire pending_seller_decision auctions whose deadline has passed:
  *   → cancel highest bid PI
- *   → mark auction "expired", release Card.inAuction, cancel bid
+ *   → mark auction "expired", release Listing.inAuction, cancel bid
  *   → notify bidder and seller
  */
 
@@ -64,13 +65,14 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
         take:    1,
         select:  { id: true, paymentIntentId: true, bidderId: true, amount: true },
       },
-      card: { select: { id: true, title: true } },
+      listing: { select: { id: true, ...listingCatalogInclude } },
     },
   });
 
   for (const auction of activeExpired) {
     try {
       const topBid = auction.bids[0];
+      const listingTitle = withListingDisplay(auction.listing as any).title;
 
       // ── 1a. No bids — expire immediately ──────────────────────────────────
       if (!topBid) {
@@ -80,8 +82,8 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
             where: { id: auction.id },
             data:  { status: "expired" },
           }),
-          prisma.card.update({
-            where: { id: auction.card.id },
+          prisma.listing.update({
+            where: { id: auction.listing.id },
             data:  { inAuction: false },
           }),
         ]);
@@ -90,9 +92,9 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
         notifyAsync({
           userId: auction.sellerId,
           type:   "auction_expired",
-          title:  `Auction ended with no bids: "${auction.card.title}"`,
-          body:   `Your auction for "${auction.card.title}" ended without any bids.`,
-          cardId: auction.card.id,
+          title:  `Auction ended with no bids: "${listingTitle}"`,
+          body:   `Your auction for "${listingTitle}" ended without any bids.`,
+          cardId: auction.listing.id,
         });
 
         results.expiredNoBids++;
@@ -113,7 +115,7 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
       const deadline = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
       // 2. Flip auction to pending_seller_decision and record the deadline.
-      //    card.inAuction stays true — the card remains locked until seller decides.
+      //    listing.inAuction stays true — the card remains locked until seller decides.
       await prisma.auction.update({
         where: { id: auction.id },
         data:  { status: "pending_seller_decision", sellerDecisionDeadline: deadline },
@@ -123,9 +125,9 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
       notifyAsync({
         userId: auction.sellerId,
         type:   "auction_decision_needed",
-        title:  `Decision needed: "${auction.card.title}"`,
-        body:   `Your auction for "${auction.card.title}" ended with a top bid of S$${(topBid.amount / 100).toFixed(2)}. You have 24 hours to accept or decline.`,
-        cardId: auction.card.id,
+        title:  `Decision needed: "${listingTitle}"`,
+        body:   `Your auction for "${listingTitle}" ended with a top bid of S$${(topBid.amount / 100).toFixed(2)}. You have 24 hours to accept or decline.`,
+        cardId: auction.listing.id,
       });
 
       results.pendingDecision++;
@@ -154,7 +156,7 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
         take:    1,
         select:  { id: true, paymentIntentId: true, bidderId: true },
       },
-      card: { select: { id: true, title: true } },
+      listing: { select: { id: true, ...listingCatalogInclude } },
     },
   });
 
@@ -176,8 +178,8 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
             where: { id: auction.id },
             data:  { status: "expired" },
           }),
-          prisma.card.update({
-            where: { id: auction.card.id },
+          prisma.listing.update({
+            where: { id: auction.listing.id },
             data:  { inAuction: false },
           }),
         ]);
@@ -187,9 +189,9 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
         notifyAsync({
           userId: topBid.bidderId,
           type:   "auction_expired",
-          title:  `Auction expired: "${auction.card.title}"`,
-          body:   `The seller did not respond in time on "${auction.card.title}". Your payment hold has been released.`,
-          cardId: auction.card.id,
+          title:  `Auction expired: "${withListingDisplay(auction.listing as any).title}"`,
+          body:   `The seller did not respond in time on "${withListingDisplay(auction.listing as any).title}". Your payment hold has been released.`,
+          cardId: auction.listing.id,
         });
       } else {
         // Edge case: no active bid found (e.g. bid was already cancelled externally).
@@ -199,8 +201,8 @@ async function runExpiry(req: NextRequest): Promise<NextResponse> {
             where: { id: auction.id },
             data:  { status: "expired" },
           }),
-          prisma.card.update({
-            where: { id: auction.card.id },
+          prisma.listing.update({
+            where: { id: auction.listing.id },
             data:  { inAuction: false },
           }),
         ]);

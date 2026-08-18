@@ -4,17 +4,6 @@ import { NextRequest } from "next/server";
 /**
  * POST /api/auctions/[id]/decide — seller accepts or rejects the highest bid
  * during the pending_seller_decision window.
- *
- * Tests cover:
- *   - 401 unauthenticated
- *   - 400 invalid action
- *   - 404 auction not found
- *   - 403 caller is not the seller
- *   - 409 auction not awaiting a decision
- *   - 409 decision deadline has passed
- *   - 409 no bids found
- *   - accept — delegates to settleAuction
- *   - reject — cancels the winning PI, marks bid/auction/card, notifies bidder
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -22,7 +11,7 @@ import { NextRequest } from "next/server";
 const mockPrisma = vi.hoisted(() => ({
   auction: { findUnique: vi.fn(), update: vi.fn() },
   bid: { update: vi.fn() },
-  card: { update: vi.fn() },
+  listing: { update: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -74,7 +63,14 @@ const BASE_AUCTION = {
   status: "pending_seller_decision",
   sellerDecisionDeadline: new Date(Date.now() + 60 * 60 * 1000), // 1h from now
   bids: [HIGHEST_BID],
-  card: { id: "card-1", title: "Charizard" },
+  listing: {
+    id: "card-1",
+    pokemonCard: {
+      nameEn: "Charizard", rarity: "Rare Holo", setNameEn: "Base Set",
+      language: "English", localId: "4/102", tcgPlayerId: "tcg-1",
+    },
+    riftboundCard: null,
+  },
 };
 
 beforeEach(() => {
@@ -82,7 +78,7 @@ beforeEach(() => {
   mockPrisma.$transaction.mockImplementation(async (ops: unknown[]) => Promise.all(ops));
   mockPrisma.bid.update.mockResolvedValue({});
   mockPrisma.auction.update.mockResolvedValue({});
-  mockPrisma.card.update.mockResolvedValue({});
+  mockPrisma.listing.update.mockResolvedValue({});
   mockCancelBidPI.mockResolvedValue(undefined);
   mockSettleAuction.mockResolvedValue(undefined);
 });
@@ -152,7 +148,7 @@ describe("POST /api/auctions/[id]/decide", () => {
     expect(mockCancelBidPI).not.toHaveBeenCalled();
   });
 
-  it("reject — cancels the winning PI, updates bid/auction/card, and notifies the bidder", async () => {
+  it("reject — cancels the winning PI, updates bid/auction/card, and notifies the bidder with the resolved title", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION);
 
@@ -170,12 +166,16 @@ describe("POST /api/auctions/[id]/decide", () => {
       where: { id: "auction-1" },
       data: { status: "expired" },
     });
-    expect(mockPrisma.card.update).toHaveBeenCalledWith({
+    expect(mockPrisma.listing.update).toHaveBeenCalledWith({
       where: { id: "card-1" },
       data: { inAuction: false },
     });
     expect(mockNotifyAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "buyer-1", type: "auction_expired" })
+      expect.objectContaining({
+        userId: "buyer-1", type: "auction_expired",
+        cardId: "card-1",
+        title: expect.stringContaining("Charizard"),
+      })
     );
     expect(mockSettleAuction).not.toHaveBeenCalled();
   });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars } from "@/lib/money";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 /**
  * GET /api/auctions/[id]
@@ -16,12 +17,11 @@ export async function GET(
     const auction = await prisma.auction.findUnique({
       where:   { id: params.id },
       include: {
-        card: {
+        listing: {
           select: {
-            id: true, title: true, imageUrls: true, condition: true,
-            setName: true, language: true, cardNumber: true, rarity: true,
-            tcgPlayerId: true, inAuction: true,
+            id: true, imageUrls: true, condition: true, inAuction: true,
             owner: { select: { id: true, username: true } },
+            ...listingCatalogInclude,
           },
         },
         bids: {
@@ -44,7 +44,7 @@ export async function GET(
     return NextResponse.json({
       auction: {
         id:             auction.id,
-        cardId:         auction.cardId,
+        cardId:         auction.listingId,
         sellerId:       auction.sellerId,
         startingBid:    centsToDollars(auction.startingBid),
         reservePrice:   auction.reservePrice  != null ? centsToDollars(auction.reservePrice)  : null,
@@ -56,7 +56,7 @@ export async function GET(
         sellerDecisionDeadline: auction.sellerDecisionDeadline?.toISOString() ?? null,
         version:         auction.version,
         bidCount:        auction._count.bids,
-        card:            auction.card,
+        card:            withListingDisplay(auction.listing as any),
         bids: auction.bids.map((b) => ({
           ...b,
           amount:    centsToDollars(b.amount),

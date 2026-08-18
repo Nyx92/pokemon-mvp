@@ -7,6 +7,7 @@ import { dollarsToCents } from "@/lib/money";
 import { settleAuction, cancelBidPI } from "@/lib/auctionSettlement";
 import { notifyAsync } from "@/lib/notifications";
 import { verifyPaymentIntentAmountOrRespond } from "@/lib/paymentIntentGuard";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -71,7 +72,7 @@ export async function POST(
         id: true, status: true, endsAt: true, sellerId: true, version: true,
         startingBid: true, currentBid: true, highestBidderId: true,
         reservePrice: true, buyOutPrice: true,
-        card: { select: { id: true, title: true } },
+        listing: { select: { id: true, ...listingCatalogInclude } },
       },
     });
 
@@ -210,21 +211,23 @@ export async function POST(
     }
 
     // ── 8. Notify seller and outbid bidder ────────────────────────────────────
+    const listingTitle = withListingDisplay(auction.listing as any).title;
+
     notifyAsync({
       userId: auction.sellerId,
       type:   "bid_received",
-      title:  `New bid on "${auction.card.title}"`,
-      body:   `Someone placed a bid of S$${(amountCents / 100).toFixed(2)} on "${auction.card.title}".`,
-      cardId: auction.card.id,
+      title:  `New bid on "${listingTitle}"`,
+      body:   `Someone placed a bid of S$${(amountCents / 100).toFixed(2)} on "${listingTitle}".`,
+      cardId: auction.listing.id,
     });
 
     if (previousBid && previousBid.bidderId !== bidderId) {
       notifyAsync({
         userId: previousBid.bidderId,
         type:   "outbid",
-        title:  `You've been outbid on "${auction.card.title}"`,
-        body:   `Someone placed a higher bid on "${auction.card.title}". Place a new bid to stay in the running.`,
-        cardId: auction.card.id,
+        title:  `You've been outbid on "${listingTitle}"`,
+        body:   `Someone placed a higher bid on "${listingTitle}". Place a new bid to stay in the running.`,
+        cardId: auction.listing.id,
       });
     }
 

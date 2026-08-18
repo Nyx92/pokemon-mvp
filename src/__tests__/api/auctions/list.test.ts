@@ -9,22 +9,10 @@ import { NextRequest } from "next/server";
  *   ?expiringSoon=true — top-5 active auctions still in the future (homepage row)
  *   (no params)        — all active auctions still in the future (browse page)
  *
- * Key invariants:
- *   - Listing queries (browse + homepage) filter out auctions whose endsAt has passed,
- *     even if the cron hasn't flipped their status yet.
- *   - The ?cardId= query returns any auction in "active" or "pending_seller_decision"
- *     state regardless of endsAt. Client-side logic (auctionExpiredClientSide in page.tsx
- *     and pendingSystemUpdate in BuyBox) handles the pre-cron window display.
- *
- * Tests cover:
- *   - Browse: only active auctions with endsAt in the future
- *   - Browse: prices converted from cents to dollars in the response
- *   - Browse: 500 on DB error
- *   - expiringSoon: only active auctions with endsAt in the future, take 5, ordered by endsAt asc
- *   - cardId: queries status in [active, pending_seller_decision] with no endsAt filter
- *   - cardId: returns null when no auction found
- *   - cardId: returns the auction even when endsAt has passed (pre-cron window)
- *   - cardId: surfaces a pending_seller_decision auction whose endsAt has already passed
+ * The Auction model's card reference is `listingId` (renamed from `cardId`);
+ * card identity (title, rarity, etc.) is resolved from whichever catalog
+ * relation (pokemonCard/riftboundCard) the listing points to. The external
+ * response shape (cardId, nested card: {...}) is unchanged.
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -62,7 +50,7 @@ function makeDbAuction(overrides: Partial<{
 }> = {}) {
   return {
     id:                     "auction-1",
-    cardId:                 "card-1",
+    listingId:              "card-1",
     sellerId:               "seller-1",
     startingBid:            500,   // cents — formatAuction converts to S$5.00
     reservePrice:           null,
@@ -74,11 +62,14 @@ function makeDbAuction(overrides: Partial<{
     sellerDecisionDeadline: null,
     version:                0,
     _count:                 { bids: 0 },
-    card: {
-      id: "card-1", title: "Charizard", imageUrls: [], condition: "Raw NM",
-      setName: "Base Set", language: "English", cardNumber: "4/102",
-      rarity: "Holo Rare", tcgPlayerId: "tcg-1", inAuction: true,
+    listing: {
+      id: "card-1", imageUrls: [], condition: "Raw NM", inAuction: true,
       owner: { id: "seller-1", username: "ash" },
+      pokemonCard: {
+        nameEn: "Charizard", rarity: "Holo Rare", setNameEn: "Base Set",
+        language: "English", localId: "4/102", tcgPlayerId: "tcg-1",
+      },
+      riftboundCard: null,
     },
     ...overrides,
   };
@@ -105,13 +96,16 @@ describe("GET /api/auctions", () => {
     );
   });
 
-  it("browse: returns prices converted to dollars", async () => {
+  it("browse: returns prices converted to dollars and resolves card title from the catalog", async () => {
     mockPrisma.auction.findMany.mockResolvedValue([makeDbAuction()]);
     const res  = await GET(getReq());
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.auctions).toHaveLength(1);
     expect(body.auctions[0].startingBid).toBe(5); // 500 cents → S$5.00
+    expect(body.auctions[0].cardId).toBe("card-1");
+    expect(body.auctions[0].card.title).toBe("Charizard");
+    expect(body.auctions[0]).not.toHaveProperty("listingId");
   });
 
   it("browse: returns 500 on DB error", async () => {
@@ -148,14 +142,14 @@ describe("GET /api/auctions", () => {
 
   // ── Card detail page (?cardId=xxx) ────────────────────────────────────────
 
-  it("cardId: queries status in [active, pending_seller_decision] with no endsAt filter", async () => {
+  it("cardId: queries status in [active, pending_seller_decision] with no endsAt filter, using listingId", async () => {
     mockPrisma.auction.findFirst.mockResolvedValue(null);
     await GET(getReq({ cardId: "card-1" }));
 
     expect(mockPrisma.auction.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
-          cardId: "card-1",
+          listingId: "card-1",
           status: { in: ["active", "pending_seller_decision"] },
         },
       })
@@ -171,9 +165,6 @@ describe("GET /api/auctions", () => {
   });
 
   it("cardId: returns the auction even when endsAt has passed (client handles pre-cron display)", async () => {
-    // The API now returns active+past auctions so the card detail page can show
-    // the "pending system update" info box (has bids) or revert to standard BuyBox
-    // (no bids) — both cases are handled client-side, not here.
     const pastEndsAt = new Date(Date.now() - 60 * 60 * 1000); // 1 h ago
     mockPrisma.auction.findFirst.mockResolvedValue(
       makeDbAuction({ status: "active", endsAt: pastEndsAt })
