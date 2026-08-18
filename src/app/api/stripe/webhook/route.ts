@@ -29,20 +29,20 @@
  *       6.  Fetch & validate order
  *       7.  Mark order PAID
  *       8.  Create CardTransaction audit record
- *       9.  Transfer card ownership (guarded updateMany)
- *       10. Archive open offers on the card
+ *       9.  Transfer listing ownership (guarded updateMany)
+ *       10. Archive open offers on the listing
  *       11. (Cart only) Remove purchased items from buyer's cart
  *     If ANY step 7–11 fails → auto-refund fires (see issueRefundOnTransferFailure)
  *
  *   checkout.session.expired
  *     The buyer did not complete payment. Steps:
  *       1. Mark pending orders EXPIRED
- *       2. Release card reservations so other buyers can purchase
+ *       2. Release listing reservations so other buyers can purchase
  *
  * ── Single-item vs cart checkout ─────────────────────────────────────────────
  * Our app supports two checkout flows:
- *   - Single-item: one card → one order → metadata contains orderId/cardId/buyerId/sellerId
- *   - Cart:        N cards → N orders → metadata contains checkoutType="cart" and buyerId
+ *   - Single-item: one listing → one order → metadata contains orderId/cardId/buyerId/sellerId
+ *   - Cart:        N listings → N orders → metadata contains checkoutType="cart" and buyerId
  *
  * The webhook branches on `session.metadata.checkoutType` to handle each case.
  */
@@ -149,7 +149,7 @@ async function handleSessionCompleted(event: Stripe.Event) {
 
   // Step 2: Already-refunded guard
   // If a previous webhook run partially succeeded but then failed during the
-  // card transfer and issued an auto-refund, orders are now REFUNDED. Stripe
+  // listing transfer and issued an auto-refund, orders are now REFUNDED. Stripe
   // retries the event, but we must not attempt another transfer. Exit early
   // so the retry is a safe no-op.
   const alreadyRefunded = await prisma.order.findFirst({
@@ -183,7 +183,7 @@ async function handleSessionCompleted(event: Stripe.Event) {
       event,
       {
         orderId: orderId!,
-        cardId: cardId!,
+        listingId: cardId!,
         buyerId: buyerId!,
         sellerId: sellerId!,
       },
@@ -197,7 +197,7 @@ async function handleSessionCompleted(event: Stripe.Event) {
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // Called from the catch block of handleCartSessionCompleted and
-// handleSingleSessionCompleted whenever a card transfer fails AFTER Stripe has
+// handleSingleSessionCompleted whenever a listing transfer fails AFTER Stripe has
 // already captured payment. The buyer has been charged but has not received
 // their card — we must make them whole immediately.
 //
@@ -264,9 +264,9 @@ async function issueRefundOnTransferFailure(
 // Cart checkout — handleCartSessionCompleted
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// The cart checkout route creates one Order per card but a single Stripe session
+// The cart checkout route creates one Order per listing but a single Stripe session
 // covering all of them. All N orders are processed inside one DB transaction so
-// either ALL cards transfer or NONE do. If the transaction fails, the catch block
+// either ALL listings transfer or NONE do. If the transaction fails, the catch block
 // calls issueRefundOnTransferFailure so the buyer gets a full refund.
 
 async function handleCartSessionCompleted(
@@ -277,12 +277,12 @@ async function handleCartSessionCompleted(
 ) {
   console.log(`[webhook] 🛒 Cart checkout for buyer ${buyerId}`);
 
-  let soldItems: { sellerId: string; cardId: string; orderId: string }[] = [];
+  let soldItems: { sellerId: string; listingId: string; orderId: string }[] = [];
 
   try {
     soldItems = await prisma.$transaction(async (tx) => {
       // Step 1: Load all orders tied to this Stripe session.
-      // Each order was created by the cart checkout route (one per card).
+      // Each order was created by the cart checkout route (one per listing).
       const orders = await tx.order.findMany({
         where: { stripeCheckoutSessionId: session.id },
       });
@@ -294,9 +294,9 @@ async function handleCartSessionCompleted(
         throw new Error("No orders for session");
       }
 
-      const purchasedCardIds: string[] = [];
+      const purchasedListingIds: string[] = [];
       // Accumulates sold order info so we can notify sellers after the transaction.
-      const soldOrders: { sellerId: string; cardId: string; orderId: string }[] = [];
+      const soldOrders: { sellerId: string; listingId: string; orderId: string }[] = [];
 
       for (const order of orders) {
         // Step 2: Idempotency check (per order)
@@ -338,7 +338,7 @@ async function handleCartSessionCompleted(
         await tx.cardTransaction.create({
           data: {
             orderId: order.id,
-            cardId: order.cardId,
+            listingId: order.listingId,
             sellerId: order.sellerId,
             buyerId,
             amount: order.amount,
@@ -347,44 +347,45 @@ async function handleCartSessionCompleted(
           },
         });
 
-        // Step 5: Transfer card ownership
-        // The WHERE clause is a concurrency guard — it only matches if the card
-        // is still reserved by THIS exact checkout session and buyer. If another
-        // process already transferred or released the card, count will be 0 and
-        // we throw, rolling back the entire transaction (all cards stay with seller).
+        // Step 5: Transfer listing ownership
+        // The WHERE clause is a concurrency guard — it only matches if the
+        // listing is still reserved by THIS exact checkout session and buyer. If
+        // another process already transferred or released it, count will be 0
+        // and we throw, rolling back the entire transaction (all listings stay
+        // with their sellers).
         const movedCount = await transferCardOwnership(tx, {
-          cardId: order.cardId,
+          listingId: order.listingId,
           checkoutSessionId: session.id,
           buyerId,
         });
 
         if (movedCount !== 1) {
-          console.error(`[webhook] ❌ Card transfer failed for card ${order.cardId}. Count: ${movedCount}`);
+          console.error(`[webhook] ❌ Listing transfer failed for listing ${order.listingId}. Count: ${movedCount}`);
           throw new Error(`Card transfer failed for order ${order.id}`);
         }
 
-        // Step 6: Archive open offers on this card
+        // Step 6: Archive open offers on this listing
         // Once ownership transfers, all pending offers are invalid. We archive
         // (set archivedAt) rather than delete so history is preserved for
         // buyers and admins.
         await tx.offer.updateMany({
-          where: { cardId: order.cardId },
+          where: { listingId: order.listingId },
           data: { archivedAt: new Date() },
         });
 
-        purchasedCardIds.push(order.cardId);
-        soldOrders.push({ sellerId: order.sellerId, cardId: order.cardId, orderId: order.id });
-        console.log(`[webhook] ✅ Transferred card ${order.cardId}`);
+        purchasedListingIds.push(order.listingId);
+        soldOrders.push({ sellerId: order.sellerId, listingId: order.listingId, orderId: order.id });
+        console.log(`[webhook] ✅ Transferred listing ${order.listingId}`);
       }
 
       // Step 7: Remove purchased items from the buyer's cart
-      // Now that ownership has transferred, the cards should no longer appear
-      // in the cart. Only runs if at least one card transferred in this delivery.
-      if (purchasedCardIds.length > 0) {
+      // Now that ownership has transferred, the listings should no longer appear
+      // in the cart. Only runs if at least one listing transferred in this delivery.
+      if (purchasedListingIds.length > 0) {
         const cart = await tx.cart.findUnique({ where: { userId: buyerId } });
         if (cart) {
           await tx.cartItem.deleteMany({
-            where: { cartId: cart.id, cardId: { in: purchasedCardIds } },
+            where: { cartId: cart.id, listingId: { in: purchasedListingIds } },
           });
         }
       }
@@ -392,27 +393,29 @@ async function handleCartSessionCompleted(
       return soldOrders;
     });
   } catch (err) {
-    // The DB transaction rolled back — no orders were marked PAID, no cards
+    // The DB transaction rolled back — no orders were marked PAID, no listings
     // were transferred. Stripe has already captured the payment.
     // → Hand off to the refund safeguard (see issueRefundOnTransferFailure above).
     await issueRefundOnTransferFailure(session, paymentIntentId, err);
     return;
   }
 
-  // Step 8: Notify each seller — fire-and-forget, one notification per card sold.
-  for (const { sellerId, cardId, orderId } of soldItems) {
-    notifySellerCardSold({ sellerId, cardId, orderId });
+  // Step 8: Notify each seller — fire-and-forget, one notification per listing sold.
+  for (const { sellerId, listingId, orderId } of soldItems) {
+    notifySellerCardSold({ sellerId, listingId, orderId });
   }
 
   console.log(`[webhook] 🎉 Cart checkout complete for session ${session.id}`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Single-card checkout — handleSingleSessionCompleted
+// Single-listing checkout — handleSingleSessionCompleted
 // ─────────────────────────────────────────────────────────────────────────────
 //
 // The Buy Now flow creates one Order and one Stripe session. All IDs needed
-// (orderId, cardId, buyerId, sellerId) are stored in session.metadata.
+// (orderId, listingId, buyerId, sellerId) are stored in session.metadata (as
+// cardId — the metadata key itself is unchanged; only this function's own
+// internal parameter is named listingId).
 //
 // Important distinction on error handling:
 //   Missing metadata → code bug → throw WITHOUT auto-refund (Stripe retries
@@ -422,17 +425,17 @@ async function handleCartSessionCompleted(
 async function handleSingleSessionCompleted(
   session: Stripe.Checkout.Session,
   event: Stripe.Event,
-  meta: { orderId: string; cardId: string; buyerId: string; sellerId: string },
+  meta: { orderId: string; listingId: string; buyerId: string; sellerId: string },
   paymentIntentId: string | null
 ) {
-  const { orderId, cardId, buyerId, sellerId } = meta;
-  console.log(`[webhook] 📋 Single checkout — card: ${cardId}, order: ${orderId}`);
+  const { orderId, listingId, buyerId, sellerId } = meta;
+  console.log(`[webhook] 📋 Single checkout — listing: ${listingId}, order: ${orderId}`);
 
   // Step 1: Validate metadata
   // Missing IDs = bug in our checkout route (metadata wasn't written correctly).
   // Do NOT auto-refund — we don't have the IDs needed to do so safely, and the
   // bug needs to be fixed before retrying. Throw → 500 → Stripe retries.
-  if (!orderId || !cardId || !buyerId || !sellerId) {
+  if (!orderId || !listingId || !buyerId || !sellerId) {
     console.error("[webhook] ❌ Missing metadata in single-item session.");
     throw new Error("Missing metadata on session");
   }
@@ -442,7 +445,7 @@ async function handleSingleSessionCompleted(
       // Step 2: Idempotency check
       // If a CardTransaction already exists for this (stripeEventId, orderId) pair,
       // we've already handled this Stripe event on a prior delivery. Exit early —
-      // do not re-transfer the card or create duplicate records.
+      // do not re-transfer the listing or create duplicate records.
       const existingTx = await tx.cardTransaction.findUnique({
         where: { stripeEventId_orderId: { stripeEventId: event.id, orderId } },
       });
@@ -457,7 +460,7 @@ async function handleSingleSessionCompleted(
       const order = await tx.order.findUnique({ where: { id: orderId } });
       if (!order) throw new Error("Order not found");
 
-      if (order.cardId !== cardId) throw new Error("Order card mismatch");
+      if (order.listingId !== listingId) throw new Error("Order card mismatch");
       if (order.buyerId !== buyerId) throw new Error("Order buyer mismatch");
       if (order.sellerId !== sellerId) throw new Error("Order seller mismatch");
       if (order.stripeCheckoutSessionId && order.stripeCheckoutSessionId !== session.id) {
@@ -467,10 +470,10 @@ async function handleSingleSessionCompleted(
       // Step 3a: Handle already-PAID order (partial retry recovery)
       // A previous run may have succeeded in marking the order PAID but crashed
       // before writing the CardTransaction. Write the audit record and return —
-      // do not attempt to re-transfer the card (it's already been transferred).
+      // do not attempt to re-transfer the listing (it's already been transferred).
       if (order.status === "PAID") {
         await tx.cardTransaction.create({
-          data: { orderId, cardId, sellerId, buyerId, amount: order.amount, currency: order.currency, stripeEventId: event.id },
+          data: { orderId, listingId, sellerId, buyerId, amount: order.amount, currency: order.currency, stripeEventId: event.id },
         });
         return;
       }
@@ -485,16 +488,16 @@ async function handleSingleSessionCompleted(
       // Permanent ledger entry for this sale. The stripeEventId stored here is
       // what the idempotency check in Step 2 looks up on future retries.
       await tx.cardTransaction.create({
-        data: { orderId, cardId, sellerId, buyerId, amount: order.amount, currency: order.currency, stripeEventId: event.id },
+        data: { orderId, listingId, sellerId, buyerId, amount: order.amount, currency: order.currency, stripeEventId: event.id },
       });
 
-      // Step 6: Transfer card ownership
+      // Step 6: Transfer listing ownership
       // The WHERE clause is a concurrency guard: the update only matches if the
-      // card is still reserved by this exact session and buyer. If another process
-      // already transferred or released the card, count will be 0 → we throw →
+      // listing is still reserved by this exact session and buyer. If another
+      // process already transferred or released it, count will be 0 → we throw →
       // transaction rolls back → catch block fires the auto-refund (Step 7 below).
       const movedCount = await transferCardOwnership(tx, {
-        cardId,
+        listingId,
         checkoutSessionId: session.id,
         buyerId,
       });
@@ -504,21 +507,21 @@ async function handleSingleSessionCompleted(
         throw new Error("Card was not reserved by this checkout session");
       }
 
-      // Step 7: Archive open offers on this card
+      // Step 7: Archive open offers on this listing
       // Once ownership transfers, all pending offers are invalid. Archived (not
       // deleted) so history is preserved.
-      await tx.offer.updateMany({ where: { cardId }, data: { archivedAt: new Date() } });
+      await tx.offer.updateMany({ where: { listingId }, data: { archivedAt: new Date() } });
       console.log("[webhook] 🎉 Single-item transfer successful.");
     });
   } catch (err) {
-    // The DB transaction rolled back. Stripe has the money but the card was not
+    // The DB transaction rolled back. Stripe has the money but the listing was not
     // transferred. → Hand off to the refund safeguard (see issueRefundOnTransferFailure above).
     await issueRefundOnTransferFailure(session, paymentIntentId, err);
     return;
   }
 
   // Notify the seller — fire-and-forget.
-  notifySellerCardSold({ sellerId, cardId, orderId });
+  notifySellerCardSold({ sellerId, listingId, orderId });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -542,10 +545,10 @@ async function handleSessionExpired(event: Stripe.Event) {
       where: { stripeCheckoutSessionId: session.id, status: "PENDING" },
       data: { status: "EXPIRED" },
     }),
-    // Step 2: Release card reservations.
+    // Step 2: Release listing reservations.
     // Clears reservedById / reservedUntil / reservedCheckoutSessionId so the
-    // cards appear as available again and other buyers can purchase them.
-    prisma.card.updateMany({
+    // listings appear as available again and other buyers can purchase them.
+    prisma.listing.updateMany({
       where: { reservedCheckoutSessionId: session.id },
       data: { reservedById: null, reservedUntil: null, reservedCheckoutSessionId: null },
     }),

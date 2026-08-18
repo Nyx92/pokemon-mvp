@@ -51,6 +51,12 @@ export default defineConfig({
       NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
       // Never actually connected to — Prisma is mocked
       DATABASE_URL: "postgresql://test:test@localhost:5432/test",
+      // email.ts constructs `new Resend(...)` at module load time, so any test
+      // file that pulls in the real notifications module (even indirectly, e.g.
+      // via `importOriginal` on webhookHelpers) needs this defined or the whole
+      // module import throws before a single test runs. Resend is never actually
+      // called — real network calls only happen through mocked modules in tests.
+      RESEND_API_KEY: "re_test_fake",
     },
 
     // ── Coverage (pnpm test:coverage only) ───────────────────────────────────
