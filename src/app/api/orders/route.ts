@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars } from "@/lib/money";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 /**
  * GET /api/orders
@@ -47,13 +48,12 @@ export async function GET(req: NextRequest) {
     const orders = await prisma.order.findMany({
       where,
       include: {
-        card: {
+        listing: {
           select: {
             id: true,
-            title: true,
             imageUrls: true,
             condition: true,
-            tcgPlayerId: true,
+            ...listingCatalogInclude,
           },
         },
         // Include the other party depending on tab:
@@ -66,30 +66,33 @@ export async function GET(req: NextRequest) {
     });
 
     // ── 4. Format and return ───────────────────────────────────────────────────
-    const formatted = orders.map((o) => ({
-      id: o.id,
-      status: o.status,
-      amount: centsToDollars(o.amount),
-      currency: o.currency,
-      createdAt: o.createdAt.toISOString(),
-      card: {
-        id: o.card.id,
-        title: o.card.title,
-        imageUrl: o.card.imageUrls?.[0] ?? null,
-        condition: o.card.condition,
-      },
-      // "other party" — who the user transacted with
-      seller: {
-        id: o.seller.id,
-        username: o.seller.username,
-        email: o.seller.email,
-      },
-      buyer: {
-        id: o.buyer.id,
-        username: o.buyer.username,
-        email: o.buyer.email,
-      },
-    }));
+    const formatted = orders.map((o) => {
+      const listing = withListingDisplay(o.listing as any);
+      return {
+        id: o.id,
+        status: o.status,
+        amount: centsToDollars(o.amount),
+        currency: o.currency,
+        createdAt: o.createdAt.toISOString(),
+        card: {
+          id: listing.id,
+          title: listing.title,
+          imageUrl: listing.imageUrls?.[0] ?? null,
+          condition: listing.condition,
+        },
+        // "other party" — who the user transacted with
+        seller: {
+          id: o.seller.id,
+          username: o.seller.username,
+          email: o.seller.email,
+        },
+        buyer: {
+          id: o.buyer.id,
+          username: o.buyer.username,
+          email: o.buyer.email,
+        },
+      };
+    });
 
     return NextResponse.json({ orders: formatted });
   } catch (err) {

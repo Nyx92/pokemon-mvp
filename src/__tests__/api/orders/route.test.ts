@@ -54,6 +54,8 @@ function makeRequest(params: Record<string, string> = {}) {
 
 // makeOrder() produces a full order object as Prisma would return it (with
 // relations included). Pass overrides to change specific fields per test.
+// The order's card reference is `listing` (renamed from `card`) — card
+// identity (title) is resolved from whichever catalog relation is populated.
 function makeOrder(overrides = {}) {
   return {
     id: "order-1",
@@ -61,12 +63,15 @@ function makeOrder(overrides = {}) {
     amount: 5000, // S$50.00 in cents — API must convert to dollars for response
     currency: "sgd",
     createdAt: new Date("2026-01-01T00:00:00Z"),
-    card: {
+    listing: {
       id: "card-1",
-      title: "Charizard",
       imageUrls: ["https://example.com/img.png"],
       condition: "NM",
-      tcgPlayerId: "xy1-4",
+      pokemonCard: {
+        nameEn: "Charizard", rarity: "Rare Holo", setNameEn: "Base Set",
+        language: "English", localId: "4/102", tcgPlayerId: "xy1-4",
+      },
+      riftboundCard: null,
     },
     seller: { id: "seller-1", username: "alice", email: "alice@x.com" },
     buyer: { id: "buyer-1", username: "bob", email: "bob@x.com" },
