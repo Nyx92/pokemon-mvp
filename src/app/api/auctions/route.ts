@@ -3,28 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars, dollarsToCents } from "@/lib/money";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 // ── Shared shape for converting a DB Auction row to the API response ────────
-// Prices are stored as cents in the DB; callers receive dollars.
-function formatAuction(
-  auction: {
-    id: string; cardId: string; sellerId: string;
-    startingBid: number; reservePrice: number | null; buyOutPrice: number | null;
-    currentBid: number | null; highestBidderId: string | null;
-    status: string; endsAt: Date; sellerDecisionDeadline: Date | null;
-    version: number;
-    _count: { bids: number };
-    card: {
-      id: string; title: string; imageUrls: string[]; condition: string;
-      setName: string | null; language: string; cardNumber: string | null;
-      rarity: string | null; tcgPlayerId: string; inAuction: boolean;
-      owner: { id: string; username: string | null };
-    };
-  }
-) {
+// Prices are stored as cents in the DB; callers receive dollars. Card
+// identity (title, rarity, etc.) is resolved via the catalog relation on
+// the linked Listing — the external response shape is unchanged.
+function formatAuction(auction: any) {
   return {
     id:             auction.id,
-    cardId:         auction.cardId,
+    cardId:         auction.listingId,
     sellerId:       auction.sellerId,
     startingBid:    centsToDollars(auction.startingBid),
     reservePrice:   auction.reservePrice   != null ? centsToDollars(auction.reservePrice)   : null,
@@ -36,15 +24,14 @@ function formatAuction(
     sellerDecisionDeadline: auction.sellerDecisionDeadline?.toISOString() ?? null,
     version:         auction.version,
     bidCount:        auction._count.bids,
-    card:            auction.card,
+    card:            withListingDisplay(auction.listing),
   };
 }
 
-const CARD_SELECT = {
-  id: true, title: true, imageUrls: true, condition: true,
-  setName: true, language: true, cardNumber: true, rarity: true,
-  tcgPlayerId: true, inAuction: true,
+const LISTING_SELECT = {
+  id: true, imageUrls: true, condition: true, inAuction: true,
   owner: { select: { id: true, username: true } },
+  ...listingCatalogInclude,
 } as const;
 
 /**
@@ -69,10 +56,10 @@ export async function GET(req: NextRequest) {
     if (cardId) {
       const auction = await prisma.auction.findFirst({
         where: {
-          cardId,
+          listingId: cardId,
           status: { in: ["active", "pending_seller_decision"] },
         },
-        include: { card: { select: CARD_SELECT }, _count: { select: { bids: true } } },
+        include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
       });
 
       return NextResponse.json({ auction: auction ? formatAuction(auction) : null });
@@ -84,7 +71,7 @@ export async function GET(req: NextRequest) {
     if (expiringSoon) {
       const auctions = await prisma.auction.findMany({
         where:   { status: "active", endsAt: { gt: new Date() } },
-        include: { card: { select: CARD_SELECT }, _count: { select: { bids: true } } },
+        include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
         orderBy: { endsAt: "asc" },
         take:    5,
       });
@@ -96,7 +83,7 @@ export async function GET(req: NextRequest) {
     // Same endsAt > now guard: exclude auctions the cron hasn't expired yet.
     const auctions = await prisma.auction.findMany({
       where:   { status: "active", endsAt: { gt: new Date() } },
-      include: { card: { select: CARD_SELECT }, _count: { select: { bids: true } } },
+      include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
       orderBy: { endsAt: "asc" },
       take:    100,
     });
@@ -122,8 +109,8 @@ export async function GET(req: NextRequest) {
  *    3b. Guard: card must not have a pending offer.
  *    3c. Guard: card must not have an active Buy Now reservation.
  * 4. Create the Auction record.
- * 5. Mark Card.inAuction = true and Card.forSale = false so offers and Buy Now
- *    are blocked while the auction is running.
+ * 5. Mark Listing.inAuction = true and Listing.forSale = false so offers and
+ *    Buy Now are blocked while the auction is running.
  *
  * Body: { cardId, startingBid (dollars), reservePrice?, buyOutPrice?, durationDays }
  */
@@ -212,18 +199,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. Verify the card belongs to the seller and is not in auction ───────
-    const card = await prisma.card.findUnique({
+    const listing = await prisma.listing.findUnique({
       where:  { id: cardId },
-      select: { ownerId: true, inAuction: true, title: true, reservedById: true, reservedUntil: true },
+      select: { ownerId: true, inAuction: true, reservedById: true, reservedUntil: true },
     });
 
-    if (!card) {
+    if (!listing) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
-    if (card.ownerId !== sellerId) {
+    if (listing.ownerId !== sellerId) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    if (card.inAuction) {
+    if (listing.inAuction) {
       return NextResponse.json(
         { error: "This card already has an active auction" },
         { status: 409 }
@@ -236,7 +223,7 @@ export async function POST(req: NextRequest) {
     // transfer when the auction ends (the other half of this race, fixed in
     // offers/[id]/route.ts's accept flow).
     const pendingOffer = await prisma.offer.findFirst({
-      where: { cardId, status: "pending", archivedAt: null },
+      where: { listingId: cardId, status: "pending", archivedAt: null },
       select: { id: true },
     });
     if (pendingOffer) {
@@ -254,9 +241,9 @@ export async function POST(req: NextRequest) {
     // the buyer who already paid — mirrors the same guard in
     // offers/[id]/route.ts's accept flow.
     if (
-      card.reservedById &&
-      card.reservedUntil &&
-      card.reservedUntil > new Date()
+      listing.reservedById &&
+      listing.reservedUntil &&
+      listing.reservedUntil > new Date()
     ) {
       return NextResponse.json(
         { error: "Card is currently reserved by a pending checkout" },
@@ -270,7 +257,7 @@ export async function POST(req: NextRequest) {
     const [auction] = await prisma.$transaction([
       prisma.auction.create({
         data: {
-          cardId,
+          listingId: cardId,
           sellerId,
           startingBid:  startingBidCents,
           reservePrice: reservePriceCents,
@@ -278,10 +265,10 @@ export async function POST(req: NextRequest) {
           endsAt,
           status: "active",
         },
-        include: { card: { select: CARD_SELECT }, _count: { select: { bids: true } } },
+        include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
       }),
       // Prevent Buy Now / offers while auction is live.
-      prisma.card.update({
+      prisma.listing.update({
         where: { id: cardId },
         data:  { inAuction: true, forSale: false },
       }),
