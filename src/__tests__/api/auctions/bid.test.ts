@@ -4,29 +4,9 @@ import { NextRequest } from "next/server";
 /**
  * POST /api/auctions/[id]/bid — buyer places a binding bid.
  *
- * Sequence:
- *   1. Auth check
- *   2. Validate body (paymentIntentId, amount)
- *   3. Load auction snapshot — must be active, not ended, not the seller's own card
- *   4. Verify PI is "requires_capture" with Stripe
- *   5. Read current highest bid (for future cancellation)
- *   6. Version-locked $transaction: updateMany WHERE version=snapshot, cancel prev bid, create bid
- *   7. On CONCURRENT_BID: cancel new PI, return 409
- *   8. Cancel previous PI (fire-and-forget)
- *   9. Send bid_received + outbid notifications
- *  10. Settle instantly when bid >= buyOutPrice (RP does NOT end the auction early)
- *
- * Tests cover:
- *   - Success (plain bid, no settlement)
- *   - Instant settlement when bid >= buyOutPrice
- *   - Bid at exactly reservePrice does NOT settle — auction continues until endsAt
- *   - 401 unauthenticated
- *   - 403 seller bidding on own auction
- *   - 400 bid below startingBid
- *   - 400 bid not higher than currentBid
- *   - 409 concurrent bid (optimistic lock collision)
- *   - 409 PI not in requires_capture state
- *   - 400 PI amount does not match the claimed bid amount
+ * The auction's card reference is `listingId` (renamed from `cardId`); card
+ * identity (title) for notification copy is resolved from whichever catalog
+ * relation the linked listing points to.
  */
 
 // ── STEP 1: Create the mock objects ──────────────────────────────────────────
@@ -92,13 +72,17 @@ const BASE_AUCTION = {
   highestBidderId: null,
   reservePrice:    null,
   buyOutPrice:     null,
-  card:            { id: "card-1", title: "Charizard" },
+  listing: {
+    id: "card-1",
+    pokemonCard: {
+      nameEn: "Charizard", rarity: "Rare Holo", setNameEn: "Base Set",
+      language: "English", localId: "4/102", tcgPlayerId: "tcg-1",
+    },
+    riftboundCard: null,
+  },
 };
 
 // PI returned by stripe.paymentIntents.retrieve.
-// `amount` is left out here since it must match whatever bid amount each
-// test exercises — tests that reach the PI-amount check spread this base
-// object and add the matching `amount` (in cents) explicitly.
 const PI_REQUIRES_CAPTURE = {
   status:   "requires_capture",
   metadata: { bidderId: "buyer-1" },
@@ -154,7 +138,6 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 10 }), PARAMS);
     expect(res.status).toBe(403);
-    // PI should be cancelled when validation fails
     expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_1");
   });
 
@@ -162,7 +145,6 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION); // startingBid = 500 cents
     mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
-    // Bid S$4.00 = 400 cents < 500
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 4 }), PARAMS);
     expect(res.status).toBe(400);
     expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_1");
@@ -174,7 +156,6 @@ describe("POST /api/auctions/[id]/bid", () => {
       ...BASE_AUCTION, currentBid: 1000, highestBidderId: "other-buyer",
     });
     mockStripeInstance.paymentIntents.retrieve.mockResolvedValue(PI_REQUIRES_CAPTURE);
-    // Bid S$10.00 = 1000 cents, exactly equal to currentBid — must be *higher*
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 10 }), PARAMS);
     expect(res.status).toBe(400);
     expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_1");
@@ -197,7 +178,6 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 1000 });
     mockPrisma.bid.findFirst.mockResolvedValue(null);
 
-    // Simulate lock miss: updateMany returns count=0
     mockPrisma.$transaction.mockImplementation(async (cb: (tx: typeof mockPrisma) => Promise<unknown>) => {
       const txClient = {
         auction: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
@@ -210,7 +190,6 @@ describe("POST /api/auctions/[id]/bid", () => {
     expect(res.status).toBe(409);
     const body = await res.json();
     expect(body.error).toMatch(/concurrent|higher bid/i);
-    // Our PI must be cancelled when we lose the lock
     expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_1");
   });
 
@@ -227,9 +206,14 @@ describe("POST /api/auctions/[id]/bid", () => {
     expect(body.success).toBe(true);
     expect(body.settled).toBe(false);
 
-    // Seller should receive bid_received notification
+    // Seller should receive bid_received notification with the resolved title
+    // and cardId sourced from the listing (notifyAsync's own param stays cardId).
     expect(notifyAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ userId: "seller-1", type: "bid_received" })
+      expect.objectContaining({
+        userId: "seller-1", type: "bid_received",
+        cardId: "card-1",
+        title: expect.stringContaining("Charizard"),
+      })
     );
   });
 
@@ -247,10 +231,8 @@ describe("POST /api/auctions/[id]/bid", () => {
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 15 }), PARAMS);
     expect(res.status).toBe(200);
 
-    // Previous PI must be fire-and-forget cancelled
     expect(mockCancelBidPI).toHaveBeenCalledWith("pi_prev");
 
-    // Outbid notification for the previous bidder
     expect(notifyAsync).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "other-buyer", type: "outbid" })
     );
@@ -265,7 +247,6 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockPrisma.bid.findFirst.mockResolvedValue(null);
     txSuccess();
 
-    // Bid exactly the buy-out price (S$20)
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 20 }), PARAMS);
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -274,8 +255,6 @@ describe("POST /api/auctions/[id]/bid", () => {
   });
 
   it("does NOT settle immediately when bid hits reservePrice — auction runs until endsAt", async () => {
-    // RP is only checked by the cron at endsAt. During bidding it must have no
-    // effect on settlement — the auction simply continues with the RP "met".
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue({
       ...BASE_AUCTION, reservePrice: 1500, // S$15 reserve
@@ -284,18 +263,16 @@ describe("POST /api/auctions/[id]/bid", () => {
     mockPrisma.bid.findFirst.mockResolvedValue(null);
     txSuccess();
 
-    // Bid exactly at the reserve price
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 15 }), PARAMS);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.settled).toBe(false);             // auction still running
-    expect(mockSettleAuction).not.toHaveBeenCalled(); // no immediate settlement
+    expect(body.settled).toBe(false);
+    expect(mockSettleAuction).not.toHaveBeenCalled();
   });
 
   it("returns 400 and cancels the PI when its authorised amount doesn't match the claimed bid", async () => {
     mockGetServerSession.mockResolvedValue(BUYER_SESSION);
     mockPrisma.auction.findUnique.mockResolvedValue(BASE_AUCTION);
-    // Authorised for S$5.00 (500 cents) but the request claims a S$10 bid.
     mockStripeInstance.paymentIntents.retrieve.mockResolvedValue({ ...PI_REQUIRES_CAPTURE, amount: 500 });
 
     const res = await POST(postReq({ paymentIntentId: "pi_1", amount: 10 }), PARAMS);
