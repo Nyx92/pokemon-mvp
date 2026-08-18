@@ -59,6 +59,22 @@ export default defineConfig({
       RESEND_API_KEY: "re_test_fake",
     },
 
+    // ── Test discovery ────────────────────────────────────────────────────────
+    // Superpowers-driven plans work in isolated git worktrees under
+    // .worktrees/ (gitignored). Vitest's default exclude list doesn't know
+    // about that convention, so a worktree left on disk inside the project
+    // tree gets scanned as a second, nested copy of the whole test suite —
+    // every test file appears to run twice with doubled (and often
+    // conflicting) results. Excluding it here is the fix; the alternative
+    // (always deleting worktrees immediately) doesn't hold when two plans
+    // are executed concurrently in separate worktrees, as this project does.
+    exclude: [
+      "**/node_modules/**", "**/dist/**", "**/cypress/**",
+      "**/.{idea,git,cache,output,temp}/**",
+      "**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*",
+      "**/.worktrees/**",
+    ],
+
     // ── Coverage (pnpm test:coverage only) ───────────────────────────────────
     // Only relevant when running `pnpm test:coverage`. Ignored during normal
     // `pnpm test` runs.
