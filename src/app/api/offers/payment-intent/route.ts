@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -56,22 +57,22 @@ export async function POST(req: NextRequest) {
     // ── 3. Verify the card exists and is still for sale ─────────────────────
     // We check this early so we don't create a dangling PaymentIntent for a
     // card the buyer can't actually buy.
-    const card = await prisma.card.findUnique({
+    const listing = await prisma.listing.findUnique({
       where: { id: cardId },
-      select: { id: true, title: true, forSale: true, ownerId: true },
+      include: listingCatalogInclude,
     });
 
-    if (!card) {
+    if (!listing) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
-    if (!card.forSale) {
+    if (!listing.forSale) {
       return NextResponse.json(
         { error: "Card is not for sale" },
         { status: 409 }
       );
     }
     // Prevent the card owner from placing an offer on their own card
-    if (card.ownerId === buyerId) {
+    if (listing.ownerId === buyerId) {
       return NextResponse.json(
         { error: "You cannot place an offer on your own card" },
         { status: 403 }
@@ -92,7 +93,7 @@ export async function POST(req: NextRequest) {
         // Offer.paymentIntentId in our DB.
         buyerId,
         cardId,
-        cardTitle: card.title,
+        cardTitle: withListingDisplay(listing).title,
       },
     });
 
