@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expireOffer } from "@/lib/offerExpiry";
 import { notifyAsync } from "@/lib/notifications";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -56,11 +57,11 @@ export async function PATCH(
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
 
-    // ── 2. Load the offer and its card ─────────────────────────────────────
+    // ── 2. Load the offer and its listing ──────────────────────────────────
     const offer = await prisma.offer.findUnique({
       where: { id: params.id },
       include: {
-        card: { select: { ownerId: true, id: true, title: true } },
+        listing: { include: { ...listingCatalogInclude } },
       },
     });
 
@@ -69,7 +70,7 @@ export async function PATCH(
 
     // Only the card owner (seller) can accept or reject — prevent other users
     // from acting on offers that aren't on their card.
-    if (offer.card.ownerId !== userId)
+    if (offer.listing.ownerId !== userId)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     // Archived offers belong to a card that has already been sold — they are
@@ -111,7 +112,15 @@ export async function PATCH(
       );
     }
 
-    const cardId = offer.card.id;
+    const listingId = offer.listing.id;
+    const listingTitle = withListingDisplay(offer.listing).title;
+    // withListingDisplay's tcgPlayerId falls back to "" (never null/undefined)
+    // for a listing whose catalog row has none — the `|| undefined` here keeps
+    // that as a real NULL in CardTransaction.tcgPlayerId rather than storing
+    // "", which would otherwise pass the `IS NOT NULL` filter in the
+    // "highest transacted" query (GET /api/home/featured) as a phantom
+    // product with an empty id.
+    const listingTcgPlayerId = withListingDisplay(offer.listing).tcgPlayerId || undefined;
 
     // ══════════════════════════════════════════════════════════════════════════
     // ACCEPT
@@ -122,14 +131,14 @@ export async function PATCH(
       // reservedUntil but leaves forSale: true until the webhook fires. If we
       // captured the PI first and then found the card was reserved, money would
       // have already moved with no way to roll it back cleanly.
-      const currentCard = await prisma.card.findUnique({
-        where: { id: cardId },
+      const currentListing = await prisma.listing.findUnique({
+        where: { id: listingId },
         select: { reservedById: true, reservedUntil: true, inAuction: true },
       });
       if (
-        currentCard?.reservedById &&
-        currentCard.reservedUntil &&
-        currentCard.reservedUntil > new Date()
+        currentListing?.reservedById &&
+        currentListing.reservedUntil &&
+        currentListing.reservedUntil > new Date()
       ) {
         return NextResponse.json(
           { error: "Card is currently reserved by a pending checkout" },
@@ -141,7 +150,7 @@ export async function PATCH(
       // A card mid-auction must not also be sellable via an accepted offer —
       // settleAuction() transfers ownership unconditionally when the auction
       // ends, which would silently overwrite this accept's transfer.
-      if (currentCard?.inAuction) {
+      if (currentListing?.inAuction) {
         return NextResponse.json(
           { error: "Card is currently in an active auction" },
           { status: 409 }
@@ -159,7 +168,6 @@ export async function PATCH(
       );
 
       // The PI should now be "succeeded" — just for logging/debugging.
-      // In a production app you might want to alert if status is unexpected.
       console.log(
         `[offers PATCH] PI captured: ${captured.id} → ${captured.status}`
       );
@@ -174,7 +182,7 @@ export async function PATCH(
           //     This links the offer, buyer, seller, and amount for history/display.
           const order = await tx.order.create({
             data: {
-              cardId,
+              listingId,
               sellerId: userId, // seller = card owner = current user
               buyerId: offer.buyerId,
               amount: offer.price!, // already in cents
@@ -198,7 +206,7 @@ export async function PATCH(
           //     The card is now sold — neither the new owner nor old buyers should
           //     see these in their active views. History is preserved via archivedAt.
           await tx.offer.updateMany({
-            where: { cardId, archivedAt: null },
+            where: { listingId, archivedAt: null },
             data: { archivedAt: new Date() },
           });
 
@@ -207,8 +215,8 @@ export async function PATCH(
           //     - forSale = false (card is sold, shouldn't appear in marketplace)
           //     - price = null (listing price is cleared — card has a new owner)
           //     - Clear any reservation fields (no longer needed)
-          await tx.card.update({
-            where: { id: cardId },
+          await tx.listing.update({
+            where: { id: listingId },
             data: {
               ownerId: offer.buyerId,
               forSale: false,
@@ -225,7 +233,7 @@ export async function PATCH(
           await tx.cardTransaction.create({
             data: {
               orderId: order.id,
-              cardId,
+              listingId,
               sellerId: userId,
               buyerId: offer.buyerId,
               amount: offer.price!,
@@ -233,13 +241,7 @@ export async function PATCH(
               // Use the PI id as a unique key — there's one PI per offer,
               // so this prevents duplicate transaction records if PATCH is retried.
               stripeEventId: offer.paymentIntentId!,
-              tcgPlayerId:
-                (
-                  await tx.card.findUnique({
-                    where: { id: cardId },
-                    select: { tcgPlayerId: true },
-                  })
-                )?.tcgPlayerId ?? undefined,
+              tcgPlayerId: listingTcgPlayerId,
             },
           });
 
@@ -266,17 +268,17 @@ export async function PATCH(
       }
 
       console.log(
-        `[offers PATCH] Card ${cardId} transferred to buyer ${offer.buyerId}. Order: ${order.id}`
+        `[offers PATCH] Card ${listingId} transferred to buyer ${offer.buyerId}. Order: ${order.id}`
       );
 
       // Notify the buyer — fire-and-forget.
       notifyAsync({
         userId:  offer.buyerId,
         type:    "offer_accepted",
-        title:   `Your offer on "${offer.card.title}" was accepted`,
-        body:    `Great news! The seller accepted your offer. "${offer.card.title}" is now yours.`,
+        title:   `Your offer on "${listingTitle}" was accepted`,
+        body:    `Great news! The seller accepted your offer. "${listingTitle}" is now yours.`,
         offerId: params.id,
-        cardId:  offer.card.id,
+        cardId:  listingId,
         orderId: order.id,
       });
 
@@ -289,8 +291,6 @@ export async function PATCH(
 
     // ── 5. Cancel the PaymentIntent ───────────────────────────────────────────
     // This releases the hold on the buyer's card. No money moves.
-    // The buyer will see the charge attempt disappear from their bank statement
-    // within a few business days.
     try {
       await stripe.paymentIntents.cancel(offer.paymentIntentId);
       console.log(`[offers PATCH] PI cancelled: ${offer.paymentIntentId}`);
@@ -314,10 +314,10 @@ export async function PATCH(
     notifyAsync({
       userId:  offer.buyerId,
       type:    "offer_rejected",
-      title:   `Your offer on "${offer.card.title}" was declined`,
-      body:    `The seller declined your offer on "${offer.card.title}". Your payment hold has been released.`,
+      title:   `Your offer on "${listingTitle}" was declined`,
+      body:    `The seller declined your offer on "${listingTitle}". Your payment hold has been released.`,
       offerId: params.id,
-      cardId:  offer.card.id,
+      cardId:  listingId,
     });
 
     return NextResponse.json({ success: true });
