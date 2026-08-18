@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dollarsToCents } from "@/lib/money";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -53,7 +54,7 @@ export async function POST(
       select: {
         id: true, status: true, endsAt: true, sellerId: true,
         startingBid: true, currentBid: true,
-        card: { select: { id: true, title: true } },
+        listing: { select: { id: true, ...listingCatalogInclude } },
       },
     });
 
@@ -93,7 +94,7 @@ export async function POST(
       metadata: {
         bidderId,
         auctionId: params.id,
-        cardTitle: auction.card.title,
+        cardTitle: withListingDisplay(auction.listing as any).title,
       },
     });
 
