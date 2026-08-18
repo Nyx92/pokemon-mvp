@@ -137,8 +137,41 @@ describe("settleAuction", () => {
     await settleAuction("auction-1");
 
     expect(mockStripeInstance.paymentIntents.capture).toHaveBeenCalledWith("pi_win"); // sanity
+
+    // cancelBidPI is a same-module function reference (not imported/mockable), so the
+    // observable proof of "the losing bid's PI was cancelled" is the underlying Stripe
+    // call it makes, not a spy on cancelBidPI itself.
+    expect(mockStripeInstance.paymentIntents.cancel).toHaveBeenCalledWith("pi_lose");
+
+    // The losing bid must also be marked cancelled in the DB transaction.
+    expect(mockTx.bid.updateMany).toHaveBeenCalledWith({
+      where: { auctionId: "auction-1", status: "active", id: { not: "bid-1" } },
+      data: { status: "cancelled" },
+    });
+
     expect(mockNotifyAsync).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "buyer-2", type: "auction_expired", cardId: "card-1" })
+    );
+  });
+
+  it("stores tcgPlayerId as undefined (not empty string) when the listing's catalog has none", async () => {
+    mockPrisma.auction.findUnique.mockResolvedValue(makeAuction({
+      listing: {
+        id: "card-1",
+        pokemonCard: null,
+        riftboundCard: {
+          name: "Vi - Peacekeeper", rarity: "Rare", setLabel: "Unleashed",
+          collectorNumber: "176", tcgPlayerId: null,
+        },
+      },
+    }));
+
+    await settleAuction("auction-1");
+
+    expect(mockTx.cardTransaction.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tcgPlayerId: undefined }),
+      })
     );
   });
 
