@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { centsToDollars, dollarsToCents } from "@/lib/money";
 import { notifyAsync } from "@/lib/notifications";
 import { verifyPaymentIntentAmountOrRespond } from "@/lib/paymentIntentGuard";
+import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -14,6 +15,20 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 // How long (in hours) the seller has to respond before the offer expires
 // and the buyer's authorised funds are released.
 const OFFER_EXPIRY_HOURS = 24;
+
+// The Offer model's card reference is `listingId` (renamed from `cardId`
+// when Card became Listing), but the wire format this route has always used
+// stays `cardId` — this rebuilds a raw offer row's price + card fields for
+// the client without ever leaking the internal `listingId` name.
+function serializeOffer(offer: any) {
+  const { listingId, price, listing, ...rest } = offer;
+  return {
+    ...rest,
+    cardId: listingId,
+    price: price != null ? centsToDollars(price) : null,
+    ...(listing ? { card: withListingDisplay(listing) } : {}),
+  };
+}
 
 /**
  * GET /api/offers?cardId=X              — seller: all non-archived offers on their card
@@ -37,51 +52,37 @@ export async function GET(req: NextRequest) {
     if (cardId && myOffer) {
       const offer = await prisma.offer.findFirst({
         where: {
-          cardId,
+          listingId: cardId,
           buyerId: userId,
-          // Show only active offers — exclude paid (already done) and archived.
-          // "expired" is included so the buyer can see that their offer expired.
           status: { in: ["pending", "accepted", "rejected", "expired"] },
           archivedAt: null,
         },
         orderBy: { createdAt: "desc" },
       });
 
-      return NextResponse.json({
-        offer: offer
-          ? {
-              ...offer,
-              price: offer.price != null ? centsToDollars(offer.price) : null,
-            }
-          : null,
-      });
+      return NextResponse.json({ offer: offer ? serializeOffer(offer) : null });
     }
 
     // ── Seller: all non-archived offers on their card ─────────────────────────
     if (cardId) {
-      const card = await prisma.card.findUnique({
+      const listing = await prisma.listing.findUnique({
         where: { id: cardId },
         select: { ownerId: true },
       });
-      if (!card)
+      if (!listing)
         return NextResponse.json({ error: "Card not found" }, { status: 404 });
-      if (card.ownerId !== userId)
+      if (listing.ownerId !== userId)
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
       const offers = await prisma.offer.findMany({
-        where: { cardId, archivedAt: null },
+        where: { listingId: cardId, archivedAt: null },
         include: {
           buyer: { select: { id: true, username: true, email: true } },
         },
         orderBy: { createdAt: "desc" },
       });
 
-      return NextResponse.json({
-        offers: offers.map((o) => ({
-          ...o,
-          price: o.price != null ? centsToDollars(o.price) : null,
-        })),
-      });
+      return NextResponse.json({ offers: offers.map(serializeOffer) });
     }
 
     // ── Buyer: their full offer history ───────────────────────────────────────
@@ -89,26 +90,21 @@ export async function GET(req: NextRequest) {
       const offers = await prisma.offer.findMany({
         where: { buyerId: userId },
         include: {
-          card: {
+          listing: {
             select: {
               id: true,
-              title: true,
               imageUrls: true,
               condition: true,
               forSale: true,
               owner: { select: { id: true, username: true, email: true } },
+              ...listingCatalogInclude,
             },
           },
         },
         orderBy: { createdAt: "desc" },
       });
 
-      return NextResponse.json({
-        offers: offers.map((o) => ({
-          ...o,
-          price: o.price != null ? centsToDollars(o.price) : null,
-        })),
-      });
+      return NextResponse.json({ offers: offers.map(serializeOffer) });
     }
 
     // ── Seller: all incoming offers across all four lifecycle states ──────────
@@ -120,8 +116,8 @@ export async function GET(req: NextRequest) {
     //   - archivedAt: null  catches pending, rejected, and expired offers (the card
     //     is still owned by the seller or the offer just ended).
     //   - status paid/accepted catches accepted offers, which the accept flow also
-    //     archives (step 5c archives ALL offers on the card, including the one just
-    //     marked "paid" in step 5b). Without this second branch, accepted offers
+    //     archives (step 5c archives ALL offers on the card, including the one
+    //     just marked "paid" in step 5b). Without this second branch, accepted offers
     //     would be invisible to the seller entirely.
     //
     // Offers archived for other reasons (e.g. card sold via checkout before the
@@ -130,8 +126,8 @@ export async function GET(req: NextRequest) {
     if (received) {
       const offers = await prisma.offer.findMany({
         where: {
-          // Filter by the snapshotted seller id, not card.ownerId.
-          // After a sale, card.ownerId flips to the buyer — sellerId stays fixed.
+          // Filter by the snapshotted seller id, not listing.ownerId.
+          // After a sale, listing.ownerId flips to the buyer — sellerId stays fixed.
           sellerId: userId,
           OR: [
             { archivedAt: null },                              // pending, rejected, expired
@@ -139,18 +135,13 @@ export async function GET(req: NextRequest) {
           ],
         },
         include: {
-          card: {
-            select: { id: true, title: true, imageUrls: true, condition: true },
+          listing: {
+            select: { id: true, imageUrls: true, condition: true, ...listingCatalogInclude },
           },
         },
         orderBy: { createdAt: "desc" },
       });
-      return NextResponse.json({
-        offers: offers.map((o) => ({
-          ...o,
-          price: o.price != null ? centsToDollars(o.price) : null,
-        })),
-      });
+      return NextResponse.json({ offers: offers.map(serializeOffer) });
     }
 
     return NextResponse.json({ error: "Missing query param" }, { status: 400 });
@@ -218,20 +209,26 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 3. Verify the card is still for sale ────────────────────────────────
-    const card = await prisma.card.findUnique({ where: { id: cardId } });
-    if (!card)
+    const listing = await prisma.listing.findUnique({
+      where: { id: cardId },
+      include: listingCatalogInclude,
+    });
+    if (!listing)
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
-    if (!card.forSale)
+    if (!listing.forSale)
       return NextResponse.json(
         { error: "Card is not for sale" },
         { status: 409 }
       );
-    if (card.ownerId === buyerId) {
+    if (listing.ownerId === buyerId) {
       return NextResponse.json(
         { error: "Cannot offer on your own card" },
         { status: 400 }
       );
     }
+
+    // Resolved once — used in both notification branches below (amend and new).
+    const listingTitle = withListingDisplay(listing).title;
 
     // ── 4. Verify the PaymentIntent in Stripe ────────────────────────────────
     // We retrieve the PI from Stripe and confirm its status is "requires_capture".
@@ -277,7 +274,7 @@ export async function POST(req: NextRequest) {
     // A buyer can only have ONE active offer per card at a time.
     const existing = await prisma.offer.findFirst({
       where: {
-        cardId,
+        listingId: cardId,
         buyerId,
         // "accepted" offers are locked — the seller already chose this offer;
         // the buyer must wait for the capture or cancellation before offering again.
@@ -332,16 +329,16 @@ export async function POST(req: NextRequest) {
       // Notify the seller that the buyer revised their offer with a new price.
       // Fire-and-forget — never blocks the response.
       notifyAsync({
-        userId:  card.ownerId,
+        userId:  listing.ownerId,
         type:    "offer_received",
-        title:   `Offer updated on "${card.title}"`,
-        body:    `A buyer updated their offer to S$${price} on "${card.title}". Head to your Offers page to respond.`,
+        title:   `Offer updated on "${listingTitle}"`,
+        body:    `A buyer updated their offer to S$${price} on "${listingTitle}". Head to your Offers page to respond.`,
         offerId: existing.id,
-        cardId:  card.id,
+        cardId:  listing.id,
       });
 
       return NextResponse.json({
-        offer: { ...updated, price: centsToDollars(updated.price!) },
+        offer: serializeOffer(updated),
         amended: true,
       });
     }
@@ -349,11 +346,11 @@ export async function POST(req: NextRequest) {
     // ── 6b. New offer ─────────────────────────────────────────────────────────
     const offer = await prisma.offer.create({
       data: {
-        cardId,
+        listingId: cardId,
         buyerId,
         // Snapshot the current card owner as the seller. We can't rely on
-        // card.ownerId later because it changes when the card is transferred.
-        sellerId: card.ownerId,
+        // listing.ownerId later because it changes when the card is transferred.
+        sellerId: listing.ownerId,
         price: priceInCents,
         message: cleanMessage,
         status: "pending",
@@ -367,19 +364,16 @@ export async function POST(req: NextRequest) {
 
     // Notify the seller — fire-and-forget, never blocks the response.
     notifyAsync({
-      userId:  card.ownerId,
+      userId:  listing.ownerId,
       type:    "offer_received",
-      title:   `New offer on "${card.title}"`,
-      body:    `You received an offer of S$${price} on your card "${card.title}". Head to your Offers page to respond.`,
+      title:   `New offer on "${listingTitle}"`,
+      body:    `You received an offer of S$${price} on your card "${listingTitle}". Head to your Offers page to respond.`,
       offerId: offer.id,
-      cardId:  card.id,
+      cardId:  listing.id,
     });
 
     return NextResponse.json(
-      {
-        offer: { ...offer, price: centsToDollars(offer.price!) },
-        amended: false,
-      },
+      { offer: serializeOffer(offer), amended: false },
       { status: 201 }
     );
   } catch (err) {
