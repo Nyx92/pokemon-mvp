@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -8,6 +8,7 @@ import {
   TextField,
   InputAdornment,
   CircularProgress,
+  Button,
 } from "@mui/material";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import SearchIcon from "@mui/icons-material/Search";
@@ -16,7 +17,9 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import CardListItem from "../shared-components/cards/CardListItem";
 import ErrorState from "../shared-components/ErrorState";
-import type { CardItem } from "@/types/card";
+import type { CardItem, CardBrowseIndexItem } from "@/types/card";
+import { computeFacets } from "@/lib/marketplaceFacets";
+import FilterSidebar, { type MarketplaceFilterState } from "./FilterSidebar";
 
 // ── Animation variants ────────────────────────────────────────────────────────
 // 1. Individual card tile: fade up on enter.
@@ -35,58 +38,113 @@ const gridVariants: Variants = {
 // Hoisted so the reference is stable across renders — passing a new array
 // literal here every render defeats useFuzzySearch's internal useMemo,
 // rebuilding the entire Fuse index on every keystroke in the search box.
-const MARKETPLACE_SEARCH_KEYS = ["title", "status", "condition", "setName", "rarity", "type"];
+// Scoped to the lightweight browse-index's own fields (not the full
+// CardItem shape the old full-list search used).
+const MARKETPLACE_SEARCH_KEYS = ["title", "setName", "rarity"];
+const PAGE_SIZE = 24;
+const EMPTY_FILTERS: MarketplaceFilterState = { game: null, setNames: [], rarities: [], types: [] };
 
 export default function Marketplace() {
   const { userId } = useAuth();
   const router = useRouter();
   const watchlistedIds = useWatchlistIds();
-  const [cards,      setCards]      = useState<CardItem[]>([]);
-  const [loading,    setLoading]    = useState(true);
+
+  const [browseIndex, setBrowseIndex] = useState<CardBrowseIndexItem[]>([]);
+  const [filters, setFilters] = useState<MarketplaceFilterState>(EMPTY_FILTERS);
+  const [search, setSearch] = useState("");
+  const [cards, setCards] = useState<CardItem[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const [search,     setSearch]     = useState("");
 
-  // 1. Fetch all cards listed for sale; surface error state on failure.
+  // Fetch the lightweight browse-index once on mount — feeds search + facets.
   useEffect(() => {
-    const fetchCards = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/cards?forSale=true");
-        const data = await res.json();
-        if (res.ok) {
-          setCards(data.cards);
-        } else {
-          console.error("Error loading cards:", data.error);
-          setFetchError(true);
-        }
-      } catch (err) {
-        console.error("Failed to fetch cards:", err);
-        setFetchError(true);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCards();
+    fetch("/api/cards/browse-index")
+      .then((r) => r.json())
+      .then((data) => setBrowseIndex(data.items ?? []))
+      .catch(() => setBrowseIndex([])); // degrade gracefully — search/facets just show nothing
   }, []);
 
-  const searchResults = useFuzzySearch({
-    data: cards,
+  const facets = useMemo(() => computeFacets(browseIndex, filters.game), [browseIndex, filters.game]);
+
+  // fuse.js over the in-memory index (existing hook, unchanged) — ranked by relevance.
+  const searchMatches = useFuzzySearch({
+    data: browseIndex,
     query: search,
     keys: MARKETPLACE_SEARCH_KEYS,
   });
+  const matchedIds = search ? searchMatches.map((m) => m.id) : null;
 
-  const filteredProducts = searchResults.filter(
+  function buildQuery(pageNum: number) {
+    const params = new URLSearchParams({
+      forSale: "true",
+      page: String(pageNum),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (filters.game) params.set("game", filters.game);
+    filters.setNames.forEach((v) => params.append("setName", v));
+    filters.rarities.forEach((v) => params.append("rarity", v));
+    filters.types.forEach((v) => params.append("type", v));
+    if (matchedIds) {
+      // Search-mode: paginate the client-side relevance-ranked id list
+      // rather than trusting server pagination order, and only send this
+      // page's ids (bounded to PAGE_SIZE) to keep the query string short.
+      const start = (pageNum - 1) * PAGE_SIZE;
+      matchedIds.slice(start, start + PAGE_SIZE).forEach((id) => params.append("ids", id));
+    }
+    return params.toString();
+  }
+
+  function reorderToMatchSearch(fetchedCards: CardItem[]): CardItem[] {
+    if (!matchedIds) return fetchedCards;
+    // Preserve fuse.js's relevance ranking — Prisma's `id IN (...)` does
+    // not guarantee the response is ordered like the input array.
+    const order = new Map(matchedIds.map((id, i) => [id, i]));
+    return [...fetchedCards].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  }
+
+  // Refetch page 1 whenever filters or search change (or the index arrives).
+  useEffect(() => {
+    // A search with zero matches has nothing to fetch — skip the request.
+    if (matchedIds && matchedIds.length === 0) {
+      setCards([]);
+      setHasMore(false);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setFetchError(false);
+    fetch(`/api/cards?${buildQuery(1)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setCards(reorderToMatchSearch(data.cards ?? []));
+        setHasMore(matchedIds ? matchedIds.length > PAGE_SIZE : Boolean(data.hasMore));
+        setPage(1);
+      })
+      .catch(() => setFetchError(true))
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, search, browseIndex]);
+
+  function handleLoadMore() {
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    fetch(`/api/cards?${buildQuery(nextPage)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setCards((prev) => [...prev, ...reorderToMatchSearch(data.cards ?? [])]);
+        setHasMore(matchedIds ? matchedIds.length > nextPage * PAGE_SIZE : Boolean(data.hasMore));
+        setPage(nextPage);
+      })
+      .finally(() => setLoadingMore(false));
+  }
+
+  const filteredProducts = cards.filter(
     (product) => !(userId && product.owner?.id === userId)
   );
-
-  if (loading) {
-    return (
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   // 2. Render error state if the fetch failed.
   if (fetchError) {
@@ -133,42 +191,61 @@ export default function Marketplace() {
         />
       </Box>
 
-      {/* Card Grid */}
-      <Box>
-        {/* 3. key={search} causes AnimatePresence to unmount + remount the grid
-               whenever the search query changes, replaying the stagger entrance. */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={search}
-            variants={gridVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}
-          >
-            {filteredProducts.length > 0 ? (
-              filteredProducts.map((product) => (
-                <motion.div key={product.id} variants={cardVariants}>
-                  <CardListItem
-                    card={product}
-                    watchlisted={watchlistedIds.has(product.id)}
-                    onClick={(card) => router.push(`/cards/${card.id}`)}
-                  />
-                </motion.div>
-              ))
-            ) : (
-              <motion.div variants={cardVariants} style={{ width: "100%" }}>
-                <Typography
-                  variant="body1"
-                  textAlign="center"
-                  sx={{ mt: 4, color: "rgba(255,255,255,0.6)" }}
+      <Box sx={{ display: "flex", gap: 3, width: "95%", mx: "auto" }}>
+        <FilterSidebar facets={facets} filters={filters} onChange={setFilters} />
+
+        <Box sx={{ flex: 1 }}>
+          {loading ? (
+            <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <>
+              {/* 3. key={search} causes AnimatePresence to unmount + remount the grid
+                     whenever the search query changes, replaying the stagger entrance. */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={search}
+                  variants={gridVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  style={{ display: "flex", flexWrap: "wrap", gap: "16px", justifyContent: "center" }}
                 >
-                  No cards match your filters.
-                </Typography>
-              </motion.div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map((product) => (
+                      <motion.div key={product.id} variants={cardVariants}>
+                        <CardListItem
+                          card={product}
+                          watchlisted={watchlistedIds.has(product.id)}
+                          onClick={(card) => router.push(`/cards/${card.id}`)}
+                        />
+                      </motion.div>
+                    ))
+                  ) : (
+                    <motion.div variants={cardVariants} style={{ width: "100%" }}>
+                      <Typography
+                        variant="body1"
+                        textAlign="center"
+                        sx={{ mt: 4, color: "rgba(255,255,255,0.6)" }}
+                      >
+                        No cards match your filters.
+                      </Typography>
+                    </motion.div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+
+              {hasMore && (
+                <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+                  <Button variant="outlined" onClick={handleLoadMore} disabled={loadingMore}>
+                    {loadingMore ? <CircularProgress size={20} /> : "Load more"}
+                  </Button>
+                </Box>
+              )}
+            </>
+          )}
+        </Box>
       </Box>
     </Box>
   );
