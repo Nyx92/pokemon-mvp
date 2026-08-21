@@ -106,6 +106,9 @@ function SectionRow({ title, subtitle, cards, onCardClick, watchlistedIds }: Sec
 function auctionToCard(auction: AuctionItem): CardItem {
   return {
     id:          auction.cardId,
+    // Auctions don't carry a game field yet (out of scope here) — every
+    // existing auction is a Pokemon listing.
+    game:        "POKEMON",
     title:       auction.card.title,
     price:       null,
     condition:   auction.card.condition,

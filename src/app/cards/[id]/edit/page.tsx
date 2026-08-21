@@ -54,6 +54,7 @@ export default function EditCardPage() {
     <UploadCard
       initialData={{
         id: card.id,
+        game: card.game,
         title: card.title,
         price: card.price,
         condition: card.condition,
@@ -66,6 +67,8 @@ export default function EditCardPage() {
         rarity: card.rarity ?? "",
         imageUrls: card.imageUrls ?? [],
         cardNumber: card.cardNumber ?? "",
+        type: card.type ?? "",
+        supertype: card.supertype ?? "",
       }}
     />
   );

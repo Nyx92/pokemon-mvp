@@ -8,7 +8,9 @@ import {
   listingCatalogInclude,
   withListingDisplay,
   findOrCreatePokemonCatalogEntry,
+  findOrCreateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
+import { isValidRiftboundType, isValidRiftboundSupertype } from "@/lib/riftboundCatalog";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -82,6 +84,14 @@ export async function POST(req: Request) {
 
     const formData = await req.formData();
 
+    const game = formData.get("game") as string | null;
+    if (game !== "POKEMON" && game !== "RIFTBOUND") {
+      return NextResponse.json(
+        { error: `Unknown game: "${game}"` },
+        { status: 400 }
+      );
+    }
+
     const title = formData.get("title") as string | null;
     const condition = formData.get("condition") as string | null;
     const description = (formData.get("description") as string | null) || "";
@@ -90,8 +100,27 @@ export async function POST(req: Request) {
     const rarity = (formData.get("rarity") as string | null) || "";
     const forSale = formData.get("forSale") === "true";
     const tcgPlayerId = formData.get("tcgPlayerId") as string | null;
+    // Pokemon-only — Riftbound catalog rows have no language field.
     const language = formData.get("language") as string | null;
     const cardNumber = (formData.get("cardNumber") as string | null) || "";
+    // Riftbound-only.
+    const type = formData.get("type") as string | null;
+    const supertype = (formData.get("supertype") as string | null) ?? "";
+
+    if (game === "RIFTBOUND") {
+      if (!type || !isValidRiftboundType(type)) {
+        return NextResponse.json(
+          { error: `Unknown Riftbound type: "${type}"` },
+          { status: 400 }
+        );
+      }
+      if (!isValidRiftboundSupertype(type, supertype)) {
+        return NextResponse.json(
+          { error: `Supertype "${supertype}" is not valid for type "${type}"` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Price logic (may be omitted when NOT for sale)
     const priceRaw = formData.get("price");
@@ -114,7 +143,7 @@ export async function POST(req: Request) {
       !condition ||
       !ownerId ||
       !tcgPlayerId ||
-      !language ||
+      (game === "POKEMON" && !language) ||
       images.length === 0 ||
       priceRequiredButMissing
     ) {
@@ -161,22 +190,43 @@ export async function POST(req: Request) {
     }
 
     // The admin upload form only collects flat card-identity fields — it
-    // doesn't know about the PokemonCardCatalog table. Reuse a catalog row
-    // for repeated uploads of "the same" card (matched by tcgPlayerId), or
-    // create one, instead of creating an orphaned catalog-less listing.
-    const catalogEntry = await findOrCreatePokemonCatalogEntry(prisma, {
-      title,
-      setName,
-      rarity,
-      tcgPlayerId,
-      language,
-      cardNumber,
-    });
+    // doesn't know about the PokemonCardCatalog/RiftboundCardCatalog tables.
+    // Reuse a catalog row for repeated uploads of "the same" card (matched by
+    // tcgPlayerId), or create one, instead of creating an orphaned
+    // catalog-less listing.
+    const listingData =
+      game === "POKEMON"
+        ? {
+            game: "POKEMON" as const,
+            pokemonCardId: (
+              await findOrCreatePokemonCatalogEntry(prisma, {
+                title,
+                setName,
+                rarity,
+                tcgPlayerId,
+                language: language as string,
+                cardNumber,
+              })
+            ).id,
+          }
+        : {
+            game: "RIFTBOUND" as const,
+            riftboundCardId: (
+              await findOrCreateRiftboundCatalogEntry(prisma, {
+                title,
+                setName,
+                rarity,
+                tcgPlayerId,
+                cardNumber,
+                type: type as string,
+                supertype,
+              })
+            ).id,
+          };
 
     const listing = await prisma.listing.create({
       data: {
-        game: "POKEMON",
-        pokemonCardId: catalogEntry.id,
+        ...listingData,
         price,
         condition,
         description,

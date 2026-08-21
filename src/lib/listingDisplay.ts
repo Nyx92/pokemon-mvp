@@ -27,6 +27,9 @@ export interface ListingDisplayFields {
   language: string;
   cardNumber: string | null;
   tcgPlayerId: string;
+  // Riftbound-only — undefined for a pokemonCard listing.
+  type?: string;
+  supertype?: string;
 }
 
 // Resolves the flat display fields for a listing, regardless of which game
@@ -56,6 +59,8 @@ export function resolveListingDisplay(
       language: "English",
       cardNumber: r.collectorNumber,
       tcgPlayerId: r.tcgPlayerId ?? "",
+      type: r.type,
+      supertype: r.supertype,
     };
   }
   throw new Error(
@@ -98,6 +103,7 @@ export async function findOrCreatePokemonCatalogEntry(
 ) {
   const existing = await prismaOrTx.pokemonCardCatalog.findFirst({
     where: { tcgPlayerId: fields.tcgPlayerId },
+    orderBy: { createdAt: "asc" },
   });
   if (existing) return existing;
 
@@ -141,6 +147,77 @@ export async function updatePokemonCatalogEntry(
       rarity: fields.rarity,
       language: fields.language,
       localId: fields.cardNumber || null,
+      tcgPlayerId: fields.tcgPlayerId,
+    },
+  });
+}
+
+// Riftbound counterpart to findOrCreatePokemonCatalogEntry above — same
+// tcgPlayerId-keyed find-or-create shape, and the same setId-from-tcgPlayerId
+// stand-in (no real set code source in this manual-entry path). Unlike
+// PokemonCardCatalog, collectorNumber is a required (non-nullable) column, so
+// there's no empty-string-to-null normalization here.
+export async function findOrCreateRiftboundCatalogEntry(
+  prismaOrTx: Prisma.TransactionClient,
+  fields: {
+    title: string;
+    setName: string;
+    rarity: string;
+    tcgPlayerId: string;
+    cardNumber: string;
+    type: string;
+    supertype: string;
+  }
+) {
+  const existing = await prismaOrTx.riftboundCardCatalog.findFirst({
+    where: { tcgPlayerId: fields.tcgPlayerId },
+    orderBy: { createdAt: "asc" },
+  });
+  if (existing) return existing;
+
+  return prismaOrTx.riftboundCardCatalog.create({
+    data: {
+      riftboundId: `manual-${fields.tcgPlayerId}`,
+      name: fields.title,
+      setLabel: fields.setName,
+      rarity: fields.rarity,
+      collectorNumber: fields.cardNumber,
+      type: fields.type,
+      supertype: fields.supertype,
+      tcgPlayerId: fields.tcgPlayerId,
+      setId: fields.tcgPlayerId,
+      // Required, no default, and unused anywhere in the app today (unlike
+      // Listing.imageUrls, the per-copy photos) — meant for a future real
+      // catalog import, same category as Pokemon's unused nameJa/illustrator.
+      imageUrl: "",
+    },
+  });
+}
+
+// Riftbound counterpart to updatePokemonCatalogEntry above — updates the
+// shared catalog row by id, visible to every other listing pointing at it.
+export async function updateRiftboundCatalogEntry(
+  prismaOrTx: Prisma.TransactionClient,
+  catalogId: string,
+  fields: {
+    title: string;
+    setName: string;
+    rarity: string;
+    tcgPlayerId: string;
+    cardNumber: string;
+    type: string;
+    supertype: string;
+  }
+) {
+  return prismaOrTx.riftboundCardCatalog.update({
+    where: { id: catalogId },
+    data: {
+      name: fields.title,
+      setLabel: fields.setName,
+      rarity: fields.rarity,
+      collectorNumber: fields.cardNumber,
+      type: fields.type,
+      supertype: fields.supertype,
       tcgPlayerId: fields.tcgPlayerId,
     },
   });

@@ -5,6 +5,8 @@ import {
   withListingDisplay,
   findOrCreatePokemonCatalogEntry,
   updatePokemonCatalogEntry,
+  findOrCreateRiftboundCatalogEntry,
+  updateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
 
 const POKEMON_LISTING = {
@@ -65,6 +67,22 @@ describe("resolveListingDisplay", () => {
     });
   });
 
+  it("includes type and supertype when the riftboundCard has them set", () => {
+    const listingWithTypes = {
+      ...RIFTBOUND_LISTING,
+      riftboundCard: { ...RIFTBOUND_LISTING.riftboundCard, type: "Unit", supertype: "Champion" },
+    };
+    const result = resolveListingDisplay(listingWithTypes as any);
+    expect(result.type).toBe("Unit");
+    expect(result.supertype).toBe("Champion");
+  });
+
+  it("omits type and supertype for a pokemonCard listing", () => {
+    const result = resolveListingDisplay(POKEMON_LISTING as any);
+    expect(result.type).toBeUndefined();
+    expect(result.supertype).toBeUndefined();
+  });
+
   it("throws when neither catalog relation is populated", () => {
     const broken = { ...POKEMON_LISTING, pokemonCard: null, riftboundCard: null };
     expect(() => resolveListingDisplay(broken as any)).toThrow(
@@ -121,6 +139,7 @@ describe("findOrCreatePokemonCatalogEntry", () => {
     expect(result).toBe(existing);
     expect(tx.pokemonCardCatalog.findFirst).toHaveBeenCalledWith({
       where: { tcgPlayerId: "tcg-99" },
+      orderBy: { createdAt: "asc" },
     });
     expect(tx.pokemonCardCatalog.create).not.toHaveBeenCalled();
   });
@@ -207,5 +226,99 @@ describe("updatePokemonCatalogEntry", () => {
     expect(tx.pokemonCardCatalog.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ localId: null }) })
     );
+  });
+});
+
+describe("findOrCreateRiftboundCatalogEntry", () => {
+  const fields = {
+    title: "Vi - Peacekeeper",
+    setName: "Unleashed",
+    rarity: "Rare",
+    tcgPlayerId: "rift-tcg-99",
+    cardNumber: "176",
+    type: "Unit",
+    supertype: "Champion",
+  };
+
+  it("reuses an existing catalog row matched by tcgPlayerId", async () => {
+    const existing = { id: "rbc-existing", tcgPlayerId: "rift-tcg-99" };
+    const tx = {
+      riftboundCardCatalog: {
+        findFirst: vi.fn().mockResolvedValue(existing),
+        create: vi.fn(),
+      },
+    };
+
+    const result = await findOrCreateRiftboundCatalogEntry(tx as any, fields);
+
+    expect(result).toBe(existing);
+    expect(tx.riftboundCardCatalog.findFirst).toHaveBeenCalledWith({
+      where: { tcgPlayerId: "rift-tcg-99" },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(tx.riftboundCardCatalog.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a new catalog row when no match exists", async () => {
+    const created = { id: "rbc-new" };
+    const tx = {
+      riftboundCardCatalog: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue(created),
+      },
+    };
+
+    const result = await findOrCreateRiftboundCatalogEntry(tx as any, fields);
+
+    expect(result).toBe(created);
+    expect(tx.riftboundCardCatalog.create).toHaveBeenCalledWith({
+      data: {
+        riftboundId: "manual-rift-tcg-99",
+        name: "Vi - Peacekeeper",
+        setLabel: "Unleashed",
+        rarity: "Rare",
+        collectorNumber: "176",
+        type: "Unit",
+        supertype: "Champion",
+        tcgPlayerId: "rift-tcg-99",
+        setId: "rift-tcg-99",
+        imageUrl: "",
+      },
+    });
+  });
+});
+
+describe("updateRiftboundCatalogEntry", () => {
+  it("updates the existing catalog row by id with the submitted fields", async () => {
+    const updated = { id: "rbc-1", name: "New Name" };
+    const tx = {
+      riftboundCardCatalog: {
+        update: vi.fn().mockResolvedValue(updated),
+      },
+    };
+
+    const result = await updateRiftboundCatalogEntry(tx as any, "rbc-1", {
+      title: "New Name",
+      setName: "New Set",
+      rarity: "Rare",
+      tcgPlayerId: "rift-tcg-5",
+      cardNumber: "010",
+      type: "Legend",
+      supertype: "",
+    });
+
+    expect(result).toBe(updated);
+    expect(tx.riftboundCardCatalog.update).toHaveBeenCalledWith({
+      where: { id: "rbc-1" },
+      data: {
+        name: "New Name",
+        setLabel: "New Set",
+        rarity: "Rare",
+        collectorNumber: "010",
+        type: "Legend",
+        supertype: "",
+        tcgPlayerId: "rift-tcg-5",
+      },
+    });
   });
 });

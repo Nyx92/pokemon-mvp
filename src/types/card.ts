@@ -8,12 +8,16 @@ export interface CardItem {
   forSale: boolean;
   imageUrls: string[];
   tcgPlayerId: string;
+  game: "POKEMON" | "RIFTBOUND";
 
   setName: string | null;
   rarity: string | null;
   description: string | null;
   language: string;
   cardNumber: string | null;
+  // Riftbound-only — absent for a POKEMON card.
+  type?: string;
+  supertype?: string;
 
   // True while the card has an active (or cron-pending) auction.
   // Set by POST /api/auctions; cleared when the auction is settled or expired.

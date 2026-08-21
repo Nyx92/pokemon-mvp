@@ -175,7 +175,7 @@ model RiftboundCardCatalog {
   type            String // e.g. "Unit"
   supertype       String // e.g. "Champion"
   rarity          String
-  domain          String?
+  domain          String[] // some cards carry two domains (e.g. dual-domain gold cards)
   energy          Int?
   might           Int?
   power           Int?

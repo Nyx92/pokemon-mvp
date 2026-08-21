@@ -13,6 +13,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockPrisma = vi.hoisted(() => ({
   listing: { findUnique: vi.fn(), update: vi.fn() },
   pokemonCardCatalog: { update: vi.fn() },
+  riftboundCardCatalog: { update: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -186,25 +187,32 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
     expect(body.card.title).toBe("Charizard Holo");
   });
 
-  it("leaves the catalog reference untouched for a RIFTBOUND listing", async () => {
+  it("updates the linked catalog row in place for a RIFTBOUND listing and returns resolved display fields", async () => {
     mockPrisma.listing.findUnique.mockResolvedValue({
       ...LISTING, game: "RIFTBOUND", pokemonCardId: null, riftboundCardId: "rbc-1",
     });
+    mockPrisma.riftboundCardCatalog.update.mockResolvedValue({ id: "rbc-1" });
     mockPrisma.listing.update.mockResolvedValue({
       ...LISTING,
       price: 10000,
       pokemonCard: null,
       riftboundCard: {
         name: "Vi - Peacekeeper", rarity: "Rare", setLabel: "Unleashed",
-        collectorNumber: "176", tcgPlayerId: null,
+        collectorNumber: "176", tcgPlayerId: "rift-tcg-1", type: "Unit", supertype: "Champion",
       },
     });
 
     const res = await PUT(
       putRequest({
-        title: "Ignored",
+        title: "Vi - Peacekeeper",
         condition: "NM",
         ownerId: "owner-1",
+        setName: "Unleashed",
+        rarity: "Rare",
+        tcgPlayerId: "rift-tcg-1",
+        cardNumber: "176",
+        type: "Unit",
+        supertype: "Champion",
         forSale: "true",
         price: "100",
         keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
@@ -215,6 +223,46 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
 
     expect(res.status).toBe(200);
     expect(mockPrisma.pokemonCardCatalog.update).not.toHaveBeenCalled();
+    expect(mockPrisma.riftboundCardCatalog.update).toHaveBeenCalledWith({
+      where: { id: "rbc-1" },
+      data: {
+        name: "Vi - Peacekeeper",
+        setLabel: "Unleashed",
+        rarity: "Rare",
+        collectorNumber: "176",
+        type: "Unit",
+        supertype: "Champion",
+        tcgPlayerId: "rift-tcg-1",
+      },
+    });
     expect(body.card.title).toBe("Vi - Peacekeeper");
+  });
+
+  it("returns 400 when the RIFTBOUND supertype doesn't belong to the given type", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      ...LISTING, game: "RIFTBOUND", pokemonCardId: null, riftboundCardId: "rbc-1",
+    });
+
+    const res = await PUT(
+      putRequest({
+        title: "Vi - Peacekeeper",
+        condition: "NM",
+        ownerId: "owner-1",
+        setName: "Unleashed",
+        rarity: "Rare",
+        tcgPlayerId: "rift-tcg-1",
+        cardNumber: "176",
+        type: "Gear",
+        supertype: "Champion",
+        forSale: "true",
+        price: "100",
+        keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
+      }),
+      { params: { id: "card-1" } }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.riftboundCardCatalog.update).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 });

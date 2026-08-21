@@ -26,6 +26,7 @@ import { NextRequest } from "next/server";
 const mockPrisma = vi.hoisted(() => ({
   listing: { create: vi.fn() },
   pokemonCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
+  riftboundCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
 }));
 
 const mockSupabaseInstance = vi.hoisted(() => ({
@@ -56,11 +57,31 @@ import { POST } from "@/app/api/cards/route";
 
 function buildFormData(overrides: Record<string, string> = {}) {
   const fd = new FormData();
+  fd.set("game", "POKEMON");
   fd.set("title", "Charizard");
   fd.set("condition", "NM");
   fd.set("ownerId", "target-user-1");
   fd.set("tcgPlayerId", "tcg-1");
   fd.set("language", "English");
+  fd.set("forSale", "true");
+  fd.set("price", "50.00");
+  fd.append("images", new File(["fake"], "card.png", { type: "image/png" }));
+  Object.entries(overrides).forEach(([k, v]) => fd.set(k, v));
+  return fd;
+}
+
+function buildRiftboundFormData(overrides: Record<string, string> = {}) {
+  const fd = new FormData();
+  fd.set("game", "RIFTBOUND");
+  fd.set("title", "Vi - Peacekeeper");
+  fd.set("condition", "NM");
+  fd.set("ownerId", "target-user-1");
+  fd.set("tcgPlayerId", "rift-tcg-1");
+  fd.set("setName", "Unleashed");
+  fd.set("rarity", "Rare");
+  fd.set("cardNumber", "176");
+  fd.set("type", "Unit");
+  fd.set("supertype", "Champion");
   fd.set("forSale", "true");
   fd.set("price", "50.00");
   fd.append("images", new File(["fake"], "card.png", { type: "image/png" }));
@@ -119,6 +140,7 @@ describe("POST /api/cards", () => {
 
     expect(mockPrisma.pokemonCardCatalog.findFirst).toHaveBeenCalledWith({
       where: { tcgPlayerId: "tcg-1" },
+      orderBy: { createdAt: "asc" },
     });
     expect(mockPrisma.pokemonCardCatalog.create).not.toHaveBeenCalled();
 
@@ -168,5 +190,99 @@ describe("POST /api/cards", () => {
         data: expect.objectContaining({ pokemonCardId: "catalog-new" }),
       })
     );
+  });
+
+  it("creates a RIFTBOUND listing, reusing an existing catalog row matched by tcgPlayerId", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    mockPrisma.riftboundCardCatalog.findFirst.mockResolvedValue({ id: "rbc-1", tcgPlayerId: "rift-tcg-1" });
+    mockPrisma.listing.create.mockResolvedValue({
+      id: "listing-2",
+      ownerId: "target-user-1",
+      pokemonCard: null,
+      riftboundCard: {
+        name: "Vi - Peacekeeper",
+        rarity: "Rare",
+        setLabel: "Unleashed",
+        collectorNumber: "176",
+        tcgPlayerId: "rift-tcg-1",
+        type: "Unit",
+        supertype: "Champion",
+      },
+    });
+
+    const res = await POST(postRequest(buildRiftboundFormData()));
+    expect(res.status).toBe(200);
+
+    expect(mockPrisma.riftboundCardCatalog.findFirst).toHaveBeenCalledWith({
+      where: { tcgPlayerId: "rift-tcg-1" },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(mockPrisma.riftboundCardCatalog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.pokemonCardCatalog.findFirst).not.toHaveBeenCalled();
+
+    expect(mockPrisma.listing.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          game: "RIFTBOUND",
+          riftboundCardId: "rbc-1",
+          ownerId: "target-user-1",
+        }),
+      })
+    );
+
+    const body = await res.json();
+    expect(body.card.title).toBe("Vi - Peacekeeper");
+  });
+
+  it("creates a new RIFTBOUND catalog row when no existing one matches the submitted tcgPlayerId", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    mockPrisma.riftboundCardCatalog.findFirst.mockResolvedValue(null);
+    mockPrisma.riftboundCardCatalog.create.mockResolvedValue({ id: "rbc-new" });
+    mockPrisma.listing.create.mockResolvedValue({
+      id: "listing-2",
+      ownerId: "target-user-1",
+      pokemonCard: null,
+      riftboundCard: {
+        name: "Vi - Peacekeeper",
+        rarity: "Rare",
+        setLabel: "Unleashed",
+        collectorNumber: "176",
+        tcgPlayerId: "rift-tcg-1",
+        type: "Unit",
+        supertype: "Champion",
+      },
+    });
+
+    const res = await POST(postRequest(buildRiftboundFormData()));
+    expect(res.status).toBe(200);
+
+    expect(mockPrisma.riftboundCardCatalog.create).toHaveBeenCalled();
+    expect(mockPrisma.listing.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ riftboundCardId: "rbc-new" }),
+      })
+    );
+  });
+
+  it("returns 400 for an unknown RIFTBOUND type", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    const res = await POST(postRequest(buildRiftboundFormData({ type: "Trap" })));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.listing.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the supertype doesn't belong to the given RIFTBOUND type", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    // Champion only belongs to Unit/Legend, not Gear.
+    const res = await POST(postRequest(buildRiftboundFormData({ type: "Gear", supertype: "Champion" })));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.listing.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for an unrecognized game value", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    const res = await POST(postRequest(buildFormData({ game: "MAGIC" })));
+    expect(res.status).toBe(400);
+    expect(mockPrisma.listing.create).not.toHaveBeenCalled();
   });
 });

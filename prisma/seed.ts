@@ -5,8 +5,83 @@ import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
 import path from "path";
 import { dollarsToCents } from "@/lib/money";
+import { pickTcgPlayerIdOwners } from "@/lib/riftboundCatalog";
+import riftboundCardsIndex from "./riftbound_cards_index.json";
 
 const prisma = new PrismaClient();
+
+// Shape of each value in riftbound_cards_index.json's "index" map.
+interface RiftboundIndexEntry {
+  riftbound_id: string;
+  name: string;
+  set_id: string;
+  set_label: string;
+  collector_number: number;
+  type: string;
+  supertype: string | null;
+  rarity: string;
+  domain: string[];
+  energy: number | null;
+  might: number | null;
+  power: number | null;
+  artist: string | null;
+  image_url: string;
+  tags: string[];
+  alternate_art: boolean;
+  signature: boolean;
+  overnumbered: boolean;
+  text_plain: string | null;
+  text_flavour: string | null;
+  // Not present on every card (~1208/1304) — cards not yet listed on
+  // TCGPlayer have no SKU. A small number of entries share one
+  // tcgplayer_id — not real physical variants, but a stale duplicate row
+  // for the same card (see pickTcgPlayerIdOwners).
+  tcgplayer_id: string | null;
+  updated_on: string;
+}
+
+// Real catalog data pulled from riftcodex.com (see the file's generated_at).
+// supertype maps null -> "" since RiftboundCardCatalog.supertype is a
+// required column (see src/lib/riftboundCatalog.ts's "" = "no supertype"
+// convention). collector_number is numeric in the index; the column is
+// String to allow future overnumbered-variant suffixes.
+async function seedRiftboundCatalog() {
+  const entries = Object.values(riftboundCardsIndex.index) as RiftboundIndexEntry[];
+
+  const tcgPlayerIdOwners = pickTcgPlayerIdOwners(
+    entries.map((c) => ({ tcgPlayerId: c.tcgplayer_id, updatedOn: c.updated_on }))
+  );
+
+  await prisma.riftboundCardCatalog.createMany({
+    data: entries.map((c, i) => ({
+      riftboundId: c.riftbound_id,
+      name: c.name,
+      type: c.type,
+      supertype: c.supertype ?? "",
+      rarity: c.rarity,
+      domain: c.domain,
+      energy: c.energy,
+      might: c.might,
+      power: c.power,
+      artist: c.artist,
+      imageUrl: c.image_url,
+      tags: c.tags,
+      alternateArt: c.alternate_art,
+      signature: c.signature,
+      overnumbered: c.overnumbered,
+      textPlain: c.text_plain,
+      textFlavour: c.text_flavour,
+      setId: c.set_id,
+      setLabel: c.set_label,
+      collectorNumber: String(c.collector_number),
+      // Only the most recently updated row in a shared-tcgplayer_id group
+      // keeps it, so a tcgPlayerId-based catalog lookup resolves to exactly
+      // one row — the other row(s) still get seeded, just without the id.
+      tcgPlayerId: tcgPlayerIdOwners.has(i) ? c.tcgplayer_id : null,
+    })),
+  });
+  console.log(`✅ Seeded ${entries.length} Riftbound catalog entries from riftbound_cards_index.json`);
+}
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -1111,33 +1186,15 @@ async function main() {
 
   console.log("✅ Seeded extra transactions for Highest Transacted");
 
+  await seedRiftboundCatalog();
+
   // ── Riftbound catalog + listing ──────────────────────────────────────────
-  // Real card data (not invented) — matches the sample row used when
-  // designing the catalog schema. No flavour/rules text is seeded since none
-  // was available; textFlavour/textPlain stay null.
-  const riftboundVi = await prisma.riftboundCardCatalog.create({
-    data: {
-      riftboundId: "unl-176-219",
-      name: "Vi - Peacekeeper",
-      type: "Unit",
-      supertype: "Champion",
-      rarity: "Rare",
-      domain: "Order",
-      energy: 5,
-      might: 5,
-      power: 1,
-      artist: "Envar Studio",
-      alternateArt: false,
-      signature: false,
-      overnumbered: false,
-      tags: ["Vi", "Piltover"],
-      setId: "UNL",
-      setLabel: "Unleashed",
-      collectorNumber: "176",
-      imageUrl:
-        "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/51610bbdecd77b15f58b9a968611e536ebdf445e-744x1039.png",
-      tcgPlayerId: "685595",
-    },
+  // "Vi - Peacekeeper" (unl-176-219, tcgPlayerId already set by the bulk
+  // catalog import above) already exists — reuse that row instead of
+  // creating a duplicate, which would violate the riftboundId unique
+  // constraint.
+  const riftboundVi = await prisma.riftboundCardCatalog.findUniqueOrThrow({
+    where: { riftboundId: "unl-176-219" },
   });
 
   await prisma.listing.create({

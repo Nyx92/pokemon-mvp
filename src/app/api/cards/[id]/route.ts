@@ -8,7 +8,9 @@ import {
   listingCatalogInclude,
   withListingDisplay,
   updatePokemonCatalogEntry,
+  updateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
+import { isValidRiftboundType, isValidRiftboundSupertype } from "@/lib/riftboundCatalog";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -134,14 +136,12 @@ export async function PUT(
     }
 
     // Admin: full update. Card-identity fields (title/setName/rarity/etc.)
-    // only apply when this listing already points at a POKEMON catalog row
-    // — editing here updates that row directly (catalog data is shared
-    // across every listing of the same card, so the edit is visible to
-    // every other seller's listing of it too), rather than reassigning
-    // which catalog row the listing points to. RIFTBOUND listings have no
-    // identity fields in this form yet (out of scope — see the schema
-    // design's non-goals), so their catalog reference is left untouched;
-    // only the marketplace fields below (price/condition/etc.) apply.
+    // always apply here — editing updates the linked catalog row directly
+    // (catalog data is shared across every listing of the same card, so the
+    // edit is visible to every other seller's listing of it too), rather
+    // than reassigning which catalog row the listing points to. Which
+    // catalog (Pokemon vs Riftbound) gets updated is driven by the
+    // listing's own (immutable) game, not by anything in this form.
     const title = formData.get("title") as string;
     const condition = formData.get("condition") as string;
     const description = (formData.get("description") as string) || "";
@@ -149,8 +149,27 @@ export async function PUT(
     const setName = (formData.get("setName") as string) || "";
     const rarity = (formData.get("rarity") as string) || "";
     const tcgPlayerId = formData.get("tcgPlayerId") as string;
+    // Pokemon-only.
     const language = formData.get("language") as string;
     const cardNumber = (formData.get("cardNumber") as string) || "";
+    // Riftbound-only.
+    const type = formData.get("type") as string;
+    const supertype = (formData.get("supertype") as string | null) ?? "";
+
+    if (listing.game === "RIFTBOUND") {
+      if (!type || !isValidRiftboundType(type)) {
+        return NextResponse.json(
+          { error: `Unknown Riftbound type: "${type}"` },
+          { status: 400 }
+        );
+      }
+      if (!isValidRiftboundSupertype(type, supertype)) {
+        return NextResponse.json(
+          { error: `Supertype "${supertype}" is not valid for type "${type}"` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Existing image URLs the client wants to keep
     const keepRaw = formData.get("keepImageUrls") as string | null;
@@ -191,6 +210,16 @@ export async function PUT(
         tcgPlayerId,
         language,
         cardNumber,
+      });
+    } else if (listing.game === "RIFTBOUND" && listing.riftboundCardId) {
+      await updateRiftboundCatalogEntry(prisma, listing.riftboundCardId, {
+        title,
+        setName,
+        rarity,
+        tcgPlayerId,
+        cardNumber,
+        type,
+        supertype,
       });
     }
 
