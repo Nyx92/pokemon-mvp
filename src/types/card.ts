@@ -38,3 +38,15 @@ export interface CardItem {
 
   binder?: { id: string; name: string };
 }
+
+// Lightweight per-card fields for the marketplace's client-side search
+// index and filter-facet computation — deliberately excludes
+// price/images/description to keep this endpoint's payload small.
+export interface CardBrowseIndexItem {
+  id: string;
+  title: string;
+  setName: string | null;
+  rarity: string | null;
+  type: string | null;
+  game: "POKEMON" | "RIFTBOUND";
+}
