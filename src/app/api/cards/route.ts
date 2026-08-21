@@ -69,18 +69,29 @@ export async function GET(req: Request) {
 
     const where: Prisma.ListingWhereInput = and.length > 0 ? { AND: and } : {};
 
-    const listings = await prisma.listing.findMany({
-      where,
-      include: {
-        binder: true,
-        // Public listing — email is deliberately excluded (nothing in the
-        // frontend reads it here, and card owners' emails shouldn't be
-        // exposed to anonymous marketplace visitors).
-        owner: { select: { id: true, username: true } },
-        ...listingCatalogInclude,
-      },
-      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-    });
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+    const page = pageParam ? parseInt(pageParam, 10) : null;
+    const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : null;
+    const isPaginated =
+      page != null && pageSize != null && !Number.isNaN(page) && !Number.isNaN(pageSize);
+
+    const [listings, totalCount] = await Promise.all([
+      prisma.listing.findMany({
+        where,
+        include: {
+          binder: true,
+          // Public listing — email is deliberately excluded (nothing in the
+          // frontend reads it here, and card owners' emails shouldn't be
+          // exposed to anonymous marketplace visitors).
+          owner: { select: { id: true, username: true } },
+          ...listingCatalogInclude,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+        ...(isPaginated ? { skip: (page! - 1) * pageSize!, take: pageSize! } : {}),
+      }),
+      isPaginated ? prisma.listing.count({ where }) : Promise.resolve(null),
+    ]);
 
     const cardsForUi = listings.map((listing) => {
       const withDisplay = withListingDisplay(listing);
@@ -89,7 +100,15 @@ export async function GET(req: Request) {
         price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
       };
     });
-    return NextResponse.json({ cards: cardsForUi });
+
+    const body: { cards: typeof cardsForUi; totalCount?: number; hasMore?: boolean } = {
+      cards: cardsForUi,
+    };
+    if (isPaginated && totalCount != null) {
+      body.totalCount = totalCount;
+      body.hasMore = page! * pageSize! < totalCount;
+    }
+    return NextResponse.json(body);
   } catch (error: any) {
     console.error("❌ Error fetching cards:", error);
     return NextResponse.json(

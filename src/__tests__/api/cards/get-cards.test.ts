@@ -139,3 +139,46 @@ describe("GET /api/cards — filters", () => {
     expect(call.orderBy).toEqual([{ createdAt: "desc" }, { id: "asc" }]);
   });
 });
+
+describe("GET /api/cards — pagination", () => {
+  it("returns every matching row with no totalCount/hasMore when page/pageSize are omitted (backward compatible)", async () => {
+    const res = await GET(cardsRequest("?forSale=true"));
+    const body = await res.json();
+
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.skip).toBeUndefined();
+    expect(call.take).toBeUndefined();
+    expect(mockPrisma.listing.count).not.toHaveBeenCalled();
+    expect(body).not.toHaveProperty("totalCount");
+    expect(body).not.toHaveProperty("hasMore");
+  });
+
+  it("applies skip/take and returns totalCount/hasMore when page/pageSize are given", async () => {
+    mockPrisma.listing.count.mockResolvedValue(50);
+
+    const res = await GET(cardsRequest("?page=2&pageSize=24"));
+    const body = await res.json();
+
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.skip).toBe(24);
+    expect(call.take).toBe(24);
+    expect(body.totalCount).toBe(50);
+    expect(body.hasMore).toBe(true); // page 2 of 24 = 48 seen so far, 50 total
+  });
+
+  it("reports hasMore: false on the last page", async () => {
+    mockPrisma.listing.count.mockResolvedValue(50);
+
+    const res = await GET(cardsRequest("?page=3&pageSize=24"));
+    const body = await res.json();
+
+    expect(body.hasMore).toBe(false); // page 3 of 24 = 72 seen, only 50 exist
+  });
+
+  it("treats page=1 as the first page (skip 0)", async () => {
+    await GET(cardsRequest("?page=1&pageSize=24"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.skip).toBe(0);
+    expect(call.take).toBe(24);
+  });
+});
