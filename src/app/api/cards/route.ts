@@ -11,6 +11,7 @@ import {
   findOrCreateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
 import { isValidRiftboundType, isValidRiftboundSupertype } from "@/lib/riftboundCatalog";
+import type { Prisma } from "@prisma/client";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -23,18 +24,50 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const forSaleParam = searchParams.get("forSale");
     const tcgPlayerIdParam = searchParams.get("tcgPlayerId");
+    const gameParam = searchParams.get("game");
+    const setNames = searchParams.getAll("setName");
+    const rarities = searchParams.getAll("rarity");
+    const types = searchParams.getAll("type");
+    const ids = searchParams.getAll("ids");
 
-    const where: Record<string, unknown> = {};
-    if (forSaleParam === "true") where.forSale = true;
+    const and: Prisma.ListingWhereInput[] = [];
+    if (forSaleParam === "true") and.push({ forSale: true });
     // tcgPlayerId now lives on whichever catalog a listing points to, not on
     // Listing itself — match either catalog relation since the caller has no
     // way to know which game a given tcgPlayerId belongs to.
     if (tcgPlayerIdParam) {
-      where.OR = [
-        { pokemonCard: { tcgPlayerId: tcgPlayerIdParam } },
-        { riftboundCard: { tcgPlayerId: tcgPlayerIdParam } },
-      ];
+      and.push({
+        OR: [
+          { pokemonCard: { tcgPlayerId: tcgPlayerIdParam } },
+          { riftboundCard: { tcgPlayerId: tcgPlayerIdParam } },
+        ],
+      });
     }
+    if (gameParam === "POKEMON" || gameParam === "RIFTBOUND") {
+      and.push({ game: gameParam });
+    }
+    if (ids.length > 0) and.push({ id: { in: ids } });
+    if (setNames.length > 0) {
+      and.push({
+        OR: [
+          { pokemonCard: { setNameEn: { in: setNames } } },
+          { riftboundCard: { setLabel: { in: setNames } } },
+        ],
+      });
+    }
+    if (rarities.length > 0) {
+      and.push({
+        OR: [
+          { pokemonCard: { rarity: { in: rarities } } },
+          { riftboundCard: { rarity: { in: rarities } } },
+        ],
+      });
+    }
+    if (types.length > 0) {
+      and.push({ riftboundCard: { type: { in: types } } });
+    }
+
+    const where: Prisma.ListingWhereInput = and.length > 0 ? { AND: and } : {};
 
     const listings = await prisma.listing.findMany({
       where,
@@ -46,7 +79,7 @@ export async function GET(req: Request) {
         owner: { select: { id: true, username: true } },
         ...listingCatalogInclude,
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
     });
 
     const cardsForUi = listings.map((listing) => {
