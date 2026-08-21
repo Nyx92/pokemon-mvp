@@ -6,6 +6,7 @@ import fs from "fs";
 import path from "path";
 import { dollarsToCents } from "@/lib/money";
 import { pickTcgPlayerIdOwners } from "@/lib/riftboundCatalog";
+import { uploadImageFromUrl, riftboundImageCachePath } from "@/lib/seedImages";
 import riftboundCardsIndex from "./riftbound_cards_index.json";
 
 const prisma = new PrismaClient();
@@ -1197,6 +1198,16 @@ async function main() {
     where: { riftboundId: "unl-176-219" },
   });
 
+  // riftboundVi.imageUrl is the raw riftcodex CDN URL — next.config.mjs's
+  // remotePatterns only allowlists the Supabase storage host, so using it
+  // directly as-is would break next/image on /cards/[id]. Re-host it first.
+  const viImageUrl = await uploadImageFromUrl(
+    supabase,
+    riftboundVi.imageUrl,
+    `mock/riftbound/${riftboundVi.riftboundId}.png`,
+    riftboundImageCachePath(riftboundVi.riftboundId)
+  );
+
   await prisma.listing.create({
     data: {
       game: "RIFTBOUND",
@@ -1204,7 +1215,7 @@ async function main() {
       price: dollarsToCents(15),
       condition: "Near Mint",
       description: "Vi - Peacekeeper from the Unleashed set.",
-      imageUrls: [riftboundVi.imageUrl],
+      imageUrls: [viImageUrl],
       forSale: true,
       ownerId: ash.id,
     },

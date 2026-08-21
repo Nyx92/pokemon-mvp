@@ -1,0 +1,87 @@
+// src/lib/seedImages.ts
+//
+// Downloads an external image and re-hosts it in the card-images Supabase
+// bucket. next.config.mjs's remotePatterns only allowlists the Supabase
+// storage host for next/image, so any Listing.imageUrls entry pointing at
+// an external host (e.g. riftcodex's CMS) breaks /cards/[id] outright —
+// every image a seed script attaches to a Listing must go through here
+// first, never used as-is.
+//
+// Downloads are cached to a local file on disk so re-running a seed script
+// (e.g. after a partial failure, or after resetting the DB/storage) never
+// re-fetches an image the machine already has.
+
+import fs from "fs";
+import path from "path";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export interface DownloadedImage {
+  buffer: Buffer;
+  contentType: string;
+}
+
+function contentTypeFromExtension(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".webp") return "image/webp";
+  return "image/png";
+}
+
+export async function downloadImageWithCache(
+  sourceUrl: string,
+  cacheFilePath: string
+): Promise<DownloadedImage> {
+  if (fs.existsSync(cacheFilePath)) {
+    return {
+      buffer: fs.readFileSync(cacheFilePath),
+      contentType: contentTypeFromExtension(cacheFilePath),
+    };
+  }
+
+  const res = await fetch(sourceUrl);
+  if (!res.ok) {
+    throw new Error(`Failed to download ${sourceUrl}: HTTP ${res.status}`);
+  }
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const contentType = res.headers.get("content-type") || "image/png";
+
+  fs.mkdirSync(path.dirname(cacheFilePath), { recursive: true });
+  fs.writeFileSync(cacheFilePath, buffer);
+
+  return { buffer, contentType };
+}
+
+export async function uploadImage(
+  supabase: SupabaseClient,
+  image: DownloadedImage,
+  storagePath: string
+): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("card-images")
+    .upload(storagePath, image.buffer, { contentType: image.contentType, upsert: true });
+  if (error) {
+    throw new Error(`Failed to upload ${storagePath} to Supabase: ${error.message}`);
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from("card-images")
+    .getPublicUrl(data.path);
+  return publicUrlData.publicUrl;
+}
+
+// Both prisma/seed.ts and prisma/seedRiftboundListings.ts cache Riftbound
+// images to disk — this is the one place that decides where, so they can
+// never accidentally disagree and each maintain their own separate cache.
+export function riftboundImageCachePath(riftboundId: string): string {
+  return path.join(process.cwd(), "prisma", ".cache", "riftbound-images", `${riftboundId}.png`);
+}
+
+export async function uploadImageFromUrl(
+  supabase: SupabaseClient,
+  sourceUrl: string,
+  storagePath: string,
+  cacheFilePath: string
+): Promise<string> {
+  const image = await downloadImageWithCache(sourceUrl, cacheFilePath);
+  return uploadImage(supabase, image, storagePath);
+}

@@ -13,6 +13,7 @@
     "lint": "next lint",
     "format": "prettier --write .",
     "seed": "tsx prisma/seed.ts",
+    "seed:riftbound-listings": "tsx prisma/seedRiftboundListings.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

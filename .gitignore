@@ -48,3 +48,6 @@ stripe.tar.gz
 
 # superpowers isolated worktrees
 /.worktrees/
+
+# local disk cache of downloaded card images (prisma/seedRiftboundListings.ts)
+/prisma/.cache/
