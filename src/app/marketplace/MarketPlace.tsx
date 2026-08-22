@@ -253,15 +253,45 @@ export default function Marketplace() {
               </AnimatePresence>
 
               {hasMore && (
-                <Box sx={{ display: "flex", justifyContent: "center", mt: 4, mb: 6 }}>
+                // pb (not mb) deliberately — a bottom margin on the last
+                // element in the page's content flow can collapse past the
+                // dark pageBackgroundSx container's own bottom edge, leaving
+                // a gap where the plain white page background shows through
+                // instead. Padding stays inside the container, so it's
+                // always covered.
+                <Box sx={{ display: "flex", justifyContent: "center", mt: 4, pb: 6 }}>
                   <Button
-                    variant="contained"
-                    color="primary"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    sx={{ px: 4, py: 1, fontWeight: 700, borderRadius: 2 }}
+                    sx={{
+                      // Same frosted-glass pill treatment as the
+                      // Marketplace/Auctions nav tabs (frostedTabsSx in
+                      // navChrome.ts) — kept inline here since that helper
+                      // targets MuiTab-root, not a plain Button.
+                      minHeight: 44,
+                      px: 3,
+                      py: 1,
+                      fontWeight: 600,
+                      fontSize: "1.05rem",
+                      letterSpacing: "0.5px",
+                      textTransform: "none",
+                      borderRadius: "999px",
+                      border: "1px solid rgba(255,255,255,0.28)",
+                      backgroundColor: "rgba(255,255,255,0.10)",
+                      backdropFilter: "blur(8px)",
+                      color: "rgba(255,255,255,0.85)",
+                      transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease",
+                      "&:hover": {
+                        backgroundColor: "rgba(255,255,255,0.18)",
+                        borderColor: "rgba(255,255,255,0.45)",
+                      },
+                      "&.Mui-disabled": {
+                        color: "rgba(255,255,255,0.5)",
+                        borderColor: "rgba(255,255,255,0.15)",
+                      },
+                    }}
                   >
-                    {loadingMore ? <CircularProgress size={20} color="inherit" /> : "Load more"}
+                    {loadingMore ? <CircularProgress size={20} sx={{ color: "rgba(255,255,255,0.85)" }} /> : "Load more"}
                   </Button>
                 </Box>
               )}
