@@ -57,6 +57,7 @@ export default function Marketplace() {
   const watchlistedIds = useWatchlistIds();
 
   const [browseIndex, setBrowseIndex] = useState<CardBrowseIndexItem[]>([]);
+  const [browseIndexReady, setBrowseIndexReady] = useState(false);
   const [filters, setFilters] = useState<MarketplaceFilterState>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
   const [cards, setCards] = useState<CardItem[]>([]);
@@ -71,7 +72,8 @@ export default function Marketplace() {
     fetch("/api/cards/browse-index")
       .then((r) => r.json())
       .then((data) => setBrowseIndex(data.items ?? []))
-      .catch(() => setBrowseIndex([])); // degrade gracefully — search/facets just show nothing
+      .catch(() => setBrowseIndex([])) // degrade gracefully — search/facets just show nothing
+      .finally(() => setBrowseIndexReady(true));
   }, []);
 
   const facets = useMemo(() => computeFacets(browseIndex, filters.game), [browseIndex, filters.game]);
@@ -83,6 +85,16 @@ export default function Marketplace() {
     keys: MARKETPLACE_SEARCH_KEYS,
   });
   const matchedIds = search ? searchMatches.map((m) => m.id) : null;
+
+  // True only while a search is typed but the index hasn't loaded yet — the
+  // one case where matchedIds (computed from an empty browseIndex) can't be
+  // trusted. This is deliberately NOT `!browseIndexReady` on its own: that
+  // would flip false->true once on every page load regardless of whether a
+  // search is active, re-triggering the page-1 effect below even when
+  // nothing meaningful changed — which is exactly the redundant-fetch/flash
+  // bug fixed in a prior commit. Gating on `search` too means this only
+  // toggles (and so only forces a re-run) in the narrow case it exists for.
+  const searchAwaitingIndex = Boolean(search) && !browseIndexReady;
 
   function buildQuery(pageNum: number) {
     const params = new URLSearchParams({
@@ -115,14 +127,27 @@ export default function Marketplace() {
   }
 
   // Refetch page 1 whenever filters or search change. Deliberately does NOT
-  // depend on browseIndex: browseIndex only changes what gets fetched when a
-  // search is active (it feeds fuse.js's match-id list via matchedIds), and
-  // `search` is already in the dependency list to cover that case. Without
-  // this, the browse-index request finishing shortly after mount would
-  // retrigger this effect with an identical query, flipping `loading` back
-  // to true and remounting (and replaying the entrance animation of) the
-  // card grid right after it had just rendered.
+  // depend on browseIndex directly: browseIndex only changes what gets
+  // fetched when a search is active (it feeds fuse.js's match-id list via
+  // matchedIds), and `search` is already in the dependency list to cover
+  // that case. Without this, the browse-index request finishing shortly
+  // after mount would retrigger this effect with an identical query,
+  // flipping `loading` back to true and remounting (and replaying the
+  // entrance animation of) the card grid right after it had just rendered.
+  // searchAwaitingIndex is the one exception: it only changes when a search
+  // is typed before the index has loaded, so depending on it re-runs this
+  // effect in exactly that case (see its own comment above) without
+  // reintroducing the redundant-fetch problem in the common no-search case.
   useEffect(() => {
+    if (searchAwaitingIndex) {
+      // Can't tell yet whether this search has zero matches or many — the
+      // index it depends on hasn't loaded. Don't fetch, and don't take the
+      // zero-matches shortcut below on stale/incomplete data; wait for
+      // searchAwaitingIndex to flip false, which re-runs this effect.
+      setLoading(true);
+      return;
+    }
+
     // A search with zero matches has nothing to fetch — skip the request.
     if (matchedIds && matchedIds.length === 0) {
       setCards([]);
@@ -143,7 +168,7 @@ export default function Marketplace() {
       .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, search]);
+  }, [filters, search, searchAwaitingIndex]);
 
   function handleLoadMore() {
     const nextPage = page + 1;

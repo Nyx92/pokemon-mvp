@@ -18,6 +18,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// This is a public, unauthenticated endpoint — these bound how much
+// untrusted numeric/list input from a caller can inflate a single query.
+const MAX_PAGE_SIZE = 100;
+const MAX_IDS = 200;
+
 // GET /api/cards?forSale=true
 export async function GET(req: Request) {
   try {
@@ -30,7 +35,9 @@ export async function GET(req: Request) {
     const types = searchParams.getAll("type");
     const languages = searchParams.getAll("language");
     const conditions = searchParams.getAll("condition");
-    const ids = searchParams.getAll("ids");
+    // Public, unauthenticated endpoint — bound the untrusted list-length and
+    // numeric params below rather than trusting the caller.
+    const ids = searchParams.getAll("ids").slice(0, MAX_IDS);
 
     const and: Prisma.ListingWhereInput[] = [];
     if (forSaleParam === "true") and.push({ forSale: true });
@@ -86,10 +93,14 @@ export async function GET(req: Request) {
 
     const pageParam = searchParams.get("page");
     const pageSizeParam = searchParams.get("pageSize");
-    const page = pageParam ? parseInt(pageParam, 10) : null;
-    const pageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : null;
+    const rawPage = pageParam ? parseInt(pageParam, 10) : null;
+    const rawPageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : null;
     const isPaginated =
-      page != null && pageSize != null && !Number.isNaN(page) && !Number.isNaN(pageSize);
+      rawPage != null && rawPageSize != null && !Number.isNaN(rawPage) && !Number.isNaN(rawPageSize);
+    // Clamp rather than reject — a caller sending page=0 or pageSize=5000
+    // gets a sane result instead of a negative-skip 500 or an unbounded query.
+    const page = isPaginated ? Math.max(1, rawPage!) : null;
+    const pageSize = isPaginated ? Math.min(MAX_PAGE_SIZE, Math.max(1, rawPageSize!)) : null;
 
     const [listings, totalCount] = await Promise.all([
       prisma.listing.findMany({

@@ -212,4 +212,69 @@ describe("GET /api/cards — pagination", () => {
     expect(call.skip).toBe(0);
     expect(call.take).toBe(24);
   });
+
+  it("clamps page below 1 up to 1, rather than producing a negative skip", async () => {
+    await GET(cardsRequest("?page=0&pageSize=24"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.skip).toBe(0);
+  });
+
+  it("clamps a negative page up to 1 as well", async () => {
+    await GET(cardsRequest("?page=-5&pageSize=24"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.skip).toBe(0);
+  });
+
+  it("clamps pageSize above 100 down to 100", async () => {
+    await GET(cardsRequest("?page=1&pageSize=5000"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.take).toBe(100);
+  });
+
+  it("clamps pageSize below 1 up to 1", async () => {
+    await GET(cardsRequest("?page=1&pageSize=0"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.take).toBe(1);
+  });
+
+  it("caps how many ids can be requested at once, rather than accepting an unbounded list", async () => {
+    const manyIds = Array.from({ length: 500 }, (_, i) => `id-${i}`);
+    const params = new URLSearchParams();
+    manyIds.forEach((id) => params.append("ids", id));
+
+    await GET(cardsRequest(`?${params.toString()}`));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    const idsCondition = call.where.AND.find((c: any) => c.id)?.id;
+    expect(idsCondition.in.length).toBe(200);
+    expect(idsCondition.in).toEqual(manyIds.slice(0, 200));
+  });
+});
+
+describe("GET /api/cards — combined game + language filter (regression)", () => {
+  it("matches Riftbound rows when English is one of the selected languages, alongside an active game filter", async () => {
+    await GET(cardsRequest("?game=RIFTBOUND&language=English"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.where).toEqual({
+      AND: [
+        { game: "RIFTBOUND" },
+        {
+          OR: [
+            { pokemonCard: { language: { in: ["English"] } } },
+            { game: "RIFTBOUND" },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("excludes every Riftbound row when a non-English language is selected, even with game=RIFTBOUND active", async () => {
+    await GET(cardsRequest("?game=RIFTBOUND&language=Japanese"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.where).toEqual({
+      AND: [
+        { game: "RIFTBOUND" },
+        { OR: [{ pokemonCard: { language: { in: ["Japanese"] } } }] },
+      ],
+    });
+  });
 });
