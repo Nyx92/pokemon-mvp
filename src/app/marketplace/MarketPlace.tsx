@@ -114,7 +114,14 @@ export default function Marketplace() {
     return [...fetchedCards].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   }
 
-  // Refetch page 1 whenever filters or search change (or the index arrives).
+  // Refetch page 1 whenever filters or search change. Deliberately does NOT
+  // depend on browseIndex: browseIndex only changes what gets fetched when a
+  // search is active (it feeds fuse.js's match-id list via matchedIds), and
+  // `search` is already in the dependency list to cover that case. Without
+  // this, the browse-index request finishing shortly after mount would
+  // retrigger this effect with an identical query, flipping `loading` back
+  // to true and remounting (and replaying the entrance animation of) the
+  // card grid right after it had just rendered.
   useEffect(() => {
     // A search with zero matches has nothing to fetch — skip the request.
     if (matchedIds && matchedIds.length === 0) {
@@ -136,7 +143,7 @@ export default function Marketplace() {
       .catch(() => setFetchError(true))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, search, browseIndex]);
+  }, [filters, search]);
 
   function handleLoadMore() {
     const nextPage = page + 1;
