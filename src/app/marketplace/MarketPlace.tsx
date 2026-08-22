@@ -241,7 +241,16 @@ export default function Marketplace() {
               <CircularProgress />
             </Box>
           ) : (
-            <>
+            // pb (not mb) deliberately — a bottom margin on the last element
+            // in the page's content flow can collapse past the dark
+            // pageBackgroundSx container's own bottom edge, leaving a gap
+            // where the plain white page background shows through instead.
+            // Padding stays inside the container, so it's always covered.
+            // Applied here (not just inside the "hasMore" block below) so
+            // the last row of cards still gets the same breathing room
+            // before the footer once there's no more Load More button to
+            // provide it.
+            <Box sx={{ pb: 6 }}>
               {/* 3. key={search} causes AnimatePresence to unmount + remount the grid
                      whenever the search query changes, replaying the stagger entrance. */}
               <AnimatePresence mode="wait">
@@ -278,13 +287,7 @@ export default function Marketplace() {
               </AnimatePresence>
 
               {hasMore && (
-                // pb (not mb) deliberately — a bottom margin on the last
-                // element in the page's content flow can collapse past the
-                // dark pageBackgroundSx container's own bottom edge, leaving
-                // a gap where the plain white page background shows through
-                // instead. Padding stays inside the container, so it's
-                // always covered.
-                <Box sx={{ display: "flex", justifyContent: "center", mt: 4, pb: 6 }}>
+                <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
                   <Button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
@@ -320,7 +323,7 @@ export default function Marketplace() {
                   </Button>
                 </Box>
               )}
-            </>
+            </Box>
           )}
         </Box>
       </Box>
