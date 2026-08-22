@@ -48,5 +48,7 @@ export interface CardBrowseIndexItem {
   setName: string | null;
   rarity: string | null;
   type: string | null;
+  language: string;
+  condition: string;
   game: "POKEMON" | "RIFTBOUND";
 }

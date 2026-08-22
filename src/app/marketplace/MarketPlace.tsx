@@ -19,7 +19,7 @@ import CardListItem from "../shared-components/cards/CardListItem";
 import ErrorState from "../shared-components/ErrorState";
 import type { CardItem, CardBrowseIndexItem } from "@/types/card";
 import { computeFacets } from "@/lib/marketplaceFacets";
-import FilterSidebar, { type MarketplaceFilterState } from "./FilterSidebar";
+import FilterBar, { type MarketplaceFilterState } from "./FilterBar";
 
 // ── Animation variants ────────────────────────────────────────────────────────
 // 1. Individual card tile: fade up on enter.
@@ -42,7 +42,14 @@ const gridVariants: Variants = {
 // CardItem shape the old full-list search used).
 const MARKETPLACE_SEARCH_KEYS = ["title", "setName", "rarity"];
 const PAGE_SIZE = 24;
-const EMPTY_FILTERS: MarketplaceFilterState = { game: null, setNames: [], rarities: [], types: [] };
+const DEFAULT_FILTERS: MarketplaceFilterState = {
+  game: "POKEMON",
+  setNames: [],
+  rarities: [],
+  types: [],
+  languages: [],
+  conditions: [],
+};
 
 export default function Marketplace() {
   const { userId } = useAuth();
@@ -50,7 +57,7 @@ export default function Marketplace() {
   const watchlistedIds = useWatchlistIds();
 
   const [browseIndex, setBrowseIndex] = useState<CardBrowseIndexItem[]>([]);
-  const [filters, setFilters] = useState<MarketplaceFilterState>(EMPTY_FILTERS);
+  const [filters, setFilters] = useState<MarketplaceFilterState>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
   const [cards, setCards] = useState<CardItem[]>([]);
   const [page, setPage] = useState(1);
@@ -83,10 +90,12 @@ export default function Marketplace() {
       page: String(pageNum),
       pageSize: String(PAGE_SIZE),
     });
-    if (filters.game) params.set("game", filters.game);
+    params.set("game", filters.game);
     filters.setNames.forEach((v) => params.append("setName", v));
     filters.rarities.forEach((v) => params.append("rarity", v));
     filters.types.forEach((v) => params.append("type", v));
+    filters.languages.forEach((v) => params.append("language", v));
+    filters.conditions.forEach((v) => params.append("condition", v));
     if (matchedIds) {
       // Search-mode: paginate the client-side relevance-ranked id list
       // rather than trusting server pagination order, and only send this
@@ -191,10 +200,10 @@ export default function Marketplace() {
         />
       </Box>
 
-      <Box sx={{ display: "flex", gap: 3, width: "95%", mx: "auto" }}>
-        <FilterSidebar facets={facets} filters={filters} onChange={setFilters} />
+      <Box sx={{ width: "95%", mx: "auto" }}>
+        <FilterBar facets={facets} filters={filters} onChange={setFilters} />
 
-        <Box sx={{ flex: 1 }}>
+        <Box>
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
               <CircularProgress />
@@ -237,9 +246,15 @@ export default function Marketplace() {
               </AnimatePresence>
 
               {hasMore && (
-                <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-                  <Button variant="outlined" onClick={handleLoadMore} disabled={loadingMore}>
-                    {loadingMore ? <CircularProgress size={20} /> : "Load more"}
+                <Box sx={{ display: "flex", justifyContent: "center", mt: 4, mb: 6 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                    sx={{ px: 4, py: 1, fontWeight: 700, borderRadius: 2 }}
+                  >
+                    {loadingMore ? <CircularProgress size={20} color="inherit" /> : "Load more"}
                   </Button>
                 </Box>
               )}

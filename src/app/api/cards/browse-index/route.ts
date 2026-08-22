@@ -26,6 +26,8 @@ export async function GET() {
         setName: display.setName,
         rarity: display.rarity,
         type: display.type ?? null,
+        language: display.language,
+        condition: listing.condition,
         game: listing.game as "POKEMON" | "RIFTBOUND",
       };
     });

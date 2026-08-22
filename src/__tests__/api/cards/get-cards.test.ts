@@ -110,6 +110,37 @@ describe("GET /api/cards — filters", () => {
     });
   });
 
+  it("filters by condition (a plain scalar column on Listing)", async () => {
+    await GET(cardsRequest("?condition=Near+Mint&condition=PSA+10"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.where).toEqual({
+      AND: [{ condition: { in: ["Near Mint", "PSA 10"] } }],
+    });
+  });
+
+  it("filters by language, treating every RIFTBOUND listing as English since it has no real language column", async () => {
+    await GET(cardsRequest("?language=English&language=Japanese"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.where).toEqual({
+      AND: [{
+        OR: [
+          { pokemonCard: { language: { in: ["English", "Japanese"] } } },
+          { game: "RIFTBOUND" },
+        ],
+      }],
+    });
+  });
+
+  it("filters by language without the RIFTBOUND carve-out when English isn't selected", async () => {
+    await GET(cardsRequest("?language=Japanese"));
+    const call = mockPrisma.listing.findMany.mock.calls[0][0];
+    expect(call.where).toEqual({
+      AND: [{
+        OR: [{ pokemonCard: { language: { in: ["Japanese"] } } }],
+      }],
+    });
+  });
+
   it("filters by a list of ids", async () => {
     await GET(cardsRequest("?ids=id-1&ids=id-2"));
     const call = mockPrisma.listing.findMany.mock.calls[0][0];

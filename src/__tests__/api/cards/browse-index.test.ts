@@ -25,9 +25,10 @@ describe("GET /api/cards/browse-index", () => {
     mockPrisma.listing.findMany.mockResolvedValue([{
       id: "listing-1",
       game: "POKEMON",
+      condition: "Near Mint",
       pokemonCard: {
         nameEn: "Charizard", rarity: "Rare Holo", setNameEn: "Base Set",
-        language: "English", localId: "004", tcgPlayerId: "tcg-1",
+        language: "Japanese", localId: "004", tcgPlayerId: "tcg-1",
       },
       riftboundCard: null,
     }]);
@@ -42,15 +43,18 @@ describe("GET /api/cards/browse-index", () => {
         setName: "Base Set",
         rarity: "Rare Holo",
         type: null,
+        language: "Japanese",
+        condition: "Near Mint",
         game: "POKEMON",
       }],
     });
   });
 
-  it("projects a Riftbound listing down to the lightweight fields, including type", async () => {
+  it("projects a Riftbound listing down to the lightweight fields, including type and the always-English language", async () => {
     mockPrisma.listing.findMany.mockResolvedValue([{
       id: "listing-2",
       game: "RIFTBOUND",
+      condition: "PSA 10",
       pokemonCard: null,
       riftboundCard: {
         name: "Vi - Peacekeeper", rarity: "Rare", setLabel: "Unleashed",
@@ -67,6 +71,8 @@ describe("GET /api/cards/browse-index", () => {
       setName: "Unleashed",
       rarity: "Rare",
       type: "Unit",
+      language: "English",
+      condition: "PSA 10",
       game: "RIFTBOUND",
     });
   });

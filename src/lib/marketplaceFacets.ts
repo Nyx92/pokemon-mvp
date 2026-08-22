@@ -18,6 +18,8 @@ export interface MarketplaceFacets {
   sets: FacetOption[];
   rarities: FacetOption[];
   types: FacetOption[];
+  languages: FacetOption[];
+  conditions: FacetOption[];
 }
 
 function tally(
@@ -37,12 +39,16 @@ function tally(
 
 export function computeFacets(
   items: CardBrowseIndexItem[],
-  selectedGame: "POKEMON" | "RIFTBOUND" | null
+  selectedGame: "POKEMON" | "RIFTBOUND"
 ): MarketplaceFacets {
-  const scoped = selectedGame ? items.filter((i) => i.game === selectedGame) : items;
+  const scoped = items.filter((i) => i.game === selectedGame);
   return {
     sets: tally(scoped, (i) => i.setName),
     rarities: tally(scoped, (i) => i.rarity),
+    conditions: tally(scoped, (i) => i.condition),
+    // Riftbound has no real per-card language column (every row resolves
+    // to "English"), so a language filter is only meaningful for Pokemon.
+    languages: selectedGame === "POKEMON" ? tally(scoped, (i) => i.language) : [],
     types: selectedGame === "RIFTBOUND" ? tally(scoped, (i) => i.type) : [],
   };
 }

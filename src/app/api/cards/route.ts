@@ -28,6 +28,8 @@ export async function GET(req: Request) {
     const setNames = searchParams.getAll("setName");
     const rarities = searchParams.getAll("rarity");
     const types = searchParams.getAll("type");
+    const languages = searchParams.getAll("language");
+    const conditions = searchParams.getAll("condition");
     const ids = searchParams.getAll("ids");
 
     const and: Prisma.ListingWhereInput[] = [];
@@ -65,6 +67,19 @@ export async function GET(req: Request) {
     }
     if (types.length > 0) {
       and.push({ riftboundCard: { type: { in: types } } });
+    }
+    if (conditions.length > 0) and.push({ condition: { in: conditions } });
+    if (languages.length > 0) {
+      // Riftbound has no real per-card language column (resolveListingDisplay
+      // hardcodes "English" for every Riftbound listing) — so a Riftbound row
+      // only matches a language filter when "English" is one of the selected
+      // values, rather than trying to filter a column that doesn't exist.
+      and.push({
+        OR: [
+          { pokemonCard: { language: { in: languages } } },
+          ...(languages.includes("English") ? [{ game: "RIFTBOUND" as const }] : []),
+        ],
+      });
     }
 
     const where: Prisma.ListingWhereInput = and.length > 0 ? { AND: and } : {};
