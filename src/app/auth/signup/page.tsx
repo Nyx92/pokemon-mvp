@@ -3,7 +3,6 @@ import { useState, useMemo } from "react";
 import {
   Box,
   Button,
-  CircularProgress,
   Divider,
   FormControl,
   FormHelperText,
@@ -13,6 +12,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import DescriptionBar, {
   DescriptionLabel,
 } from "../../shared-components/DescriptionBar";
@@ -148,7 +148,7 @@ export default function UserProfileForm() {
 
         {loading ? (
           <Box sx={{ display: "flex", flexDirection: "column", py: 6 }}>
-            <CircularProgress />
+            <PoroLoader />
             <Typography sx={{ mt: 2 }}>Please wait...</Typography>
           </Box>
         ) : (

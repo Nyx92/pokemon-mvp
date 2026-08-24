@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Dialog,
   DialogTitle,
@@ -222,7 +223,7 @@ export default function SellerOffersDialog({
 
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <CircularProgress />
+            <PoroLoader />
           </Box>
         ) : offers.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 4 }}>

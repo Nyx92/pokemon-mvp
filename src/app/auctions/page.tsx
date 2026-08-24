@@ -10,7 +10,8 @@
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Box, CircularProgress, Tabs, Tab, Typography } from "@mui/material";
+import { Box, Tabs, Tab, Typography } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import { motion, type Variants } from "framer-motion";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import GavelIcon from "@mui/icons-material/Gavel";
@@ -115,7 +116,7 @@ export default function AuctionsPage() {
           {/* Loading state */}
           {!fetchError && loading && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
-              <CircularProgress />
+              <PoroLoader />
             </Box>
           )}
 

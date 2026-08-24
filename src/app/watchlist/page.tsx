@@ -16,9 +16,9 @@ import { useRouter } from "next/navigation";
 import {
   Box,
   Button,
-  CircularProgress,
   Typography,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 
 import { useAuth } from "@/app/hooks/useAuth";
@@ -65,7 +65,7 @@ export default function WatchlistPage() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );
@@ -94,7 +94,7 @@ export default function WatchlistPage() {
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       ) : cards.length === 0 ? (
         // ── Empty state ──────────────────────────────────────────────────────────

@@ -21,8 +21,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Box, Typography, CircularProgress, Button,
+  Box, Typography, Button,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import GavelIcon from "@mui/icons-material/Gavel";
 
 import { useAuth } from "@/app/hooks/useAuth";
@@ -152,7 +153,7 @@ export default function OffersPage() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );
@@ -198,7 +199,7 @@ export default function OffersPage() {
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       ) : (
         <>

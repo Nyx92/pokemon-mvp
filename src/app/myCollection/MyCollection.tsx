@@ -8,7 +8,6 @@ import {
   InputAdornment,
   ToggleButtonGroup,
   ToggleButton,
-  CircularProgress,
   FormControl,
   InputLabel,
   Select,
@@ -19,6 +18,7 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 // ── Animation variants ────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ export default function MyCollection() {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-        <CircularProgress />
+        <PoroLoader />
       </Box>
     );
   }

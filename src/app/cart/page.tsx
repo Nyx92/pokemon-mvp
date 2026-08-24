@@ -20,10 +20,10 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   Divider,
   Typography,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import { motion, AnimatePresence } from "framer-motion";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
@@ -415,7 +415,7 @@ export default function CartPage() {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-        <CircularProgress />
+        <PoroLoader />
       </Box>
     );
   }

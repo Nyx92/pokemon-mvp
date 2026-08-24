@@ -14,8 +14,9 @@
  */
 
 import { useRouter } from "next/navigation";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
-  Box, Typography, Button, Avatar, Divider, CircularProgress,
+  Box, Typography, Button, Avatar, Divider,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import EditIcon from "@mui/icons-material/Edit";
@@ -78,7 +79,7 @@ export default function ProfileContent() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );

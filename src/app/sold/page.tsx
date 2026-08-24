@@ -11,11 +11,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box, Typography, TextField, InputAdornment, IconButton,
-  CircularProgress,
 } from "@mui/material";
 import SellIcon from "@mui/icons-material/Sell";
 import SearchIcon from "@mui/icons-material/Search";
 import CloseIcon from "@mui/icons-material/Close";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
@@ -66,7 +66,7 @@ export default function SoldPage() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );
@@ -118,7 +118,7 @@ export default function SoldPage() {
       {/* Order list */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><CircularProgress /></Box>
+          <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><PoroLoader /></Box>
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 10 }}>
             <SellIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />

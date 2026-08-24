@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Box, Typography, TextField, InputAdornment, IconButton,
   CircularProgress, Button,
@@ -127,7 +128,7 @@ export default function PurchasesPage() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );
@@ -227,7 +228,7 @@ export default function PurchasesPage() {
       {/* Order list */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><CircularProgress /></Box>
+          <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><PoroLoader /></Box>
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 10 }}>
             <ShoppingBagIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />

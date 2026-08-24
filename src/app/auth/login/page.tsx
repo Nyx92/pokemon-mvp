@@ -5,11 +5,11 @@ import { signIn } from "next-auth/react";
 import {
   Box,
   Button,
-  CircularProgress,
   Divider,
   TextField,
   Typography,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import DescriptionBar, {
   DescriptionLabel,
 } from "../../shared-components/DescriptionBar";
@@ -205,7 +205,7 @@ export default function LoginPage() {
 
               {loading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-                  <CircularProgress />
+                  <PoroLoader />
                 </Box>
               ) : (
                 <Button

@@ -4,8 +4,9 @@ import { useState, useMemo } from "react";
 import {
   Box, Button, Grid, TextField, Typography,
   FormControl, InputLabel, Select, MenuItem,
-  CircularProgress, Snackbar, Alert,
+  Snackbar, Alert,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import { useRouter } from "next/navigation";
 import { getNames } from "country-list";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -82,7 +83,7 @@ export default function EditProfilePage() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );

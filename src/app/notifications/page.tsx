@@ -18,13 +18,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
-  CircularProgress,
   Divider,
   IconButton,
   Tooltip,
   Typography,
   Button,
 } from "@mui/material";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
@@ -158,7 +158,7 @@ export default function NotificationsPage() {
     return (
       <AccountLayout>
         <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <CircularProgress />
+          <PoroLoader />
         </Box>
       </AccountLayout>
     );
@@ -249,7 +249,7 @@ export default function NotificationsPage() {
       >
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-            <CircularProgress />
+            <PoroLoader />
           </Box>
         ) : notifications.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 10 }}>

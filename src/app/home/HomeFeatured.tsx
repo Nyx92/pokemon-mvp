@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Box, Typography, CircularProgress } from "@mui/material";
+import { Box, Typography } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
 import ErrorState from "@/app/shared-components/ErrorState";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import type { CardItem } from "@/types/card";
 import type { AuctionItem } from "@/types/auction";
@@ -224,7 +225,7 @@ export default function HomeFeatured() {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
-        <CircularProgress />
+        <PoroLoader />
       </Box>
     );
   }

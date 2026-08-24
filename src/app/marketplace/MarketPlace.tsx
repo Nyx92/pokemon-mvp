@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Box,
   Typography,
@@ -238,7 +239,7 @@ export default function Marketplace() {
         <Box>
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-              <CircularProgress />
+              <PoroLoader />
             </Box>
           ) : (
             // pb (not mb) deliberately — a bottom margin on the last element
