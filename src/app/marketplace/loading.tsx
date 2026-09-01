@@ -1,3 +1,5 @@
+"use client";
+
 // src/app/marketplace/loading.tsx
 //
 // Shown automatically by Next.js (via Suspense) while page.tsx's async
