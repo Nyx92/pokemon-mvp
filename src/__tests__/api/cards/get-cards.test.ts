@@ -24,6 +24,7 @@ const POKEMON_LISTING = {
   price: 5000,
   game: "POKEMON",
   createdAt: new Date("2026-01-01"),
+  updatedAt: new Date("2026-01-01"),
   pokemonCard: {
     nameEn: "Charizard", rarity: "Rare Holo", setNameEn: "Base Set",
     language: "English", localId: "004", tcgPlayerId: "tcg-1",

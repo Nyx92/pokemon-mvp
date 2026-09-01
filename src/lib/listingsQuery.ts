@@ -43,6 +43,32 @@ function mapListing(listing: ListingWithCatalog) {
   return {
     ...withDisplay,
     price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
+    // Listing.game is a plain `String` column (not a Prisma enum), but every
+    // write path validates it's one of these two literals before persisting
+    // (see the `game !== "POKEMON" && game !== "RIFTBOUND"` 400 check in
+    // POST /api/cards) — narrowing here just makes that existing invariant
+    // visible to the type system, matching CardItem's stricter field type.
+    game: withDisplay.game as "POKEMON" | "RIFTBOUND",
+    // CardItem.status has no backing column on Listing — nothing in this
+    // schema ever marks a listing "sold" (ownership/forSale simply doesn't
+    // change on purchase today) or "reserved" outside the
+    // reservedBy/reservedUntil fields already exposed via `...withDisplay`.
+    // "available" is a safe, behavior-preserving default: every consumer
+    // that reads `.status` only ever compares it against "sold"
+    // (CardMarketChart.tsx, cards/[id]/page.tsx), which this still fails,
+    // matching the `undefined` every one of those call sites got before
+    // this field existed.
+    status: "available" as const,
+    // Prisma returns real Date objects, but CardItem (and every existing
+    // consumer of this shape via GET /api/cards, which serializes its
+    // response through NextResponse.json → JSON.stringify) expects ISO
+    // strings. Converting here keeps the /marketplace Server Component's
+    // directly-passed props byte-for-byte identical in shape to what a
+    // later client-side /api/cards fetch (e.g. after a filter change)
+    // returns, instead of leaving Date objects on the wire only for the
+    // initial server-rendered page.
+    createdAt: withDisplay.createdAt.toISOString(),
+    updatedAt: withDisplay.updatedAt.toISOString(),
   };
 }
 

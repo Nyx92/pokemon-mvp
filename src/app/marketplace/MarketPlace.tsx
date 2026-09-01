@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
@@ -21,6 +21,7 @@ import ErrorState from "../shared-components/ErrorState";
 import type { CardItem, CardBrowseIndexItem } from "@/types/card";
 import { computeFacets } from "@/lib/marketplaceFacets";
 import FilterBar, { type MarketplaceFilterState } from "./FilterBar";
+import { isDefaultMarketplaceView } from "./isDefaultMarketplaceView";
 
 // ── Animation variants ────────────────────────────────────────────────────────
 // 1. Individual card tile: fade up on enter.
@@ -52,7 +53,12 @@ const DEFAULT_FILTERS: MarketplaceFilterState = {
   conditions: [],
 };
 
-export default function Marketplace() {
+interface MarketplaceProps {
+  initialCards: CardItem[];
+  initialHasMore: boolean;
+}
+
+export default function Marketplace({ initialCards, initialHasMore }: MarketplaceProps) {
   const { userId } = useAuth();
   const router = useRouter();
   const watchlistedIds = useWatchlistIds();
@@ -61,12 +67,13 @@ export default function Marketplace() {
   const [browseIndexReady, setBrowseIndexReady] = useState(false);
   const [filters, setFilters] = useState<MarketplaceFilterState>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
-  const [cards, setCards] = useState<CardItem[]>([]);
+  const [cards, setCards] = useState<CardItem[]>(initialCards);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+  const skippedInitialFetch = useRef(false);
 
   // Fetch the lightweight browse-index once on mount — feeds search + facets.
   useEffect(() => {
@@ -140,6 +147,19 @@ export default function Marketplace() {
   // effect in exactly that case (see its own comment above) without
   // reintroducing the redundant-fetch problem in the common no-search case.
   useEffect(() => {
+    // The Server Component in page.tsx already fetched exactly this view
+    // (page 1, forSale=true, game=POKEMON, no filters, no search) before
+    // this component ever mounted — skip re-fetching it once on mount so
+    // the user doesn't see a loading spinner replace data that's already
+    // on screen. Any later change to filters/search runs this effect
+    // normally, since skippedInitialFetch is only ever set once.
+    if (!skippedInitialFetch.current) {
+      skippedInitialFetch.current = true;
+      if (isDefaultMarketplaceView(filters, search)) {
+        return;
+      }
+    }
+
     if (searchAwaitingIndex) {
       // Can't tell yet whether this search has zero matches or many — the
       // index it depends on hasn't loaded. Don't fetch, and don't take the
