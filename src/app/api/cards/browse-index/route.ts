@@ -3,10 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { listingCatalogInclude, resolveListingDisplay } from "@/lib/listingDisplay";
 import type { CardBrowseIndexItem } from "@/types/card";
 
-// Search/facet data doesn't need to be real-time-fresh — a new listing
-// shows up in search within 60s instead of instantly. Cuts this from
-// "re-query + re-serialize ~1,300 rows on every marketplace visit" to
-// "once per 60 seconds", easing pressure on the shared connection pool.
+// This route has no Request param and touches no dynamic API, so Next
+// would otherwise statically prerender it once at build time and freeze
+// it there forever — meaning a newly created listing would never appear
+// in marketplace search/facet results until the next deploy. This forces
+// a background revalidation at most once every 60 seconds instead, so
+// new listings become searchable within a minute rather than never.
 export const revalidate = 60;
 
 // GET /api/cards/browse-index
@@ -41,9 +43,13 @@ export async function GET() {
     return NextResponse.json({ items });
   } catch (error: any) {
     console.error("❌ Error building browse index:", error);
-    return NextResponse.json(
-      { error: "Failed to build browse index" },
-      { status: 500 }
-    );
+    // Rethrow instead of returning a 500 JSON response: this route now
+    // revalidates on a timer (see `export const revalidate = 60` above),
+    // and a *returned* response — even an error one — looks like a normal
+    // successful result to Next's cache and would get cached and served
+    // to every visitor for up to 60 seconds. Throwing during a background
+    // revalidation makes Next discard the failed attempt and keep serving
+    // the last known-good cached response instead.
+    throw error;
   }
 }

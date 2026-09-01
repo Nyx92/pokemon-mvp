@@ -33,7 +33,13 @@ export interface CardItem {
   owner?: {
     id: string;
     username: string | null;
-    email: string;
+    // Optional, not required: the marketplace/listings query path
+    // (getListingsPage in src/lib/listingsQuery.ts) deliberately selects
+    // only id/username for a public listing's owner — an anonymous
+    // visitor shouldn't see another user's email. Nothing today reads
+    // owner.email; keep it optional rather than widening that select
+    // just to satisfy this type.
+    email?: string;
   };
 
   binder?: { id: string; name: string };

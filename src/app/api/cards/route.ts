@@ -19,10 +19,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// This is a public, unauthenticated endpoint — bounds how much untrusted
-// numeric/list input from a caller can inflate a single query.
-const MAX_IDS = 200;
-
 // GET /api/cards?forSale=true
 export async function GET(req: Request) {
   try {
@@ -43,7 +39,8 @@ export async function GET(req: Request) {
       types: searchParams.getAll("type"),
       languages: searchParams.getAll("language"),
       conditions: searchParams.getAll("condition"),
-      ids: searchParams.getAll("ids").slice(0, MAX_IDS),
+      // getListingsPage clamps this to MAX_IDS itself — see listingsQuery.ts.
+      ids: searchParams.getAll("ids"),
       page: isPaginated ? rawPage : null,
       pageSize: isPaginated ? rawPageSize : null,
     });

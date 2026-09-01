@@ -34,6 +34,16 @@ describe("getListingsPage", () => {
     expect(result.cards[0]).toMatchObject({ id: "listing-1", title: "Charizard", price: 50 });
   });
 
+  it("shapes status/game/dates the way CardItem expects", async () => {
+    const result = await getListingsPage({ forSale: true, game: "POKEMON", page: 1, pageSize: 24 });
+
+    expect(result.cards[0]).toMatchObject({
+      status: "available",
+      game: "POKEMON",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    });
+  });
+
   it("passes forSale/game into the Prisma where clause", async () => {
     await getListingsPage({ forSale: true, game: "POKEMON", page: 1, pageSize: 24 });
 

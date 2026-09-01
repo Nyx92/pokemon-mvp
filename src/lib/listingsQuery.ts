@@ -11,6 +11,13 @@ import type { Prisma } from "@prisma/client";
 
 export const MAX_PAGE_SIZE = 100;
 
+// Every route reaching this module is public/unauthenticated (GET /api/cards
+// has no auth check, and a future direct Server Component caller would have
+// none either) — bounds how much untrusted `ids` input a caller can inflate
+// a single query with. Lives here (not in the route handler) so any caller
+// of getListingsPage gets this bound for free, matching MAX_PAGE_SIZE above.
+export const MAX_IDS = 200;
+
 export interface ListingsQueryParams {
   forSale?: boolean;
   tcgPlayerId?: string | null;
@@ -25,12 +32,26 @@ export interface ListingsQueryParams {
   pageSize?: number | null;
 }
 
-// withListingDisplay<T extends ListingWithCatalog> requires this exact
-// shape as T — ListingWithCatalog itself isn't exported from
-// listingDisplay.ts, so it's reconstructed here from the same
-// listingCatalogInclude both files already share (can't drift out of sync
-// with it, since it's the identical `include` value, not a re-typed copy).
-type ListingWithCatalog = Prisma.ListingGetPayload<{ include: typeof listingCatalogInclude }>;
+// Hoisted so the type used by mapListing() and the `include` passed to the
+// real prisma.listing.findMany() call below are the exact same value —
+// previously the type was reconstructed from only listingCatalogInclude,
+// so tsc had no way to notice if the query's actual include (binder,
+// owner) ever drifted from what mapListing() assumed it received. See
+// MarketPlace.tsx's `!(userId && product.owner?.id === userId)` check,
+// which silently hides a user's own listings from the marketplace — the
+// one consumer of `owner` this include exists to keep type-safe.
+const listingsInclude = {
+  binder: true,
+  // Public listing — email is deliberately excluded (nothing in the
+  // frontend reads it here, and card owners' emails shouldn't be exposed
+  // to anonymous marketplace visitors). CardItem types owner.email as
+  // required; that is a type-level artifact, not a signal to add it to
+  // this select.
+  owner: { select: { id: true, username: true } },
+  ...listingCatalogInclude,
+} satisfies Prisma.ListingInclude;
+
+type ListingWithRelations = Prisma.ListingGetPayload<{ include: typeof listingsInclude }>;
 
 export interface ListingsPageResult {
   cards: ReturnType<typeof mapListing>[];
@@ -38,11 +59,17 @@ export interface ListingsPageResult {
   hasMore?: boolean;
 }
 
-function mapListing(listing: ListingWithCatalog) {
+function mapListing(listing: ListingWithRelations) {
   const withDisplay = withListingDisplay(listing);
   return {
     ...withDisplay,
     price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
+    // CardItem.binder is optional (absent), not nullable — a listing with
+    // no binderId comes back from Prisma as `binder: null`, so normalize
+    // that to `undefined` here to match. Every consumer (MyCollection.tsx)
+    // already only ever checks binder truthily or via `?.`, so this is a
+    // no-behavior-change type fix, not a functional one.
+    binder: withDisplay.binder ?? undefined,
     // Listing.game is a plain `String` column (not a Prisma enum), but every
     // write path validates it's one of these two literals before persisting
     // (see the `game !== "POKEMON" && game !== "RIFTBOUND"` 400 check in
@@ -69,6 +96,11 @@ function mapListing(listing: ListingWithCatalog) {
     // initial server-rendered page.
     createdAt: withDisplay.createdAt.toISOString(),
     updatedAt: withDisplay.updatedAt.toISOString(),
+    // Same ISO-string conversion as createdAt/updatedAt above — nothing
+    // reads this field today, but leaving it as a live Date object here
+    // (while every other Date field on this shape is converted) would be
+    // an inconsistency waiting to bite the first future consumer.
+    reservedUntil: withDisplay.reservedUntil != null ? withDisplay.reservedUntil.toISOString() : null,
   };
 }
 
@@ -90,7 +122,8 @@ export async function getListingsPage(params: ListingsQueryParams): Promise<List
     });
   }
   if (game === "POKEMON" || game === "RIFTBOUND") and.push({ game });
-  if (ids.length > 0) and.push({ id: { in: ids } });
+  const clampedIds = ids.slice(0, MAX_IDS);
+  if (clampedIds.length > 0) and.push({ id: { in: clampedIds } });
   if (setNames.length > 0) {
     and.push({
       OR: [
@@ -127,11 +160,7 @@ export async function getListingsPage(params: ListingsQueryParams): Promise<List
   const [listings, totalCount] = await Promise.all([
     prisma.listing.findMany({
       where,
-      include: {
-        binder: true,
-        owner: { select: { id: true, username: true } },
-        ...listingCatalogInclude,
-      },
+      include: listingsInclude,
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       ...(isPaginated ? { skip: (clampedPage! - 1) * clampedPageSize!, take: clampedPageSize! } : {}),
     }),
