@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@supabase/supabase-js";
-import { dollarsToCents, centsToDollars } from "@/lib/money";
+import { dollarsToCents } from "@/lib/money";
 import {
   listingCatalogInclude,
   withListingDisplay,
@@ -12,129 +12,42 @@ import {
 } from "@/lib/listingDisplay";
 import { isValidRiftboundType, isValidRiftboundSupertype } from "@/lib/riftboundCatalog";
 import { compressCardImage, toWebpStoragePath } from "@/lib/imageProcessing";
-import type { Prisma } from "@prisma/client";
+import { getListingsPage } from "@/lib/listingsQuery";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// This is a public, unauthenticated endpoint — these bound how much
-// untrusted numeric/list input from a caller can inflate a single query.
-const MAX_PAGE_SIZE = 100;
+// This is a public, unauthenticated endpoint — bounds how much untrusted
+// numeric/list input from a caller can inflate a single query.
 const MAX_IDS = 200;
 
 // GET /api/cards?forSale=true
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const forSaleParam = searchParams.get("forSale");
-    const tcgPlayerIdParam = searchParams.get("tcgPlayerId");
-    const gameParam = searchParams.get("game");
-    const setNames = searchParams.getAll("setName");
-    const rarities = searchParams.getAll("rarity");
-    const types = searchParams.getAll("type");
-    const languages = searchParams.getAll("language");
-    const conditions = searchParams.getAll("condition");
-    // Public, unauthenticated endpoint — bound the untrusted list-length and
-    // numeric params below rather than trusting the caller.
-    const ids = searchParams.getAll("ids").slice(0, MAX_IDS);
-
-    const and: Prisma.ListingWhereInput[] = [];
-    if (forSaleParam === "true") and.push({ forSale: true });
-    // tcgPlayerId now lives on whichever catalog a listing points to, not on
-    // Listing itself — match either catalog relation since the caller has no
-    // way to know which game a given tcgPlayerId belongs to.
-    if (tcgPlayerIdParam) {
-      and.push({
-        OR: [
-          { pokemonCard: { tcgPlayerId: tcgPlayerIdParam } },
-          { riftboundCard: { tcgPlayerId: tcgPlayerIdParam } },
-        ],
-      });
-    }
-    if (gameParam === "POKEMON" || gameParam === "RIFTBOUND") {
-      and.push({ game: gameParam });
-    }
-    if (ids.length > 0) and.push({ id: { in: ids } });
-    if (setNames.length > 0) {
-      and.push({
-        OR: [
-          { pokemonCard: { setNameEn: { in: setNames } } },
-          { riftboundCard: { setLabel: { in: setNames } } },
-        ],
-      });
-    }
-    if (rarities.length > 0) {
-      and.push({
-        OR: [
-          { pokemonCard: { rarity: { in: rarities } } },
-          { riftboundCard: { rarity: { in: rarities } } },
-        ],
-      });
-    }
-    if (types.length > 0) {
-      and.push({ riftboundCard: { type: { in: types } } });
-    }
-    if (conditions.length > 0) and.push({ condition: { in: conditions } });
-    if (languages.length > 0) {
-      // Riftbound has no real per-card language column (resolveListingDisplay
-      // hardcodes "English" for every Riftbound listing) — so a Riftbound row
-      // only matches a language filter when "English" is one of the selected
-      // values, rather than trying to filter a column that doesn't exist.
-      and.push({
-        OR: [
-          { pokemonCard: { language: { in: languages } } },
-          ...(languages.includes("English") ? [{ game: "RIFTBOUND" as const }] : []),
-        ],
-      });
-    }
-
-    const where: Prisma.ListingWhereInput = and.length > 0 ? { AND: and } : {};
-
     const pageParam = searchParams.get("page");
     const pageSizeParam = searchParams.get("pageSize");
     const rawPage = pageParam ? parseInt(pageParam, 10) : null;
     const rawPageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : null;
     const isPaginated =
       rawPage != null && rawPageSize != null && !Number.isNaN(rawPage) && !Number.isNaN(rawPageSize);
-    // Clamp rather than reject — a caller sending page=0 or pageSize=5000
-    // gets a sane result instead of a negative-skip 500 or an unbounded query.
-    const page = isPaginated ? Math.max(1, rawPage!) : null;
-    const pageSize = isPaginated ? Math.min(MAX_PAGE_SIZE, Math.max(1, rawPageSize!)) : null;
 
-    const [listings, totalCount] = await Promise.all([
-      prisma.listing.findMany({
-        where,
-        include: {
-          binder: true,
-          // Public listing — email is deliberately excluded (nothing in the
-          // frontend reads it here, and card owners' emails shouldn't be
-          // exposed to anonymous marketplace visitors).
-          owner: { select: { id: true, username: true } },
-          ...listingCatalogInclude,
-        },
-        orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-        ...(isPaginated ? { skip: (page! - 1) * pageSize!, take: pageSize! } : {}),
-      }),
-      isPaginated ? prisma.listing.count({ where }) : Promise.resolve(null),
-    ]);
-
-    const cardsForUi = listings.map((listing) => {
-      const withDisplay = withListingDisplay(listing);
-      return {
-        ...withDisplay,
-        price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
-      };
+    const body = await getListingsPage({
+      forSale: searchParams.get("forSale") === "true",
+      tcgPlayerId: searchParams.get("tcgPlayerId"),
+      game: searchParams.get("game") as "POKEMON" | "RIFTBOUND" | null,
+      setNames: searchParams.getAll("setName"),
+      rarities: searchParams.getAll("rarity"),
+      types: searchParams.getAll("type"),
+      languages: searchParams.getAll("language"),
+      conditions: searchParams.getAll("condition"),
+      ids: searchParams.getAll("ids").slice(0, MAX_IDS),
+      page: isPaginated ? rawPage : null,
+      pageSize: isPaginated ? rawPageSize : null,
     });
 
-    const body: { cards: typeof cardsForUi; totalCount?: number; hasMore?: boolean } = {
-      cards: cardsForUi,
-    };
-    if (isPaginated && totalCount != null) {
-      body.totalCount = totalCount;
-      body.hasMore = page! * pageSize! < totalCount;
-    }
     return NextResponse.json(body);
   } catch (error: any) {
     console.error("❌ Error fetching cards:", error);
