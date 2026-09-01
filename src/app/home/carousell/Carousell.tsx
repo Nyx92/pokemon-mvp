@@ -8,6 +8,7 @@ import { Swiper as SwiperCore } from "swiper/types";
 import { Navigation, Pagination, Autoplay } from "swiper/modules";
 import { useRef, type ReactNode } from "react";
 import { Box, Typography, Button } from "@mui/material";
+import Image from "next/image";
 import Link from "next/link";
 import StorefrontIcon from "@mui/icons-material/Storefront";
 import GavelIcon from "@mui/icons-material/Gavel";
@@ -64,10 +65,10 @@ interface SlideItem {
 }
 
 const items: SlideItem[] = [
-  { id: 1, image: "/carousell/carousell_1.png" },
+  { id: 1, image: "/carousell/carousell_1.webp" },
   {
     id: 2,
-    image: "/carousell/carousell_2.png",
+    image: "/carousell/carousell_2.webp",
     overlay: {
       eyebrow: "SET SPOTLIGHT",
       tag: "Origins",
@@ -80,7 +81,7 @@ const items: SlideItem[] = [
   },
   {
     id: 3,
-    image: "/carousell/carousell_3.png",
+    image: "/carousell/carousell_3.webp",
     overlay: {
       eyebrow: "SET SPOTLIGHT",
       tag: "Vendetta",
@@ -95,7 +96,7 @@ const items: SlideItem[] = [
   },
   {
     id: 4,
-    image: "/carousell/carousell_4.png",
+    image: "/carousell/carousell_4.webp",
     overlay: {
       eyebrow: "WEEKLY EVENT",
       tag: "Nexus Night",
@@ -111,7 +112,7 @@ const items: SlideItem[] = [
   },
   {
     id: 5,
-    image: "/carousell/carousell_5.png",
+    image: "/carousell/carousell_5.webp",
     overlay: {
       eyebrow: "SET SPOTLIGHT",
       tag: "Spiritforged",
@@ -125,7 +126,15 @@ const items: SlideItem[] = [
   },
 ];
 
-function SlideOverlayCard({ image, overlay }: { image: string; overlay: SlideOverlay }) {
+function SlideOverlayCard({
+  image,
+  overlay,
+  priority = false,
+}: {
+  image: string;
+  overlay: SlideOverlay;
+  priority?: boolean;
+}) {
   const { accent, eyebrowAccent = accent } = overlay;
 
   return (
@@ -136,11 +145,17 @@ function SlideOverlayCard({ image, overlay }: { image: string; overlay: SlideOve
         width: "100%",
         borderRadius: "12px",
         overflow: "hidden",
-        backgroundImage: `url(${image})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
       }}
     >
+      <Image
+        src={image}
+        alt={overlay.title}
+        fill
+        sizes="(min-width: 1480px) 977px, 800px"
+        style={{ objectFit: "cover" }}
+        priority={priority}
+      />
+
       {/* Scrim so the text stays legible over busy artwork */}
       <Box
         sx={{
@@ -311,18 +326,18 @@ export default function Carousel() {
         {items.map((item, index) => (
           <SwiperSlide key={index} className="custom-slide">
             {item.overlay ? (
-              <SlideOverlayCard image={item.image} overlay={item.overlay} />
+              <SlideOverlayCard image={item.image} overlay={item.overlay} priority={index === 0} />
             ) : (
-              <Box
-                sx={{
-                  backgroundImage: `url(${item.image})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  height: "100%",
-                  width: "100%",
-                  borderRadius: "12px",
-                }}
-              />
+              <Box sx={{ position: "relative", height: "100%", width: "100%", borderRadius: "12px", overflow: "hidden" }}>
+                <Image
+                  src={item.image}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1480px) 977px, 800px"
+                  style={{ objectFit: "cover" }}
+                  priority={index === 0}
+                />
+              </Box>
             )}
           </SwiperSlide>
         ))}
