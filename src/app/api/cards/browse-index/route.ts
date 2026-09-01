@@ -3,6 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { listingCatalogInclude, resolveListingDisplay } from "@/lib/listingDisplay";
 import type { CardBrowseIndexItem } from "@/types/card";
 
+// Search/facet data doesn't need to be real-time-fresh — a new listing
+// shows up in search within 60s instead of instantly. Cuts this from
+// "re-query + re-serialize ~1,300 rows on every marketplace visit" to
+// "once per 60 seconds", easing pressure on the shared connection pool.
+export const revalidate = 60;
+
 // GET /api/cards/browse-index
 //
 // Lightweight, public (no auth — matches GET /api/cards' existing
