@@ -14,6 +14,7 @@
 import fs from "fs";
 import path from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { compressCardImage, toWebpStoragePath } from "@/lib/imageProcessing";
 
 export interface DownloadedImage {
   buffer: Buffer;
@@ -56,11 +57,21 @@ export async function uploadImage(
   image: DownloadedImage,
   storagePath: string
 ): Promise<string> {
+  const compressed = await compressCardImage(image.buffer);
+  const webpPath = toWebpStoragePath(storagePath);
+
   const { data, error } = await supabase.storage
     .from("card-images")
-    .upload(storagePath, image.buffer, { contentType: image.contentType, upsert: true });
+    .upload(webpPath, compressed.buffer, { contentType: compressed.contentType, upsert: true });
   if (error) {
-    throw new Error(`Failed to upload ${storagePath} to Supabase: ${error.message}`);
+    throw new Error(`Failed to upload ${webpPath} to Supabase: ${error.message}`);
+  }
+
+  // A previous, pre-compression run may have uploaded the original under its
+  // source extension (e.g. .png) — clean it up so the bucket doesn't carry
+  // both copies. Best-effort: the object may simply not exist.
+  if (webpPath !== storagePath) {
+    await supabase.storage.from("card-images").remove([storagePath]);
   }
 
   const { data: publicUrlData } = supabase.storage

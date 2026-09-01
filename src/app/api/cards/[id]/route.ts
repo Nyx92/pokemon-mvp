@@ -11,6 +11,7 @@ import {
   updateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
 import { isValidRiftboundType, isValidRiftboundSupertype } from "@/lib/riftboundCatalog";
+import { compressCardImage, toWebpStoragePath } from "@/lib/imageProcessing";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -183,10 +184,11 @@ export async function PUT(
 
     for (const image of newImages) {
       const buffer = Buffer.from(await image.arrayBuffer());
-      const filename = `cards/${Date.now()}-${image.name}`;
+      const compressed = await compressCardImage(buffer);
+      const filename = toWebpStoragePath(`cards/${Date.now()}-${image.name}`);
       const { data, error } = await supabase.storage
         .from("card-images")
-        .upload(filename, buffer, { contentType: image.type, upsert: true });
+        .upload(filename, compressed.buffer, { contentType: compressed.contentType, upsert: true });
       if (error) throw error;
       const { data: pub } = supabase.storage
         .from("card-images")

@@ -11,6 +11,7 @@ import {
   findOrCreateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
 import { isValidRiftboundType, isValidRiftboundSupertype } from "@/lib/riftboundCatalog";
+import { compressCardImage, toWebpStoragePath } from "@/lib/imageProcessing";
 import type { Prisma } from "@prisma/client";
 
 const supabase = createClient(
@@ -246,12 +247,13 @@ export async function POST(req: Request) {
     for (const image of images) {
       const arrayBuffer = await image.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const filename = `cards/${Date.now()}-${image.name}`;
+      const compressed = await compressCardImage(buffer);
+      const filename = toWebpStoragePath(`cards/${Date.now()}-${image.name}`);
 
       const { data, error } = await supabase.storage
         .from("card-images")
-        .upload(filename, buffer, {
-          contentType: image.type,
+        .upload(filename, compressed.buffer, {
+          contentType: compressed.contentType,
           upsert: true,
         });
 

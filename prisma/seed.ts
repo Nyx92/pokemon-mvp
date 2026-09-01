@@ -7,6 +7,7 @@ import path from "path";
 import { dollarsToCents } from "@/lib/money";
 import { pickTcgPlayerIdOwners } from "@/lib/riftboundCatalog";
 import { uploadImageFromUrl, riftboundImageCachePath } from "@/lib/seedImages";
+import { compressCardImage, toWebpStoragePath } from "@/lib/imageProcessing";
 import riftboundCardsIndex from "./riftbound_cards_index.json";
 
 const prisma = new PrismaClient();
@@ -92,15 +93,21 @@ const supabase = createClient(
 async function uploadMockImage(filename: string): Promise<string> {
   const filePath = path.join(process.cwd(), "public/seed-images", filename);
   const fileBuffer = fs.readFileSync(filePath);
+  const compressed = await compressCardImage(fileBuffer);
+  const storagePath = toWebpStoragePath(`mock/${filename}`);
 
   const { data, error } = await supabase.storage
     .from("card-images")
-    .upload(`mock/${filename}`, fileBuffer, {
-      contentType: "image/png",
+    .upload(storagePath, compressed.buffer, {
+      contentType: compressed.contentType,
       upsert: true,
     });
 
   if (error) throw new Error(`Failed to upload ${filename}: ${error.message}`);
+
+  // Clean up a pre-compression run's original (e.g. mock/foo.png) so the
+  // bucket doesn't end up carrying both copies.
+  await supabase.storage.from("card-images").remove([`mock/${filename}`]);
 
   const { data: publicUrl } = supabase.storage
     .from("card-images")

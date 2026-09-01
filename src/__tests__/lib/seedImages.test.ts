@@ -11,6 +11,17 @@ vi.mock("fs", () => ({ default: mockFs, ...mockFs }));
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
+// uploadImage's actual compression is covered separately by imageProcessing's
+// own tests — stub it here so these tests can assert on upload/cache
+// plumbing with plain fake byte buffers instead of real image data.
+vi.mock("@/lib/imageProcessing", () => ({
+  compressCardImage: vi.fn(async (input: Buffer) => ({
+    buffer: Buffer.concat([Buffer.from("compressed:"), input]),
+    contentType: "image/webp",
+  })),
+  toWebpStoragePath: (storagePath: string) => storagePath.replace(/\.[^./]+$/, ".webp"),
+}));
+
 import {
   downloadImageWithCache,
   uploadImage,
@@ -19,11 +30,12 @@ import {
 } from "@/lib/seedImages";
 
 function buildSupabaseMock() {
-  const upload = vi.fn().mockResolvedValue({ data: { path: "mock/riftbound/unl-176-219.png" }, error: null });
+  const upload = vi.fn().mockResolvedValue({ data: { path: "mock/riftbound/unl-176-219.webp" }, error: null });
+  const remove = vi.fn().mockResolvedValue({ data: [], error: null });
   const getPublicUrl = vi.fn().mockReturnValue({
-    data: { publicUrl: "https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.png" },
+    data: { publicUrl: "https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.webp" },
   });
-  const from = vi.fn(() => ({ upload, getPublicUrl }));
+  const from = vi.fn(() => ({ upload, getPublicUrl, remove }));
   return { storage: { from } } as any;
 }
 
@@ -104,12 +116,25 @@ describe("uploadImage", () => {
     expect(supabase.storage.from).toHaveBeenCalledWith("card-images");
     const { upload, getPublicUrl } = supabase.storage.from.mock.results[0].value;
     expect(upload).toHaveBeenCalledWith(
-      "mock/riftbound/unl-176-219.png",
+      "mock/riftbound/unl-176-219.webp",
       expect.any(Buffer),
-      { contentType: "image/png", upsert: true }
+      { contentType: "image/webp", upsert: true }
     );
-    expect(getPublicUrl).toHaveBeenCalledWith("mock/riftbound/unl-176-219.png");
-    expect(url).toBe("https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.png");
+    expect(getPublicUrl).toHaveBeenCalledWith("mock/riftbound/unl-176-219.webp");
+    expect(url).toBe("https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.webp");
+  });
+
+  it("cleans up the original-extension object once the .webp copy is uploaded", async () => {
+    const supabase = buildSupabaseMock();
+
+    await uploadImage(
+      supabase,
+      { buffer: Buffer.from("bytes"), contentType: "image/png" },
+      "mock/riftbound/unl-176-219.png"
+    );
+
+    const { remove } = supabase.storage.from.mock.results[0].value;
+    expect(remove).toHaveBeenCalledWith(["mock/riftbound/unl-176-219.png"]);
   });
 
   it("throws a clear error when the Supabase upload fails", async () => {
@@ -138,11 +163,11 @@ describe("uploadImageFromUrl", () => {
     expect(mockFetch).not.toHaveBeenCalled();
     const { upload } = supabase.storage.from.mock.results[0].value;
     expect(upload).toHaveBeenCalledWith(
-      "mock/riftbound/unl-176-219.png",
+      "mock/riftbound/unl-176-219.webp",
       expect.any(Buffer),
-      { contentType: "image/png", upsert: true }
+      { contentType: "image/webp", upsert: true }
     );
-    expect(url).toBe("https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.png");
+    expect(url).toBe("https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.webp");
   });
 
   it("downloads, caches, and uploads when nothing is cached yet", async () => {

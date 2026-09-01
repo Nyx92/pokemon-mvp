@@ -48,6 +48,12 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@supabase/supabase-js", () => ({
   createClient: vi.fn(() => mockSupabaseInstance),
 }));
+// Compression is covered by imageProcessing's own tests — stub it here so
+// these tests can post fake, non-decodable image bytes through the route.
+vi.mock("@/lib/imageProcessing", () => ({
+  compressCardImage: vi.fn(async (input: Buffer) => ({ buffer: input, contentType: "image/webp" })),
+  toWebpStoragePath: (storagePath: string) => storagePath.replace(/\.[^./]+$/, ".webp"),
+}));
 
 // ── STEP 3: Import the code under test ───────────────────────────────────────
 
