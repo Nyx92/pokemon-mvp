@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Dialog,
   DialogTitle,
@@ -213,7 +212,7 @@ export default function SellerOffersDialog({
             <GavelIcon sx={{ color: "#0053ff" }} />
             <Typography sx={{ fontWeight: 700, fontSize: 18 }}>Offers</Typography>
           </Box>
-          <IconButton onClick={onClose} size="small"><CloseIcon fontSize="small" /></IconButton>
+          <IconButton onClick={onClose} aria-label="Close" size="small"><CloseIcon fontSize="small" /></IconButton>
         </Box>
         <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.3 }}>{cardTitle}</Typography>
       </DialogTitle>
@@ -223,11 +222,11 @@ export default function SellerOffersDialog({
 
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <PoroLoader />
+            <CircularProgress />
           </Box>
         ) : offers.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 4 }}>
-            <Typography sx={{ color: "#9ca3af", fontSize: 14 }}>No offers yet.</Typography>
+            <Typography sx={{ color: "#6b7280", fontSize: 14 }}>No offers yet.</Typography>
           </Box>
         ) : (
           <>

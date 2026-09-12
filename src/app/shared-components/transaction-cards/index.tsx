@@ -106,7 +106,7 @@ export function ConditionPill({ condition }: { condition: string }) {
 export function HeaderMeta({ label, value }: { label: string; value: string }) {
   return (
     <Box>
-      <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", lineHeight: 1 }}>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", lineHeight: 1 }}>
         {label}
       </Typography>
       <Typography sx={{ fontSize: 13, color: "#111827", mt: 0.3, fontFamily: label === "Order ID" ? "monospace" : "inherit" }}>
@@ -121,7 +121,19 @@ function CardThumb({ src, alt, onClick }: { src: string; alt: string; onClick: (
   return (
     <Box
       onClick={onClick}
-      sx={{ width: { xs: 72, md: 100 }, height: { xs: 100, md: 140 }, borderRadius: 1.5, overflow: "hidden", backgroundColor: "#f3f4f6", position: "relative", border: "1px solid #c9cdd4", cursor: "pointer", p: "4px", flexShrink: 0 }}
+      role="button"
+      tabIndex={0}
+      aria-label={alt}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      sx={{
+        width: { xs: 72, md: 100 }, height: { xs: 100, md: 140 }, borderRadius: 1.5, overflow: "hidden", backgroundColor: "#f3f4f6", position: "relative", border: "1px solid #c9cdd4", cursor: "pointer", p: "4px", flexShrink: 0,
+        "&:focus-visible": { outline: "2px solid #0053ff", outlineOffset: 2 },
+      }}
     >
       <Image src={src} alt={alt} fill style={{ objectFit: "contain" }} />
     </Box>
@@ -157,7 +169,7 @@ export function OrderCard({ order }: { order: OrderRow }) {
           <ConditionPill condition={order.card.condition} />
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Order total</Typography>
+          <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Order total</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: { xs: 17, md: 20 }, color: "#111" }}>S${order.amount.toFixed(2)}</Typography>
         </Box>
       </Box>
@@ -218,7 +230,7 @@ export function PlacedOfferCard({ offer }: { offer: OfferRow }) {
           <ConditionPill condition={offer.card.condition} />
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Offer amount</Typography>
+          <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Offer amount</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: { xs: 17, md: 20 }, color: "#111" }}>
             {offer.price != null ? `S$${offer.price.toFixed(2)}` : "—"}
           </Typography>
@@ -305,7 +317,7 @@ export function ReceivedOfferCard({
           <ConditionPill condition={offer.card.condition} />
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Offered</Typography>
+          <Typography sx={{ fontSize: 10, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.5 }}>Offered</Typography>
           <Typography sx={{ fontWeight: 800, fontSize: { xs: 17, md: 20 }, color: "#111", mb: isPending ? 1.5 : 0 }}>
             {offer.price != null ? `S$${offer.price.toFixed(2)}` : "—"}
           </Typography>

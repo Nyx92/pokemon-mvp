@@ -10,8 +10,7 @@
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Box, Tabs, Tab, Typography } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
+import { Box, CircularProgress, Tabs, Tab, Typography } from "@mui/material";
 import { motion, type Variants } from "framer-motion";
 import CollectionsIcon from "@mui/icons-material/Collections";
 import GavelIcon from "@mui/icons-material/Gavel";
@@ -94,7 +93,7 @@ export default function AuctionsPage() {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <Box sx={{ mb: 4 }}>
-              <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
+              <Typography component="h1" sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
                 Live Auctions
               </Typography>
               <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.6)", mt: 0.25 }}>
@@ -116,7 +115,7 @@ export default function AuctionsPage() {
           {/* Loading state */}
           {!fetchError && loading && (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 8 }}>
-              <PoroLoader />
+              <CircularProgress />
             </Box>
           )}
 

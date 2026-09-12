@@ -51,6 +51,7 @@ const TermsOfUse: React.FC<TermsOfUseProps> = ({
         {/* close modal button */}
         <IconButton
           onClick={onClose}
+          aria-label="Close"
           sx={{ position: "absolute", top: 8, right: 8 }}
         >
           <CloseIcon />

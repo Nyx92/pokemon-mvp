@@ -5,7 +5,7 @@
 // Shown automatically by Next.js (via Suspense) while page.tsx's async
 // getListingsPage() call is in flight — replaces the old client-only
 // PoroLoader spinner, which couldn't appear until the JS bundle had
-// already loaded. Card-tile dimensions match CardListItem.tsx (280x220),
+// already loaded. Card-tile dimensions match CardListItem.tsx (288x228),
 // and placeholders below approximate the search box and FilterBar that
 // sit above the grid in MarketPlace.tsx, to minimize (not fully eliminate —
 // FilterBar's exact height varies with facet content) layout shift when
@@ -63,8 +63,8 @@ export default function MarketplaceLoading() {
               <Skeleton
                 key={i}
                 variant="rounded"
-                width={280}
-                height={220}
+                width={288}
+                height={228}
                 sx={{ bgcolor: "rgba(255,255,255,0.10)" }}
               />
             ))}

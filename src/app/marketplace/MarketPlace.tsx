@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Box,
-  Typography,
   TextField,
   InputAdornment,
   CircularProgress,
@@ -18,6 +16,7 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistIds } from "@/app/hooks/useWatchlistIds";
 import CardListItem from "../shared-components/cards/CardListItem";
 import ErrorState from "../shared-components/ErrorState";
+import EmptyState from "../shared-components/EmptyState";
 import type { CardItem, CardBrowseIndexItem } from "@/types/card";
 import { computeFacets } from "@/lib/marketplaceFacets";
 import FilterBar, { type MarketplaceFilterState } from "./FilterBar";
@@ -259,7 +258,7 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
         <Box>
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-              <PoroLoader />
+              <CircularProgress />
             </Box>
           ) : (
             // pb (not mb) deliberately — a bottom margin on the last element
@@ -295,13 +294,11 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
                     ))
                   ) : (
                     <motion.div variants={cardVariants} style={{ width: "100%" }}>
-                      <Typography
-                        variant="body1"
-                        textAlign="center"
-                        sx={{ mt: 4, color: "rgba(255,255,255,0.6)" }}
-                      >
-                        No cards match your filters.
-                      </Typography>
+                      <EmptyState
+                        icon={<SearchIcon sx={{ fontSize: 40, color: "rgba(255,255,255,0.5)" }} />}
+                        title="No cards match your filters."
+                        tone="light"
+                      />
                     </motion.div>
                   )}
                 </motion.div>

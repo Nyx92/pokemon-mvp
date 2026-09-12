@@ -3,8 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { Box, Typography, IconButton } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
+import { Box, CircularProgress, Typography, IconButton } from "@mui/material";
 import { motion } from "framer-motion";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
@@ -158,7 +157,7 @@ export default function CardDetailPage() {
           minHeight: "100vh",
         }}
       >
-        <PoroLoader />
+        <CircularProgress />
       </Box>
     );
   }
@@ -364,7 +363,7 @@ export default function CardDetailPage() {
           <Box
             sx={{
               width: "100%",
-              backgroundColor: "#f8f8f8",
+              backgroundColor: "#fff",
               borderRadius: 3,
               p: 2,
             }}
@@ -482,6 +481,7 @@ export default function CardDetailPage() {
           }}
         >
           <Typography
+            component="h1"
             sx={{
               fontSize: { xs: 20, sm: 24, md: 28 },
               fontWeight: 800,

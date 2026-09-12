@@ -20,10 +20,10 @@ import {
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   Divider,
   Typography,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import { motion, AnimatePresence } from "framer-motion";
 import GavelIcon from "@mui/icons-material/Gavel";
 import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
@@ -32,6 +32,7 @@ import { useCart } from "@/app/context/CartContext";
 import ConditionBadge from "@/app/shared-components/cards/ConditionBadge";
 import PlaceOfferDialog from "@/app/shared-components/cards/PlaceOfferDialog";
 import ErrorState from "@/app/shared-components/ErrorState";
+import EmptyState from "@/app/shared-components/EmptyState";
 import { type CartItemData, type CartResponse } from "@/types/cart";
 import { formatPrice } from "@/lib/money";
 
@@ -131,7 +132,19 @@ function CartItemFolder({
         <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start", flexDirection: { xs: "column", md: "row" } }}>
 
           {/* ── Left: card display (styled like CardListItem) ── */}
-          <Box sx={{ display: "flex", gap: 2, flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => router.push(`/cards/${card.id}`)}>
+          <Box
+            sx={{ display: "flex", gap: 2, flex: 1, minWidth: 0, cursor: "pointer", "&:focus-visible": { outline: "2px solid #0053ff", outlineOffset: 2 } }}
+            onClick={() => router.push(`/cards/${card.id}`)}
+            role="button"
+            tabIndex={0}
+            aria-label={card.title}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                router.push(`/cards/${card.id}`);
+              }
+            }}
+          >
             {/* Card image */}
             <Box
               sx={{
@@ -415,7 +428,7 @@ export default function CartPage() {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-        <PoroLoader />
+        <CircularProgress />
       </Box>
     );
   }
@@ -436,40 +449,14 @@ export default function CartPage() {
 
   if (!cartData || cartData.packages.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4 }}
-        style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh", gap: "16px" }}
-      >
-        <motion.div
-          initial={{ scale: 0.4, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 300, damping: 14, delay: 0.1 }}
-        >
-          <ShoppingCartOutlinedIcon sx={{ fontSize: 64, color: "#d1d5db" }} />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.2 }}
-          style={{ textAlign: "center" }}
-        >
-          <Typography sx={{ fontSize: 20, fontWeight: 600, color: "#374151" }}>
-            Your cart is empty
-          </Typography>
-          <Typography sx={{ fontSize: 14, color: "#6b7280", mt: 1 }}>
-            Browse the marketplace and add cards to your cart.
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => router.push("/marketplace")}
-            sx={{ mt: 2, textTransform: "none", fontWeight: 600, backgroundColor: "#000", "&:hover": { backgroundColor: "#222" } }}
-          >
-            Browse Marketplace
-          </Button>
-        </motion.div>
-      </motion.div>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
+        <EmptyState
+          icon={<ShoppingCartOutlinedIcon sx={{ fontSize: 64, color: "#d1d5db" }} />}
+          title="Your cart is empty"
+          subtitle="Browse the marketplace and add cards to your cart."
+          action={{ label: "Browse Marketplace", onClick: () => router.push("/marketplace") }}
+        />
+      </Box>
     );
   }
 
@@ -477,7 +464,7 @@ export default function CartPage() {
     <Box sx={{ px: { xs: 2, md: 4 }, py: { xs: 3, md: 4 }, maxWidth: 1400, mx: "auto" }}>
 
       {/* ── Page title ── */}
-      <Typography sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 800, color: "#111", mb: 2 }}>
+      <Typography component="h1" sx={{ fontSize: { xs: 24, md: 30 }, fontWeight: 800, color: "#111", mb: 2 }}>
         Shopping Cart
       </Typography>
 
@@ -598,7 +585,7 @@ export default function CartPage() {
                     Voucher
                   </Typography>
                 </Box>
-                <Typography sx={{ fontSize: 13, color: "#9ca3af" }}>Select Voucher</Typography>
+                <Typography sx={{ fontSize: 13, color: "#6b7280" }}>Select Voucher</Typography>
               </Box>
 
               {/* Summary rows */}
@@ -624,7 +611,7 @@ export default function CartPage() {
                 </Typography>
               </Box>
 
-              <Typography sx={{ fontSize: 11, color: "#9ca3af", mb: 2 }}>
+              <Typography sx={{ fontSize: 11, color: "#6b7280", mb: 2 }}>
                 Processing fees calculated at checkout
               </Typography>
 
@@ -645,7 +632,7 @@ export default function CartPage() {
                   letterSpacing: "0.08em",
                   backgroundColor: "#0053ff",
                   "&:hover": { backgroundColor: "#0041cc" },
-                  "&.Mui-disabled": { backgroundColor: "#c9cdd4", color: "#9ca3af" },
+                  "&.Mui-disabled": { backgroundColor: "#c9cdd4", color: "#6b7280" },
                   boxShadow: summary.selectedCount > 0 && !checkoutLoading ? "0 4px 14px rgba(0,83,255,0.3)" : "none",
                 }}
               >
@@ -659,7 +646,7 @@ export default function CartPage() {
               )}
 
               {summary.selectedCount === 0 && !checkoutError && (
-                <Typography sx={{ fontSize: 12, color: "#9ca3af", textAlign: "center", mt: 1 }}>
+                <Typography sx={{ fontSize: 12, color: "#6b7280", textAlign: "center", mt: 1 }}>
                   Select at least one item to checkout
                 </Typography>
               )}

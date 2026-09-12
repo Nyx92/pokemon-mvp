@@ -30,6 +30,19 @@ export function fmtPrice(amount: number): string {
   return fixed.endsWith(".00") ? String(Math.round(amount)) : fixed;
 }
 
+// ── Graded-card detection ──────────────────────────────────────────────────────
+// Mirrors the pattern matching in ConditionBadge.tsx — there's no dedicated
+// "isGraded" field in the data model, just a free-text `condition` string
+// that's either a raw grade (NM, LP, ...) or a grading-company slab grade
+// (e.g. "PSA 10"). Used to zoom slab photos in a bit so they read at a
+// similar visual size to tightly-cropped raw card scans.
+const GRADING_COMPANY_PATTERN = /^(PSA|Beckett|CGC|SGC)\s+\d+(?:\.\d+)?/i;
+
+export function isGradedCondition(condition?: string | null): boolean {
+  if (!condition) return false;
+  return GRADING_COMPANY_PATTERN.test(condition.trim());
+}
+
 // ── Language chip ─────────────────────────────────────────────────────────────
 
 export function getLanguageChip(

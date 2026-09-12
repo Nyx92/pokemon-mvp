@@ -127,7 +127,17 @@ export default function Navbar() {
               height={40}
               style={{ objectFit: "contain", filter: "invert(1)", mixBlendMode: "screen" }}
             />
-            <Typography sx={{ fontWeight: 700, fontSize: 18, color: "#ffffff", letterSpacing: "0.04em" }}>
+            <Typography
+              sx={{
+                fontWeight: 700,
+                fontSize: 18,
+                color: "#ffffff",
+                letterSpacing: "0.04em",
+                // Icon-only on very narrow screens — logo + wordmark + 3 icon
+                // buttons + auth buttons is too tight to fit under ~400px.
+                display: { xs: "none", sm: "block" },
+              }}
+            >
               MXYYC
             </Typography>
           </Link>
@@ -139,7 +149,7 @@ export default function Navbar() {
           <IconButton
             aria-label="Cart"
             onClick={() => router.push("/cart")}
-            sx={{ color: "#ffffff", "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
+            sx={{ color: "#ffffff", p: { xs: 0.75, sm: 1.25 }, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
           >
             <Badge
               badgeContent={cartCount > 0 ? cartCount : undefined}
@@ -164,7 +174,7 @@ export default function Navbar() {
             ref={navbarIconRef as React.Ref<HTMLButtonElement>}
             aria-label="Watchlist"
             onClick={() => router.push("/watchlist")}
-            sx={{ color: "#ffffff", "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
+            sx={{ color: "#ffffff", p: { xs: 0.75, sm: 1.25 }, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
           >
             <Badge
               badgeContent={count > 0 ? count : undefined}
@@ -188,7 +198,7 @@ export default function Navbar() {
           <IconButton
             aria-label="Notifications"
             onClick={() => router.push("/notifications")}
-            sx={{ color: "#ffffff", mr: 0.5, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
+            sx={{ color: "#ffffff", p: { xs: 0.75, sm: 1.25 }, mr: 0.5, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
           >
             <Badge
               badgeContent={notifCount > 0 ? notifCount : undefined}
@@ -210,22 +220,22 @@ export default function Navbar() {
           </IconButton>
 
           {/* Thin divider */}
-          <Box sx={{ width: "1px", height: 20, backgroundColor: "rgba(255,255,255,0.20)", mx: 1 }} />
+          <Box sx={{ width: "1px", height: 20, backgroundColor: "rgba(255,255,255,0.20)", mx: 1, display: { xs: "none", sm: "block" } }} />
 
           {/* ── Auth ──────────────────────────────────────────────────────── */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 0.5, sm: 1 } }}>
             {!isLoggedIn ? (
               <>
                 <Button
                   href="/auth/signup"
                   disableElevation
-                  sx={{ textTransform: "none", fontWeight: 700, fontSize: 14, px: 2.5, py: 0.85, borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.20)", color: "#ffffff", border: "1px solid rgba(255,255,255,0.50)", "&:hover": { backgroundColor: "rgba(255,255,255,0.30)" } }}
+                  sx={{ textTransform: "none", fontWeight: 700, fontSize: 14, px: { xs: 1.5, sm: 2.5 }, py: 0.85, borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.20)", color: "#ffffff", border: "1px solid rgba(255,255,255,0.50)", "&:hover": { backgroundColor: "rgba(255,255,255,0.30)" } }}
                 >
                   Sign up
                 </Button>
                 <Button
                   href="/auth/login"
-                  sx={{ textTransform: "none", fontWeight: 500, fontSize: 14, color: "rgba(255,255,255,0.70)", "&:hover": { color: "#ffffff", backgroundColor: "transparent" } }}
+                  sx={{ textTransform: "none", fontWeight: 500, fontSize: 14, px: { xs: 1, sm: 2 }, color: "rgba(255,255,255,0.70)", "&:hover": { color: "#ffffff", backgroundColor: "transparent" } }}
                 >
                   Login
                 </Button>

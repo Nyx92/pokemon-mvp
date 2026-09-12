@@ -62,7 +62,7 @@ export default function ProfileSidebar() {
         sx={{
           fontSize: 11,
           fontWeight: 700,
-          color: "#9ca3af",
+          color: "#6b7280",
           textTransform: "uppercase",
           letterSpacing: "0.6px",
           px: 1.5,

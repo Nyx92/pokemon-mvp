@@ -78,7 +78,7 @@ export default function AllListings({
             ? "Loading…"
             : `${listings.length} Listing${listings.length !== 1 ? "s" : ""}`}
         </Typography>
-        <Typography sx={{ fontSize: 12, color: "#9ca3af", mt: 0.3 }}>
+        <Typography sx={{ fontSize: 12, color: "#6b7280", mt: 0.3 }}>
           All available listings for this card
         </Typography>
       </Box>
@@ -102,6 +102,15 @@ export default function AllListings({
             <Box
               key={g}
               onClick={() => setFilter(g)}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  setFilter(g);
+                }
+              }}
               sx={{
                 px: 1.5,
                 py: 0.5,
@@ -114,7 +123,8 @@ export default function AllListings({
                 display: "flex",
                 alignItems: "center",
                 gap: 0.8,
-                "&:hover": !isSelected ? { borderColor: "#9ca3af" } : {},
+                "&:hover": !isSelected ? { borderColor: "#6b7280" } : {},
+                "&:focus-visible": { outline: `2px solid ${primaryBlue}`, outlineOffset: 2 },
               }}
             >
               <Typography
@@ -168,7 +178,7 @@ export default function AllListings({
             sx={{
               fontSize: 11,
               fontWeight: 600,
-              color: "#9ca3af",
+              color: "#6b7280",
               textTransform: "uppercase",
               letterSpacing: "0.4px",
             }}

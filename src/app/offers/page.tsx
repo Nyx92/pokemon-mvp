@@ -21,14 +21,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Box, Typography, Button,
+  Box, Typography, Button, CircularProgress,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import GavelIcon from "@mui/icons-material/Gavel";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
 import ErrorState from "@/app/shared-components/ErrorState";
+import EmptyState from "@/app/shared-components/EmptyState";
 import {
   PlacedOfferCard, ReceivedOfferCard,
   type OfferRow, type ReceivedOfferRow,
@@ -150,13 +151,7 @@ export default function OffersPage() {
 
   // ── Loading / auth wait ──────────────────────────────────────────────────────
   if (status === "loading" || !isLoggedIn) {
-    return (
-      <AccountLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <PoroLoader />
-        </Box>
-      </AccountLayout>
-    );
+    return <AccountLoadingGate />;
   }
 
   // ── Shared button style factory ───────────────────────────────────────────────
@@ -171,7 +166,7 @@ export default function OffersPage() {
     border: "1px solid",
     ...(isActive
       ? { bgcolor: "#111827", color: "#fff", borderColor: "#111827", "&:hover": { bgcolor: "#1f2937" } }
-      : { bgcolor: "#fff", color: "#374151", borderColor: "#c9cdd4", "&:hover": { bgcolor: "#f9fafb", borderColor: "#9ca3af" } }),
+      : { bgcolor: "#fff", color: "#374151", borderColor: "#c9cdd4", "&:hover": { bgcolor: "#f9fafb", borderColor: "#6b7280" } }),
   });
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -192,14 +187,14 @@ export default function OffersPage() {
   return (
     <AccountLayout>
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
-        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+        <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
           My Offers
         </Typography>
       </motion.div>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-          <PoroLoader />
+          <CircularProgress />
         </Box>
       ) : (
         <>
@@ -235,17 +230,15 @@ export default function OffersPage() {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
             {visiblePlaced.length === 0 ? (
-              <Box sx={{ textAlign: "center", py: 10 }}>
-                <GavelIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
-                <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
-                  {{
-                    active:   "No active offers. Place an offer on a card listing to get started.",
-                    accepted: "No accepted offers yet.",
-                    declined: "No declined offers.",
-                    expired:  "No expired offers.",
-                  }[offerTab]}
-                </Typography>
-              </Box>
+              <EmptyState
+                icon={<GavelIcon sx={{ fontSize: 40, color: "#d1d5db" }} />}
+                title={{
+                  active:   "No active offers. Place an offer on a card listing to get started.",
+                  accepted: "No accepted offers yet.",
+                  declined: "No declined offers.",
+                  expired:  "No expired offers.",
+                }[offerTab]}
+              />
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {visiblePlaced.map((o, i) => (
@@ -273,17 +266,15 @@ export default function OffersPage() {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
             {visibleReceived.length === 0 ? (
-              <Box sx={{ textAlign: "center", py: 10 }}>
-                <GavelIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
-                <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
-                  {{
-                    active:   "No pending offers on your listings.",
-                    accepted: "No accepted offers yet.",
-                    declined: "No declined offers.",
-                    expired:  "No expired offers.",
-                  }[offerTab]}
-                </Typography>
-              </Box>
+              <EmptyState
+                icon={<GavelIcon sx={{ fontSize: 40, color: "#d1d5db" }} />}
+                title={{
+                  active:   "No pending offers on your listings.",
+                  accepted: "No accepted offers yet.",
+                  declined: "No declined offers.",
+                  expired:  "No expired offers.",
+                }[offerTab]}
+              />
             ) : (
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {visibleReceived.map((o, i) => (

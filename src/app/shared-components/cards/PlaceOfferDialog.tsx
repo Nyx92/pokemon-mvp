@@ -91,7 +91,7 @@ const CARD_ELEMENT_OPTIONS = {
       fontSize: "14px",
       color: "#111",
       fontFamily: "inherit",
-      "::placeholder": { color: "#9ca3af" },
+      "::placeholder": { color: "#6b7280" },
     },
     invalid: { color: "#ef4444" },
   },

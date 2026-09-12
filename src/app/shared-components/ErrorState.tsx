@@ -157,7 +157,7 @@ export default function ErrorState({
                   color:         dark ? "#fff" : "#111",
                   "&:hover":     dark
                     ? { borderColor: "rgba(255,255,255,0.6)", backgroundColor: "rgba(255,255,255,0.08)" }
-                    : { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+                    : { borderColor: "#6b7280", backgroundColor: "#f9fafb" },
                   borderRadius:  1.5,
                   px:            3,
                 }}
@@ -175,7 +175,7 @@ export default function ErrorState({
                   color:         dark ? "#fff" : "#111",
                   "&:hover":     dark
                     ? { borderColor: "rgba(255,255,255,0.6)", backgroundColor: "rgba(255,255,255,0.08)" }
-                    : { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+                    : { borderColor: "#6b7280", backgroundColor: "#f9fafb" },
                   borderRadius:  1.5,
                   px:            3,
                 }}

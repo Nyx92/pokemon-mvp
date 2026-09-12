@@ -39,7 +39,7 @@ export default function MarketplacePageShell({ children }: { children: React.Rea
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <Box sx={{ mb: 4 }}>
-              <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
+              <Typography component="h1" sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1, color: "#fff" }}>
                 Marketplace
               </Typography>
               <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.6)", mt: 0.25 }}>

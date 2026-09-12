@@ -395,6 +395,15 @@ export default function BuyBox({
                 <Box
                   key={company}
                   onClick={() => setSelectedCompany(company)}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isSelected}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedCompany(company);
+                    }
+                  }}
                   sx={{
                     px: 1.2,
                     py: 0.4,
@@ -404,7 +413,8 @@ export default function BuyBox({
                       : "1px solid #e5e7eb",
                     backgroundColor: isSelected ? "#eff4ff" : "#fff",
                     cursor: "pointer",
-                    "&:hover": !isSelected ? { borderColor: "#9ca3af" } : {},
+                    "&:hover": !isSelected ? { borderColor: "#6b7280" } : {},
+                    "&:focus-visible": { outline: `2px solid ${primaryBlue}`, outlineOffset: 2 },
                   }}
                 >
                   <Typography
@@ -415,7 +425,7 @@ export default function BuyBox({
                         ? primaryBlue
                         : hasData
                           ? "#374151"
-                          : "#9ca3af",
+                          : "#6b7280",
                     }}
                   >
                     {company}
@@ -435,7 +445,7 @@ export default function BuyBox({
               )
             )}
           </Box>
-          <Typography sx={{ fontSize: 11, color: "#9ca3af", mt: 0.8 }}>
+          <Typography sx={{ fontSize: 11, color: "#6b7280", mt: 0.8 }}>
             Lowest listed price per condition
           </Typography>
         </Box>
@@ -694,7 +704,7 @@ export default function BuyBox({
               <HourglassEmptyIcon
                 sx={{
                   fontSize: 16,
-                  color: auctionTimeLeft.done ? "#9ca3af" : "#f97316",
+                  color: auctionTimeLeft.done ? "#6b7280" : "#f97316",
                   animation: auctionSpin && !auctionTimeLeft.done ? "spin 0.6s linear" : "none",
                   "@keyframes spin": {
                     "0%": { transform: "rotate(0deg)" },
@@ -706,7 +716,7 @@ export default function BuyBox({
                 sx={{
                   fontSize: 14,
                   fontWeight: 700,
-                  color: auctionTimeLeft.done ? "#9ca3af" : "#f97316",
+                  color: auctionTimeLeft.done ? "#6b7280" : "#f97316",
                 }}
               >
                 {auctionTimeLeft.done
@@ -875,7 +885,7 @@ export default function BuyBox({
                   </>
                 ) : (
                   <Typography
-                    sx={{ fontSize: 12, color: "#9ca3af", fontWeight: 400 }}
+                    sx={{ fontSize: 12, color: "#6b7280", fontWeight: 400 }}
                   >
                     Only listing for this condition
                   </Typography>

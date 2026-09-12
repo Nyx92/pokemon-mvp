@@ -5,11 +5,11 @@ import { signIn } from "next-auth/react";
 import {
   Box,
   Button,
+  CircularProgress,
   Divider,
   TextField,
   Typography,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import DescriptionBar, {
   DescriptionLabel,
 } from "../../shared-components/DescriptionBar";
@@ -106,6 +106,7 @@ export default function LoginPage() {
         {/* Top Heading */}
         <Typography
           variant="h3"
+          component="h1"
           sx={{
             color: "black",
             fontWeight: "bold",
@@ -162,7 +163,7 @@ export default function LoginPage() {
             </Button>
 
             <Divider sx={{ my: 2.5 }}>
-              <Typography sx={{ color: "#9ca3af", fontSize: 13, px: 1 }}>
+              <Typography sx={{ color: "#6b7280", fontSize: 13, px: 1 }}>
                 or
               </Typography>
             </Divider>
@@ -205,7 +206,7 @@ export default function LoginPage() {
 
               {loading ? (
                 <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
-                  <PoroLoader />
+                  <CircularProgress />
                 </Box>
               ) : (
                 <Button

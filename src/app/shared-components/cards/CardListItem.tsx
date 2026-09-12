@@ -29,7 +29,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import GavelIcon from "@mui/icons-material/Gavel";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
-import { getTimeLeft, pad, getLanguageChip } from "./tileHelpers";
+import { getTimeLeft, pad, getLanguageChip, isGradedCondition } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { CardItem } from "@/types/card";
@@ -65,6 +65,7 @@ export default function CardListItem({
   const { triggerFly, adjustCount } = useWatchlistAnimation();
   const router = useRouter();
   const languageChip = getLanguageChip(card.language);
+  const isGraded = isGradedCondition(card.condition);
   const bookmarkBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const [watchlisted, setWatchlisted] = useState(initialWatchlisted);
@@ -142,14 +143,23 @@ export default function CardListItem({
   };
 
   return (
-    <Box sx={{ width: 280, flexShrink: 0 }}>
+    <Box sx={{ width: 288, flexShrink: 0 }}>
       <Card
         onClick={() => onClick(card)}
+        role="button"
+        tabIndex={0}
+        aria-label={card.title}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick(card);
+          }
+        }}
         sx={{
           position: "relative",
           width: "100%",
-          maxWidth: 280,
-          minHeight: 220,
+          maxWidth: 288,
+          minHeight: 228,
           display: "flex",
           flexDirection: "row",
           alignItems: "stretch",
@@ -162,26 +172,46 @@ export default function CardListItem({
             boxShadow: 5,
             transform: "translateY(-2px)",
           },
+          "&:focus-visible": {
+            outline: "2px solid #0053ff",
+            outlineOffset: 2,
+          },
         }}
       >
         {/* Left image */}
         <Box
           sx={{
-            position: "relative",
-            width: 130,
-            minWidth: 130,
-            maxWidth: 130,
+            width: 138,
+            minWidth: 138,
+            maxWidth: 138,
             backgroundColor: "#fff",
-            p: 1,
+            p: 1.5,
           }}
         >
-          <Image
-            src={card.imageUrls?.[0] || "/placeholder.png"}
-            alt={card.title}
-            fill
-            sizes="130px"
-            style={{ objectFit: "contain", borderRadius: 8 }}
-          />
+          {/* This inner box is the actual containing block for the `fill`
+              image. It has to be a separate element from the padded box
+              above: an absolutely-positioned `inset:0` child's containing
+              block is its parent's PADDING box, not its content box, so a
+              `fill` image placed directly in a padded, position:relative
+              box completely covers the padding instead of being inset by it. */}
+          <Box sx={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+            <Image
+              src={card.imageUrls?.[0] || "/placeholder.png"}
+              alt={card.title}
+              fill
+              sizes="138px"
+              style={{
+                objectFit: "contain",
+                objectPosition: "center",
+                borderRadius: 8,
+                // Graded-slab photos include the plastic case/label around the
+                // card, so at the same "contain" fit they read visibly smaller
+                // than a tightly-cropped raw scan — zoom in a little to
+                // compensate (kept modest so the label isn't clipped).
+                transform: isGraded ? "scale(1.15)" : undefined,
+              }}
+            />
+          </Box>
         </Box>
 
         {/* Right content */}
@@ -296,12 +326,12 @@ export default function CardListItem({
                     <HourglassEmptyIcon
                       sx={{
                         fontSize: 15,
-                        color: timeLeft.done ? "#9ca3af" : "#e53935",
+                        color: timeLeft.done ? "#6b7280" : "#e53935",
                         animation: spin && !timeLeft.done ? "spin 0.6s linear" : "none",
                         "@keyframes spin": { "0%": { transform: "rotate(0deg)" }, "100%": { transform: "rotate(180deg)" } },
                       }}
                     />
-                    <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: timeLeft.done ? "#9ca3af" : "#e53935", whiteSpace: "nowrap" }}>
+                    <Typography sx={{ fontSize: "0.8rem", fontWeight: 700, color: timeLeft.done ? "#6b7280" : "#e53935", whiteSpace: "nowrap" }}>
                       {timeLeft.done ? "Ended" : `${timeLeft.h}h ${pad(timeLeft.m)}m ${pad(timeLeft.s)}s`}
                     </Typography>
                   </Box>

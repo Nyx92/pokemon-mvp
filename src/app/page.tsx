@@ -30,6 +30,22 @@ export default function Home() {
         minHeight: "100vh",
       }}
     >
+      {/* Visually hidden — gives the page a real h1 for screen readers/SEO
+          without duplicating the hero carousel's own visual title. */}
+      <Box
+        component="h1"
+        sx={{
+          position: "absolute",
+          width: 1,
+          height: 1,
+          overflow: "hidden",
+          clip: "rect(0 0 0 0)",
+          m: -1,
+        }}
+      >
+        MXYYC — Pokémon card marketplace
+      </Box>
+
       {/* Hero Carousel */}
       <Carousell />
 

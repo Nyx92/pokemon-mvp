@@ -6,11 +6,11 @@ import {
   FormControl, InputLabel, Select, MenuItem,
   Snackbar, Alert,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import { useRouter } from "next/navigation";
 import { getNames } from "country-list";
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
 
 const toInputDate = (isoDate: string) => {
   if (!isoDate) return "";
@@ -80,13 +80,7 @@ export default function EditProfilePage() {
   };
 
   if (status === "loading") {
-    return (
-      <AccountLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <PoroLoader />
-        </Box>
-      </AccountLayout>
-    );
+    return <AccountLoadingGate />;
   }
 
   if (!user) {
@@ -101,7 +95,7 @@ export default function EditProfilePage() {
 
   return (
     <AccountLayout>
-      <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+      <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
         Edit Profile
       </Typography>
 
@@ -176,7 +170,7 @@ export default function EditProfilePage() {
             <Button
               variant="outlined"
               onClick={() => router.back()}
-              sx={{ textTransform: "none", fontWeight: 600, borderRadius: 1.5, borderColor: "#c9cdd4", color: "#374151", "&:hover": { borderColor: "#9ca3af", bgcolor: "#f9fafb" } }}
+              sx={{ textTransform: "none", fontWeight: 600, borderRadius: 1.5, borderColor: "#c9cdd4", color: "#374151", "&:hover": { borderColor: "#6b7280", bgcolor: "#f9fafb" } }}
             >
               Cancel
             </Button>

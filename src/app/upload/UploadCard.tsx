@@ -735,12 +735,14 @@ export default function UploadCard({ initialData }: UploadCardProps) {
                       <>
                         <IconButton
                           onClick={handlePrevImage}
+                          aria-label="Previous image"
                           sx={{ position: "absolute", top: "50%", left: 12, transform: "translateY(-50%)", backgroundColor: "rgba(255,255,255,0.9)", "&:hover": { backgroundColor: "#eee" } }}
                         >
                           <ChevronLeftIcon />
                         </IconButton>
                         <IconButton
                           onClick={handleNextImage}
+                          aria-label="Next image"
                           sx={{ position: "absolute", top: "50%", right: 12, transform: "translateY(-50%)", backgroundColor: "rgba(255,255,255,0.9)", "&:hover": { backgroundColor: "#eee" } }}
                         >
                           <ChevronRightIcon />
@@ -750,6 +752,7 @@ export default function UploadCard({ initialData }: UploadCardProps) {
 
                     <IconButton
                       onClick={() => handleRemoveImage(currentImageIndex)}
+                      aria-label="Remove image"
                       size="small"
                       sx={{ position: "absolute", top: 10, right: 10, backgroundColor: "rgba(255,255,255,0.95)", "&:hover": { backgroundColor: "#f8d7da" } }}
                     >

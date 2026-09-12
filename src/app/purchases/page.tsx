@@ -12,7 +12,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Box, Typography, TextField, InputAdornment, IconButton,
   CircularProgress, Button,
@@ -23,7 +22,9 @@ import CloseIcon from "@mui/icons-material/Close";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
 import ErrorState from "@/app/shared-components/ErrorState";
+import EmptyState from "@/app/shared-components/EmptyState";
 import { OrderCard, type OrderRow } from "@/app/shared-components/transaction-cards";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -125,13 +126,7 @@ export default function PurchasesPage() {
 
   // ── Loading / auth wait ──────────────────────────────────────────────────────
   if (status === "loading" || !isLoggedIn) {
-    return (
-      <AccountLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <PoroLoader />
-        </Box>
-      </AccountLayout>
-    );
+    return <AccountLoadingGate />;
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -154,7 +149,7 @@ export default function PurchasesPage() {
       {/* Page header */}
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2, mb: 3 }}>
-        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px" }}>
+        <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px" }}>
           Purchases
         </Typography>
         <TextField
@@ -165,10 +160,10 @@ export default function PurchasesPage() {
           sx={{ width: { xs: "100%", md: 340 }, "& .MuiOutlinedInput-root": { borderRadius: 2, backgroundColor: "#fff" } }}
           slotProps={{
             input: {
-              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: "#9ca3af" }} /></InputAdornment>,
+              startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: "#6b7280" }} /></InputAdornment>,
               endAdornment: q ? (
                 <InputAdornment position="end">
-                  <IconButton onClick={() => setQ("")} size="small"><CloseIcon fontSize="small" /></IconButton>
+                  <IconButton onClick={() => setQ("")} aria-label="Clear search" size="small"><CloseIcon fontSize="small" /></IconButton>
                 </InputAdornment>
               ) : null,
             },
@@ -228,14 +223,12 @@ export default function PurchasesPage() {
       {/* Order list */}
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><PoroLoader /></Box>
+          <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}><CircularProgress /></Box>
         ) : filtered.length === 0 ? (
-          <Box sx={{ textAlign: "center", py: 10 }}>
-            <ShoppingBagIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
-            <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
-              {q ? "No purchases match your search." : "You haven't purchased anything yet."}
-            </Typography>
-          </Box>
+          <EmptyState
+            icon={<ShoppingBagIcon sx={{ fontSize: 40, color: "#d1d5db" }} />}
+            title={q ? "No purchases match your search." : "You haven't purchased anything yet."}
+          />
         ) : (
           <AnimatePresence mode="wait">
             <motion.div

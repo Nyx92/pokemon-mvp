@@ -28,7 +28,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
-import { getTimeLeft, pad, getLanguageChip, fmtPrice } from "./tileHelpers";
+import { getTimeLeft, pad, getLanguageChip, fmtPrice, isGradedCondition } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { AuctionItem } from "@/types/auction";
@@ -48,6 +48,7 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
   const { triggerFly, adjustCount } = useWatchlistAnimation();
   const bookmarkBtnRef      = useRef<HTMLButtonElement | null>(null);
   const languageChip        = getLanguageChip(auction.card.language);
+  const isGraded            = isGradedCondition(auction.card.condition);
 
   const [timeLeft,    setTimeLeft]    = useState(() => getTimeLeft(auction.endsAt));
   const [spin,        setSpin]        = useState(false);
@@ -111,10 +112,19 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
     <Box sx={{ width: 340, flexShrink: 0 }}>
       <Card
         onClick={() => router.push(`/cards/${auction.cardId}`)}
+        role="button"
+        tabIndex={0}
+        aria-label={auction.card.title}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            router.push(`/cards/${auction.cardId}`);
+          }
+        }}
         sx={{
           position:      "relative",
           width:         "100%",
-          minHeight:     220,
+          minHeight:     228,
           display:       "flex",
           flexDirection: "row",
           alignItems:    "stretch",
@@ -124,25 +134,39 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
           overflow:      "hidden",
           transition:    "0.2s ease",
           "&:hover":     { boxShadow: 5, transform: "translateY(-2px)" },
+          "&:focus-visible": { outline: "2px solid #0053ff", outlineOffset: 2 },
         }}
       >
         {/* ── Left: card image ──────────────────────────────────────────── */}
         <Box
           sx={{
-            position:        "relative",
-            width:           130,
-            minWidth:        130,
+            width:           138,
+            minWidth:        138,
             backgroundColor: "#fff",
-            p: 1,
+            p: 1.5,
           }}
         >
-          <Image
-            src={auction.card.imageUrls?.[0] || "/placeholder.png"}
-            alt={auction.card.title}
-            fill
-            sizes="130px"
-            style={{ objectFit: "contain", borderRadius: 8 }}
-          />
+          {/* This inner box is the actual containing block for the `fill`
+              image — see CardListItem.tsx for why the padding has to live
+              on a separate, non-positioned ancestor. */}
+          <Box sx={{ position: "relative", width: "100%", height: "100%", overflow: "hidden" }}>
+            <Image
+              src={auction.card.imageUrls?.[0] || "/placeholder.png"}
+              alt={auction.card.title}
+              fill
+              sizes="138px"
+              style={{
+                objectFit: "contain",
+                objectPosition: "center",
+                borderRadius: 8,
+                // Graded-slab photos include the plastic case/label around the
+                // card, so at the same "contain" fit they read visibly smaller
+                // than a tightly-cropped raw scan — zoom in a little to
+                // compensate (kept modest so the label isn't clipped).
+                transform: isGraded ? "scale(1.15)" : undefined,
+              }}
+            />
+          </Box>
         </Box>
 
         {/* ── Right: metadata ───────────────────────────────────────────── */}
@@ -242,13 +266,13 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
             <HourglassEmptyIcon
               sx={{
                 fontSize:  13,
-                color:     timeLeft.done ? "#9ca3af" : "#f97316",
+                color:     timeLeft.done ? "#6b7280" : "#f97316",
                 animation: spin && !timeLeft.done ? "spin 0.6s linear" : "none",
                 "@keyframes spin": { "0%": { transform: "rotate(0deg)" }, "100%": { transform: "rotate(180deg)" } },
               }}
             />
             <Typography
-              sx={{ fontSize: "0.7rem", fontWeight: 700, color: timeLeft.done ? "#9ca3af" : "#f97316", whiteSpace: "nowrap" }}
+              sx={{ fontSize: "0.7rem", fontWeight: 700, color: timeLeft.done ? "#6b7280" : "#f97316", whiteSpace: "nowrap" }}
             >
               {timeLeft.done ? "Ended" : `${timeLeft.h}h ${pad(timeLeft.m)}m ${pad(timeLeft.s)}s`}
             </Typography>

@@ -14,7 +14,6 @@
  */
 
 import { useRouter } from "next/navigation";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import {
   Box, Typography, Button, Avatar, Divider,
 } from "@mui/material";
@@ -24,6 +23,7 @@ import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ const safe = (val?: string | null) => val || "—";
 function InfoField({ label, value }: { label: string; value: string }) {
   return (
     <Box>
-      <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.4 }}>
+      <Typography sx={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", mb: 0.4 }}>
         {label}
       </Typography>
       <Typography sx={{ fontSize: 14, color: "#111827", wordBreak: "break-word" }}>
@@ -76,19 +76,13 @@ export default function ProfileContent() {
   // The server component already confirmed the user is authenticated, so this
   // state is very brief (one render cycle).
   if (status === "loading" || !user) {
-    return (
-      <AccountLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <PoroLoader />
-        </Box>
-      </AccountLayout>
-    );
+    return <AccountLoadingGate />;
   }
 
   return (
     <AccountLayout>
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
-        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+        <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
           Account Settings
         </Typography>
       </motion.div>
@@ -103,7 +97,7 @@ export default function ProfileContent() {
             variant="outlined"
             startIcon={<EditIcon sx={{ fontSize: 15 }} />}
             onClick={() => router.push("/profile/edit/general")}
-            sx={{ textTransform: "none", fontWeight: 600, fontSize: 13, borderRadius: 1.5, borderColor: "#c9cdd4", color: "#374151", "&:hover": { borderColor: "#9ca3af", bgcolor: "#f9fafb" } }}
+            sx={{ textTransform: "none", fontWeight: 600, fontSize: 13, borderRadius: 1.5, borderColor: "#c9cdd4", color: "#374151", "&:hover": { borderColor: "#6b7280", bgcolor: "#f9fafb" } }}
           >
             Edit
           </Button>
@@ -196,7 +190,7 @@ export default function ProfileContent() {
         <Box sx={{ px: 3, py: 3, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
           <Box>
             <Typography sx={{ fontWeight: 600, fontSize: 14, color: "#111827" }}>Delete Account</Typography>
-            <Typography sx={{ fontSize: 13, color: "#9ca3af", mt: 0.5 }}>
+            <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.5 }}>
               Permanently delete your account, history, and all associated data.
               This action cannot be undone.
             </Typography>
@@ -222,7 +216,7 @@ export default function ProfileContent() {
         <Divider />
 
         <Box sx={{ px: 3, py: 2 }}>
-          <Typography sx={{ fontSize: 12, color: "#9ca3af" }}>
+          <Typography sx={{ fontSize: 12, color: "#6b7280" }}>
             Account deletion is not yet available. Contact support if you need to remove your account.
           </Typography>
         </Box>

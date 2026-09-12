@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Box, Typography } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
+import { Box, CircularProgress, Typography } from "@mui/material";
 import { useAuth } from "@/app/hooks/useAuth";
 import UploadCard from "@/app/upload/UploadCard";
 import type { CardItem } from "@/types/card";
@@ -36,7 +35,7 @@ export default function EditCardPage() {
   if (authLoading || loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-        <PoroLoader />
+        <CircularProgress />
       </Box>
     );
   }

@@ -23,8 +23,8 @@ import {
   Tooltip,
   Typography,
   Button,
+  CircularProgress,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import CancelOutlinedIcon from "@mui/icons-material/CancelOutlined";
@@ -39,7 +39,9 @@ import TimerOffIcon from "@mui/icons-material/TimerOff";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useNotifications } from "@/app/context/NotificationContext";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
 import ErrorState from "@/app/shared-components/ErrorState";
+import EmptyState from "@/app/shared-components/EmptyState";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -155,13 +157,7 @@ export default function NotificationsPage() {
 
   // ── Loading / auth wait ──────────────────────────────────────────────────────
   if (status === "loading" || !isLoggedIn) {
-    return (
-      <AccountLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <PoroLoader />
-        </Box>
-      </AccountLayout>
-    );
+    return <AccountLoadingGate />;
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -195,6 +191,7 @@ export default function NotificationsPage() {
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Typography
+            component="h1"
             sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px" }}
           >
             Notifications
@@ -229,7 +226,7 @@ export default function NotificationsPage() {
               borderRadius: 2,
               borderColor: "#c9cdd4",
               color: "#374151",
-              "&:hover": { borderColor: "#9ca3af", backgroundColor: "#f9fafb" },
+              "&:hover": { borderColor: "#6b7280", backgroundColor: "#f9fafb" },
             }}
           >
             Mark all read
@@ -249,15 +246,13 @@ export default function NotificationsPage() {
       >
         {loading ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-            <PoroLoader />
+            <CircularProgress />
           </Box>
         ) : notifications.length === 0 ? (
-          <Box sx={{ textAlign: "center", py: 10 }}>
-            <NotificationsNoneIcon sx={{ fontSize: 40, color: "#d1d5db", mb: 1 }} />
-            <Typography sx={{ color: "#9ca3af", fontSize: 15 }}>
-              You&apos;re all caught up — no notifications yet.
-            </Typography>
-          </Box>
+          <EmptyState
+            icon={<NotificationsNoneIcon sx={{ fontSize: 40, color: "#d1d5db" }} />}
+            title="You're all caught up — no notifications yet."
+          />
         ) : (
           /* 2. AnimatePresence wraps individual items so the exit animation
                 runs when dismiss() removes a notification from state.
@@ -277,6 +272,15 @@ export default function NotificationsPage() {
                 {i > 0 && <Divider sx={{ borderColor: "#f3f4f6" }} />}
                 <Box
                   onClick={() => !n.read && markRead(n.id)}
+                  role={n.read ? undefined : "button"}
+                  tabIndex={n.read ? undefined : 0}
+                  aria-label={n.read ? undefined : "Mark notification as read"}
+                  onKeyDown={(e) => {
+                    if (!n.read && (e.key === "Enter" || e.key === " ")) {
+                      e.preventDefault();
+                      markRead(n.id);
+                    }
+                  }}
                   sx={{
                     display: "flex",
                     alignItems: "flex-start",
@@ -284,6 +288,7 @@ export default function NotificationsPage() {
                     px: 2.5,
                     py: 2,
                     cursor: n.read ? "default" : "pointer",
+                    "&:focus-visible": n.read ? {} : { outline: "2px solid #0053ff", outlineOffset: -2 },
                     // Amber left border flags unread notifications
                     borderLeft: n.read ? "3px solid transparent" : "3px solid #f59e0b",
                     backgroundColor: n.read ? "transparent" : "rgba(245,158,11,0.04)",
@@ -329,7 +334,7 @@ export default function NotificationsPage() {
                     >
                       {n.body}
                     </Typography>
-                    <Typography sx={{ fontSize: 12, color: "#9ca3af", mt: 0.5 }}>
+                    <Typography sx={{ fontSize: 12, color: "#6b7280", mt: 0.5 }}>
                       {timeAgo(n.createdAt)}
                     </Typography>
                   </Box>
@@ -338,8 +343,9 @@ export default function NotificationsPage() {
                   <Tooltip title="Dismiss">
                     <IconButton
                       size="small"
+                      aria-label="Dismiss notification"
                       onClick={(e) => { e.stopPropagation(); dismiss(n.id); }}
-                      sx={{ color: "#9ca3af", flexShrink: 0, "&:hover": { color: "#374151" } }}
+                      sx={{ color: "#6b7280", flexShrink: 0, "&:hover": { color: "#374151" } }}
                     >
                       <CloseIcon fontSize="small" />
                     </IconButton>

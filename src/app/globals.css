@@ -5,6 +5,14 @@
   100% { transform: scale(1); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the badge's count-change feedback (still visible via the number
+     itself) but drop the scale punch that triggers motion sensitivity. */
+  [style*="watchlist-badge-pop"] {
+    animation: none !important;
+  }
+}
+
 /* instructing the browser not to perform any adjustments to maintain the scroll position in response to layout changes. */
 body,
 html {

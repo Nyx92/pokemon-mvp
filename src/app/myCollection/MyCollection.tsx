@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from "react";
 import {
   Box,
-  Typography,
   TextField,
   InputAdornment,
   ToggleButtonGroup,
@@ -17,8 +16,8 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  CircularProgress,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 // ── Animation variants ────────────────────────────────────────────────────────
@@ -40,6 +39,7 @@ import { useRouter } from "next/navigation";
 import { useFuzzySearch } from "@/app/utils/account/useFuzzySearch";
 import CardListItem from "../shared-components/cards/CardListItem";
 import ErrorState from "../shared-components/ErrorState";
+import EmptyState from "../shared-components/EmptyState";
 import type { CardItem } from "@/types/card";
 import { centsToDollars } from "@/lib/money";
 
@@ -134,7 +134,7 @@ export default function MyCollection() {
   if (loading) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
-        <PoroLoader />
+        <CircularProgress />
       </Box>
     );
   }
@@ -275,14 +275,10 @@ export default function MyCollection() {
               ))
             ) : (
               <motion.div variants={cardVariants} style={{ width: "100%" }}>
-                <Typography
-                  variant="body1"
-                  color="text.secondary"
-                  textAlign="center"
-                  sx={{ mt: 4 }}
-                >
-                  No cards match your filters.
-                </Typography>
+                <EmptyState
+                  icon={<SearchIcon sx={{ fontSize: 40, color: "#d1d5db" }} />}
+                  title="No cards match your filters."
+                />
               </motion.div>
             )}
           </motion.div>

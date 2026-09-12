@@ -92,7 +92,7 @@ export default function CollectionPage() {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <Box sx={{ mb: 4 }}>
-              <Typography sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1 }}>
+              <Typography component="h1" sx={{ fontSize: { xs: 22, md: 28 }, fontWeight: 800, lineHeight: 1.1 }}>
                 My Collection
               </Typography>
               <Typography sx={{ fontSize: 13, color: "#6b7280", mt: 0.25 }}>

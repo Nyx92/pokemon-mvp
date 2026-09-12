@@ -15,16 +15,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
-  Button,
+  CircularProgress,
   Typography,
 } from "@mui/material";
-import PoroLoader from "@/app/shared-components/PoroLoader";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
+import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
 import CardListItem from "@/app/shared-components/cards/CardListItem";
 import ErrorState from "@/app/shared-components/ErrorState";
+import EmptyState from "@/app/shared-components/EmptyState";
 import { motion, AnimatePresence } from "framer-motion";
 import type { CardItem } from "@/types/card";
 
@@ -62,13 +63,7 @@ export default function WatchlistPage() {
 
   // ── Loading / auth wait ──────────────────────────────────────────────────────
   if (status === "loading" || !isLoggedIn) {
-    return (
-      <AccountLayout>
-        <Box sx={{ display: "flex", justifyContent: "center", py: 12 }}>
-          <PoroLoader />
-        </Box>
-      </AccountLayout>
-    );
+    return <AccountLoadingGate />;
   }
 
   // 1. Show full-page error state so the user has a clear recovery path.
@@ -87,58 +82,23 @@ export default function WatchlistPage() {
   return (
     <AccountLayout>
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
-        <Typography sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+        <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
           Watchlist
         </Typography>
       </motion.div>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>
-          <PoroLoader />
+          <CircularProgress />
         </Box>
       ) : cards.length === 0 ? (
         // ── Empty state ──────────────────────────────────────────────────────────
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          style={{ textAlign: "center", paddingTop: "48px", paddingBottom: "48px" }}
-        >
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 320, damping: 14, delay: 0.15 }}
-            style={{ display: "inline-block" }}
-          >
-            <BookmarkBorderIcon sx={{ fontSize: 48, color: "#d1d5db", mb: 2 }} />
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: 0.25 }}
-          >
-            <Typography sx={{ fontWeight: 700, fontSize: 17, color: "#374151", mb: 0.5 }}>
-              No cards saved yet
-            </Typography>
-            <Typography sx={{ fontSize: 14, color: "#9ca3af", mb: 3 }}>
-              Bookmark cards you&apos;re watching and find them here.
-            </Typography>
-            <Button
-              variant="contained"
-              disableElevation
-              onClick={() => router.push("/")}
-              sx={{
-                textTransform: "none",
-                fontWeight: 700,
-                borderRadius: "10px",
-                backgroundColor: "#111827",
-                "&:hover": { backgroundColor: "#1f2937" },
-              }}
-            >
-              Browse cards
-            </Button>
-          </motion.div>
-        </motion.div>
+        <EmptyState
+          icon={<BookmarkBorderIcon sx={{ fontSize: 48, color: "#d1d5db" }} />}
+          title="No cards saved yet"
+          subtitle="Bookmark cards you're watching and find them here."
+          action={{ label: "Browse cards", onClick: () => router.push("/") }}
+        />
       ) : (
         // ── Card grid ────────────────────────────────────────────────────────────
         // 2. AnimatePresence wraps individual cards so the scale-out exit

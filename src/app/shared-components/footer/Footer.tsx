@@ -197,11 +197,14 @@ const Footer = forwardRef<HTMLDivElement>((_, ref) => {
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
           <Link
             onClick={() => handleOpenModal("TermsOfUse")}
+            component="button"
+            type="button"
             color="inherit"
             underline="hover"
             fontSize={{ xs: 10, md: 15 }}
             sx={{
               cursor: "pointer", // Add pointer cursor on hover
+              font: "inherit",
             }}
           >
             Terms of Use
