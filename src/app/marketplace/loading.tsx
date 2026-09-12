@@ -14,7 +14,7 @@ import { Box, Skeleton } from "@mui/material";
 import { pageBackgroundSx } from "@/app/utils/pageBackground";
 import { NAVBAR_HEIGHT } from "@/app/utils/navChrome";
 
-const SKELETON_COUNT = 8;
+const SKELETON_COUNT = 25;
 
 export default function MarketplaceLoading() {
   return (
