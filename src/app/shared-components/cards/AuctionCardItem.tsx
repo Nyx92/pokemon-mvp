@@ -28,7 +28,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
-import { getTimeLeft, pad, getLanguageChip, fmtPrice, isGradedCondition } from "./tileHelpers";
+import { getTimeLeft, pad, getLanguageChip, fmtPrice } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { AuctionItem } from "@/types/auction";
@@ -48,7 +48,6 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
   const { triggerFly, adjustCount } = useWatchlistAnimation();
   const bookmarkBtnRef      = useRef<HTMLButtonElement | null>(null);
   const languageChip        = getLanguageChip(auction.card.language);
-  const isGraded            = isGradedCondition(auction.card.condition);
 
   const [timeLeft,    setTimeLeft]    = useState(() => getTimeLeft(auction.endsAt));
   const [spin,        setSpin]        = useState(false);
@@ -159,11 +158,6 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
                 objectFit: "contain",
                 objectPosition: "center",
                 borderRadius: 8,
-                // Graded-slab photos include the plastic case/label around the
-                // card, so at the same "contain" fit they read visibly smaller
-                // than a tightly-cropped raw scan — zoom in a little to
-                // compensate (kept modest so the label isn't clipped).
-                transform: isGraded ? "scale(1.15)" : undefined,
               }}
             />
           </Box>

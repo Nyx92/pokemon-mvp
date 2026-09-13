@@ -29,7 +29,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import GavelIcon from "@mui/icons-material/Gavel";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
-import { getTimeLeft, pad, getLanguageChip, isGradedCondition } from "./tileHelpers";
+import { getTimeLeft, pad, getLanguageChip } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { CardItem } from "@/types/card";
@@ -65,7 +65,6 @@ export default function CardListItem({
   const { triggerFly, adjustCount } = useWatchlistAnimation();
   const router = useRouter();
   const languageChip = getLanguageChip(card.language);
-  const isGraded = isGradedCondition(card.condition);
   const bookmarkBtnRef = useRef<HTMLButtonElement | null>(null);
 
   const [watchlisted, setWatchlisted] = useState(initialWatchlisted);
@@ -204,11 +203,6 @@ export default function CardListItem({
                 objectFit: "contain",
                 objectPosition: "center",
                 borderRadius: 8,
-                // Graded-slab photos include the plastic case/label around the
-                // card, so at the same "contain" fit they read visibly smaller
-                // than a tightly-cropped raw scan — zoom in a little to
-                // compensate (kept modest so the label isn't clipped).
-                transform: isGraded ? "scale(1.15)" : undefined,
               }}
             />
           </Box>
