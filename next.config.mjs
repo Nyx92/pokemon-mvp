@@ -15,7 +15,7 @@ const nextConfig = {
 
         // the exact domain / host name where your images are stored.
         // this is your Supabase project CDN host
-        hostname: "tfjkxfalbqegwjsfbyuo.supabase.co",
+        hostname: "oxfclrahdwnlbrszejik.supabase.co",
 
         // which URL paths under that host are allowed.
         // you can restrict to specific buckets if you want
@@ -44,7 +44,7 @@ const nextConfig = {
       // Supabase Storage is the only external image host (matches
       // images.remotePatterns above); data:/blob: cover next/image
       // placeholders and any client-side blob previews.
-      "img-src 'self' data: blob: https://tfjkxfalbqegwjsfbyuo.supabase.co",
+      "img-src 'self' data: blob: https://oxfclrahdwnlbrszejik.supabase.co",
       // next/font/google self-hosts fonts at build time — no external
       // font-src needed (see src/app/layout.tsx).
       "font-src 'self' data:",
