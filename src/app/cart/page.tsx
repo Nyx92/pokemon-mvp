@@ -12,7 +12,7 @@
 //   DELETE /api/cart/[id] → removes a single item
 //   DELETE /api/cart      → clears the whole cart
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {

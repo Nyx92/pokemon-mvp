@@ -29,6 +29,7 @@ import GoogleProvider from "next-auth/providers/google";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 /* -------------------------------------------------------------------------- */
 /* Google user helpers                                                         */
@@ -141,9 +142,33 @@ export const authOptions: NextAuthOptions = {
        *  4. If valid → return a user object
        *     If invalid → return null (reject login)
        */
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         // Reject immediately if missing email or password
         if (!credentials?.email || !credentials.password) return null;
+
+        // 🔒 Rate limit login attempts to slow down credential-stuffing /
+        // brute-force attacks. Keyed by ip:email when the IP is available
+        // from the incoming request headers (this NextAuth version's
+        // `authorize(credentials, req)` signature types `req.headers` as a
+        // plain `Record<string, any>` copied from the original request, so
+        // `x-forwarded-for` is present whenever the platform sets it, e.g.
+        // on Vercel); falls back to email alone otherwise. In-memory stopgap
+        // limiter — see src/lib/rateLimit.ts for its production caveats.
+        const forwardedFor = req?.headers?.["x-forwarded-for"];
+        const ip = (Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor)
+          ?.toString()
+          .split(",")[0]
+          ?.trim();
+        const rateLimitKey = ip ? `${ip}:${credentials.email}` : credentials.email;
+
+        const { allowed } = checkRateLimit(rateLimitKey, {
+          limit: 5,
+          windowMs: 15 * 60 * 1000, // 15 minutes
+        });
+        // Return null exactly like an invalid password — do NOT surface a
+        // distinct "rate limited" error, or an attacker could use that
+        // signal to enumerate which emails have accounts.
+        if (!allowed) return null;
 
         // 1️⃣ Look up the user by email in the Prisma `User` table
         const user = await prisma.user.findUnique({

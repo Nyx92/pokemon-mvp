@@ -136,14 +136,14 @@ describe("PATCH /api/notifications/[id] (mark one read)", () => {
   it("returns 401 when not authenticated", async () => {
     mockGetServerSession.mockResolvedValueOnce(null);
     const res = await PatchById(makeRequestById("notif-1", "PATCH"), {
-      params: { id: "notif-1" },
+      params: Promise.resolve({ id: "notif-1" }),
     });
     expect(res.status).toBe(401);
   });
 
   it("marks the notification as read", async () => {
     const res = await PatchById(makeRequestById("notif-1", "PATCH"), {
-      params: { id: "notif-1" },
+      params: Promise.resolve({ id: "notif-1" }),
     });
     expect(res.status).toBe(200);
     expect(mockPrisma.notification.updateMany).toHaveBeenCalledWith(
@@ -157,7 +157,7 @@ describe("PATCH /api/notifications/[id] (mark one read)", () => {
   it("returns 404 when notification does not belong to this user", async () => {
     mockPrisma.notification.updateMany.mockResolvedValueOnce({ count: 0 });
     const res = await PatchById(makeRequestById("notif-other", "PATCH"), {
-      params: { id: "notif-other" },
+      params: Promise.resolve({ id: "notif-other" }),
     });
     expect(res.status).toBe(404);
   });
@@ -175,14 +175,14 @@ describe("DELETE /api/notifications/[id] (dismiss)", () => {
   it("returns 401 when not authenticated", async () => {
     mockGetServerSession.mockResolvedValueOnce(null);
     const res = await DeleteById(makeRequestById("notif-1", "DELETE"), {
-      params: { id: "notif-1" },
+      params: Promise.resolve({ id: "notif-1" }),
     });
     expect(res.status).toBe(401);
   });
 
   it("deletes the notification", async () => {
     const res = await DeleteById(makeRequestById("notif-1", "DELETE"), {
-      params: { id: "notif-1" },
+      params: Promise.resolve({ id: "notif-1" }),
     });
     expect(res.status).toBe(200);
     expect(mockPrisma.notification.deleteMany).toHaveBeenCalledWith(
@@ -193,7 +193,7 @@ describe("DELETE /api/notifications/[id] (dismiss)", () => {
   it("returns 404 when notification does not belong to this user", async () => {
     mockPrisma.notification.deleteMany.mockResolvedValueOnce({ count: 0 });
     const res = await DeleteById(makeRequestById("notif-other", "DELETE"), {
-      params: { id: "notif-other" },
+      params: Promise.resolve({ id: "notif-other" }),
     });
     expect(res.status).toBe(404);
   });

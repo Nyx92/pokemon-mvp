@@ -14,6 +14,9 @@ const mockPrisma = vi.hoisted(() => ({
   listing: { findUnique: vi.fn(), update: vi.fn() },
   pokemonCardCatalog: { update: vi.fn() },
   riftboundCardCatalog: { update: vi.fn() },
+  // Admin update path validates the client-supplied ownerId exists before
+  // updating — see "validates ownerId exists" describe block below.
+  user: { findUnique: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -60,7 +63,7 @@ describe("PUT /api/cards/[id] — owner update", () => {
   it("returns 409 when the owner tries to list a card for sale while it's in an active auction", async () => {
     mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true, forSale: false });
 
-    const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: { id: "card-1" } });
+    const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: Promise.resolve({ id: "card-1" }) });
 
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({
@@ -72,14 +75,14 @@ describe("PUT /api/cards/[id] — owner update", () => {
   it("allows unlisting (forSale: false) even while in an active auction", async () => {
     mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true, forSale: false });
 
-    const res = await PUT(putRequest({ price: "", forSale: "false" }), { params: { id: "card-1" } });
+    const res = await PUT(putRequest({ price: "", forSale: "false" }), { params: Promise.resolve({ id: "card-1" }) });
 
     expect(res.status).toBe(200);
     expect(mockPrisma.listing.update).toHaveBeenCalled();
   });
 
   it("allows the normal price/forSale update when not in an auction", async () => {
-    const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: { id: "card-1" } });
+    const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: Promise.resolve({ id: "card-1" }) });
 
     expect(res.status).toBe(200);
     expect(mockPrisma.listing.update).toHaveBeenCalledWith({
@@ -89,7 +92,7 @@ describe("PUT /api/cards/[id] — owner update", () => {
   });
 
   it("returns 400 when forSale is true and price is zero", async () => {
-    const res = await PUT(putRequest({ price: "0", forSale: "true" }), { params: { id: "card-1" } });
+    const res = await PUT(putRequest({ price: "0", forSale: "true" }), { params: Promise.resolve({ id: "card-1" }) });
     expect(res.status).toBe(400);
     expect(await res.json()).toMatchObject({
       error: "Price must be greater than $0 when listing a card for sale",
@@ -98,7 +101,7 @@ describe("PUT /api/cards/[id] — owner update", () => {
   });
 
   it("returns 400 when forSale is true and price is negative", async () => {
-    const res = await PUT(putRequest({ price: "-5", forSale: "true" }), { params: { id: "card-1" } });
+    const res = await PUT(putRequest({ price: "-5", forSale: "true" }), { params: Promise.resolve({ id: "card-1" }) });
     expect(res.status).toBe(400);
     expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
@@ -111,6 +114,9 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
     mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
+    // Happy-path default: the submitted ownerId resolves to a real user.
+    // Individual tests override this to exercise the "owner doesn't exist" guard.
+    mockPrisma.user.findUnique.mockResolvedValue({ id: "owner-1" });
   });
 
   it("returns 409 when the admin tries to list a card for sale while it's in an active auction", async () => {
@@ -130,7 +136,7 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
       price: "100",
     };
 
-    const res = await PUT(putRequest(adminFields), { params: { id: "card-1" } });
+    const res = await PUT(putRequest(adminFields), { params: Promise.resolve({ id: "card-1" }) });
 
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({
@@ -168,7 +174,7 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
         price: "100",
         keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
       }),
-      { params: { id: "card-1" } }
+      { params: Promise.resolve({ id: "card-1" }) }
     );
     const body = await res.json();
 
@@ -217,7 +223,7 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
         price: "100",
         keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
       }),
-      { params: { id: "card-1" } }
+      { params: Promise.resolve({ id: "card-1" }) }
     );
     const body = await res.json();
 
@@ -258,11 +264,43 @@ describe("PUT /api/cards/[id] — admin update with shared guard", () => {
         price: "100",
         keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
       }),
-      { params: { id: "card-1" } }
+      { params: Promise.resolve({ id: "card-1" }) }
     );
 
     expect(res.status).toBe(400);
     expect(mockPrisma.riftboundCardCatalog.update).not.toHaveBeenCalled();
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the submitted ownerId doesn't match any user", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue({
+      ...LISTING, game: "POKEMON", pokemonCardId: "pkc-1", riftboundCardId: null,
+    });
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+
+    const res = await PUT(
+      putRequest({
+        title: "Charizard Holo",
+        condition: "Mint",
+        ownerId: "nonexistent-user",
+        setName: "Base Set",
+        rarity: "Mint",
+        tcgPlayerId: "base1-4",
+        language: "English",
+        cardNumber: "004",
+        forSale: "true",
+        price: "100",
+        keepImageUrls: JSON.stringify(["https://example.com/old.png"]),
+      }),
+      { params: Promise.resolve({ id: "card-1" }) }
+    );
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+      where: { id: "nonexistent-user" },
+      select: { id: true },
+    });
+    expect(mockPrisma.pokemonCardCatalog.update).not.toHaveBeenCalled();
     expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 });

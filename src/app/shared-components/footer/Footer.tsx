@@ -10,9 +10,8 @@ import {
   AccordionDetails,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import { forwardRef, useState } from "react";
+import { forwardRef } from "react";
 import "./Footer.css"; // Import your CSS file for media queries
-import TermsOfUse from "./modals/termsOfUse";
 
 // Define the type for FooterLink props
 interface FooterLinkProps {
@@ -27,9 +26,6 @@ interface FooterColumnProps {
     items: string[];
   }[];
 }
-
-// Define a union type for program names
-type FooterNames = "TermsOfUse";
 
 const FooterLink = ({ href, title }: FooterLinkProps) => (
   <Link
@@ -88,35 +84,6 @@ const FooterColumn = ({ columnGroups }: FooterColumnProps) => {
 };
 
 const Footer = forwardRef<HTMLDivElement>((_, ref) => {
-  // state to track the name of the currently active modal
-  const [activeModalName, setActiveModalName] = useState<FooterNames | "">("");
-  const [openModal, setOpenModal] = useState<boolean>(false);
-
-  // Create an object that maps button names to modal components
-  const modalComponentMap: Record<
-    FooterNames,
-    React.FC<{ open: boolean; onClose: () => void }>
-  > = {
-    TermsOfUse,
-  };
-
-  const renderModal = () => {
-    if (!activeModalName || !openModal) return null;
-    // based on current activeModalName - i.e., the button which was clicked
-    const ModalComponent = modalComponentMap[activeModalName as FooterNames];
-    if (!ModalComponent) return null; // In case there is no matching modal component
-
-    return <ModalComponent open={openModal} onClose={handleCloseModal} />;
-  };
-
-  const handleOpenModal = (modalName: FooterNames) => {
-    setActiveModalName(modalName);
-    setOpenModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setOpenModal(false);
-  };
   const footerColumns = [
     // add as required
     {
@@ -196,23 +163,34 @@ const Footer = forwardRef<HTMLDivElement>((_, ref) => {
           </Typography>
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
           <Link
-            onClick={() => handleOpenModal("TermsOfUse")}
-            component="button"
-            type="button"
+            href="/terms"
             color="inherit"
             underline="hover"
             fontSize={{ xs: 10, md: 15 }}
-            sx={{
-              cursor: "pointer", // Add pointer cursor on hover
-              font: "inherit",
-            }}
           >
-            Terms of Use
+            Terms of Service
+          </Link>
+          <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
+          <Link
+            href="/privacy"
+            color="inherit"
+            underline="hover"
+            fontSize={{ xs: 10, md: 15 }}
+          >
+            Privacy Policy
+          </Link>
+          <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
+          <Link
+            href="/refund-policy"
+            color="inherit"
+            underline="hover"
+            fontSize={{ xs: 10, md: 15 }}
+          >
+            Refund Policy
           </Link>
           <Box sx={{ mx: { xs: 1, sm: 2 } }}>|</Box>
         </Box>
       </Container>
-      {renderModal()};
     </Box>
   );
 });

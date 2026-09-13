@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Box, Typography, Button, Divider, Alert } from "@mui/material";
 import { useRouter } from "next/navigation";
 import GavelIcon from "@mui/icons-material/Gavel";

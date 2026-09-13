@@ -9,10 +9,8 @@ import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay"
  * Returns the auction record with its bids (amounts + statuses, no PI ids exposed)
  * and the associated card. Public endpoint — no auth required.
  */
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const auction = await prisma.auction.findUnique({
       where:   { id: params.id },

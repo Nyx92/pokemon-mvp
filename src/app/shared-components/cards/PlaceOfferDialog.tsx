@@ -36,7 +36,7 @@
  *    old PaymentIntent and updates the offer record in place.
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,

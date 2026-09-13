@@ -141,8 +141,12 @@ describe("POST /api/checkout/cart", () => {
     expect(body.error).toMatch(/no valid price/i);
   });
 
-  // What's being tested: reservation conflict returns a user-friendly 500
-  it("returns 500 when a listing is already reserved by another buyer", async () => {
+  // What's being tested: reservation conflict returns a generic 500 — the
+  // route logs the specific reason server-side but never echoes err.message
+  // to the client (that message text is safe here, but the route can't tell
+  // a deliberately-thrown business error from a leaky Prisma/Stripe one, so
+  // it treats every caught error the same way).
+  it("returns a generic 500 when a listing is already reserved by another buyer", async () => {
     mockPrisma.cart.findUnique.mockResolvedValueOnce(CART);
     mockPrisma.listing.findMany.mockResolvedValueOnce([LISTING]);
 
@@ -153,7 +157,7 @@ describe("POST /api/checkout/cart", () => {
     const res = await POST(makeRequest());
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.error).toContain("reserved by another buyer");
+    expect(body.error).toBe("Failed to create checkout session. Please try again.");
   });
 
   // What's being tested: the reservation query's OR clause only allows

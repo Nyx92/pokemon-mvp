@@ -3,9 +3,25 @@ import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 // This function is to store user details on successful sign up
 export async function POST(req: Request) {
+  // 🔒 Rate limit signups by IP — 10 per hour. Stops a script from mass
+  // creating accounts; in-memory stopgap (see src/lib/rateLimit.ts).
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ip = forwardedFor?.split(",")[0]?.trim() || "unknown";
+  const { allowed } = checkRateLimit(`signup:${ip}`, {
+    limit: 10,
+    windowMs: 60 * 60 * 1000, // 1 hour
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many signup attempts. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   try {
     const data = await req.json();
 
@@ -16,9 +32,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    if (data.password.length < 6) {
+    if (data.password.length < 10) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
+        { error: "Password must be at least 10 characters" },
         { status: 400 }
       );
     }

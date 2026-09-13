@@ -12,15 +12,12 @@ const RAW_GRADES = [
 const RAW_GRADE_SET = new Set<string>(RAW_GRADES.map((g) => g.toLowerCase()));
 
 function isGradedCondition(condition?: string | null) {
-  console.log(condition);
   if (!condition) return false; // if unknown, treat as raw
   return !RAW_GRADE_SET.has(condition.toLowerCase());
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: { tcgId: string } }
-) {
+export async function GET(req: Request, props: { params: Promise<{ tcgId: string }> }) {
+  const params = await props.params;
   const { tcgId } = params;
   const { searchParams } = new URL(req.url);
 
@@ -31,8 +28,6 @@ export async function GET(
   // NEW: infer graded from condition
   const condition = searchParams.get("condition");
   const graded = isGradedCondition(condition);
-  console.log("graded true?");
-  console.log(graded);
 
   if (!tcgId) {
     return NextResponse.json({ error: "Missing tcgPlayerId" }, { status: 400 });
@@ -48,14 +43,12 @@ export async function GET(
       : `https://www.pokemonpricetracker.com/api/v2/cards?tcgPlayerId=${tcgId}&language=${encodeURIComponent(
           language
         )}&includeHistory=true&days=365`;
-    console.log(url);
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${API_KEY}` },
       next: { revalidate: 3600 },
     });
 
     const data = await res.json();
-    console.log(data);
     return NextResponse.json(data);
   } catch (err) {
     console.error("Market price fetch failed:", err);

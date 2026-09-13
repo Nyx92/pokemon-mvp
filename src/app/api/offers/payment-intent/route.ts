@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -42,6 +43,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   const buyerId = session.user.id;
+
+  // 🔒 Rate limit by user id — a generous 20/min. This is already an
+  // auth-gated route, so a real user id is available; the limit exists to
+  // stop scripted abuse, not to interfere with a real buyer clicking
+  // "make offer" repeatedly. In-memory stopgap (see src/lib/rateLimit.ts).
+  const { allowed } = checkRateLimit(`offer-intent:${buyerId}`, {
+    limit: 20,
+    windowMs: 60 * 1000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down and try again shortly." },
+      { status: 429 }
+    );
+  }
 
   try {
     const { cardId, price } = await req.json();

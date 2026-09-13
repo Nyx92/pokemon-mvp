@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/expire-offers",
-      "schedule": "0 0 * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/expire-auctions",
-      "schedule": "0 0 * * *"
+      "schedule": "*/5 * * * *"
     }
   ]
 }

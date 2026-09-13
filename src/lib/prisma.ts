@@ -29,6 +29,12 @@
  */
 
 import { PrismaClient } from "@prisma/client";
+// Side-effect import only: validates required env vars (DATABASE_URL,
+// NEXTAUTH_SECRET, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_URL,
+// SUPABASE_SERVICE_ROLE_KEY) at module load time. prisma.ts is imported by
+// nearly every API route, making it an early, reliable place to fail fast on
+// a missing var instead of hitting a confusing error deep in a request.
+import "@/lib/env";
 
 // Extend the global type so TypeScript knows about our cached client.
 const globalForPrisma = global as unknown as { prisma: PrismaClient };

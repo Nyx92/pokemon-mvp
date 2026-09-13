@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Stripe from "stripe";
 import { redirect } from "next/navigation";
 
@@ -5,11 +6,18 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
 });
 
-export default async function CheckoutSuccessPage({
-  searchParams,
-}: {
-  searchParams: { session_id?: string };
-}) {
+// Private post-checkout page — robots.ts already disallows /checkout, this
+// is defense in depth in case a search engine ever crawls it directly.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
+
+export default async function CheckoutSuccessPage(
+  props: {
+    searchParams: Promise<{ session_id?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const sessionId = searchParams.session_id;
   // No session id — redirect to transactions page with success banner
   if (!sessionId) redirect("/purchases?success=1");

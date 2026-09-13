@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import ProfileContent from "./ProfileContent";
+
+// Private account page — robots.ts already disallows /profile, this is
+// defense in depth in case a search engine ever crawls it directly.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 /**
  * /profile — Account settings page (server component).

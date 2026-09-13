@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { dollarsToCents } from "@/lib/money";
 import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -24,16 +25,29 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
  *
  * Body: { amount } — bid amount in dollars
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // ── 1. Auth ────────────────────────────────────────────────────────────────
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
   const bidderId = session.user.id;
+
+  // 🔒 Rate limit by user id — a generous 20/min, same rationale as
+  // POST /api/offers/payment-intent (auth-gated route, real user id
+  // available, limit exists to stop scripted abuse not normal bidding).
+  // In-memory stopgap (see src/lib/rateLimit.ts).
+  const { allowed } = checkRateLimit(`bid-intent:${bidderId}`, {
+    limit: 20,
+    windowMs: 60 * 1000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please slow down and try again shortly." },
+      { status: 429 }
+    );
+  }
 
   try {
     const { amount } = await req.json();

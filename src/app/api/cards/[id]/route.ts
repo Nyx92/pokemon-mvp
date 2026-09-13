@@ -18,10 +18,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function GET(
-  _req: Request,
-  { params }: { params: { id: string } }
-) {
+// Server-side cap on a single uploaded image, checked before it's buffered
+// into memory (matches src/app/api/cards/route.ts's create path).
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
+
+export async function GET(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
 
@@ -72,10 +74,8 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
@@ -172,6 +172,23 @@ export async function PUT(
       }
     }
 
+    // ownerId here is client-supplied (the admin "assign owner" dropdown) —
+    // confirm it actually points at a real user before we hand off to
+    // prisma.listing.update, or a typo'd/stale id would silently orphan the
+    // listing (still "owned" by an id no User row matches).
+    if (ownerId) {
+      const ownerExists = await prisma.user.findUnique({
+        where: { id: ownerId },
+        select: { id: true },
+      });
+      if (!ownerExists) {
+        return NextResponse.json(
+          { error: "The selected owner does not exist." },
+          { status: 400 }
+        );
+      }
+    }
+
     // Existing image URLs the client wants to keep
     const keepRaw = formData.get("keepImageUrls") as string | null;
     const keepImageUrls: string[] = keepRaw ? JSON.parse(keepRaw) : [];
@@ -180,11 +197,37 @@ export async function PUT(
     const newImages = formData
       .getAll("images")
       .filter((v): v is File => v instanceof File);
+
+    // Reject oversized files up front, before any of them are buffered.
+    for (const image of newImages) {
+      if (image.size > MAX_IMAGE_BYTES) {
+        return NextResponse.json(
+          { error: "Each image must be 10MB or smaller." },
+          { status: 413 }
+        );
+      }
+    }
+
     const newImageUrls: string[] = [];
 
     for (const image of newImages) {
       const buffer = Buffer.from(await image.arrayBuffer());
-      const compressed = await compressCardImage(buffer);
+
+      // compressCardImage decodes with sharp before re-encoding — a
+      // non-image file fails to decode and throws here, so this doubles as
+      // real content-type validation instead of trusting the client's
+      // claimed MIME type.
+      let compressed;
+      try {
+        compressed = await compressCardImage(buffer);
+      } catch (err) {
+        console.error("❌ Image decode failed:", err);
+        return NextResponse.json(
+          { error: "One of the uploaded files is not a valid image." },
+          { status: 400 }
+        );
+      }
+
       const filename = toWebpStoragePath(`cards/${Date.now()}-${image.name}`);
       const { data, error } = await supabase.storage
         .from("card-images")
@@ -246,9 +289,11 @@ export async function PUT(
       },
     });
   } catch (error: any) {
+    // Log the real error server-side only — never echo error.message back to
+    // the client (see POST /api/cards for the same reasoning).
     console.error("❌ Error updating card:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to update card" },
+      { error: "Failed to update listing. Please try again." },
       { status: 500 }
     );
   }

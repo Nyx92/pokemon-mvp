@@ -1,6 +1,13 @@
+import type { Metadata } from "next";
 import Marketplace from "./MarketPlace";
 import MarketplacePageShell from "./MarketplacePageShell";
 import { getListingsPage } from "@/lib/listingsQuery";
+
+export const metadata: Metadata = {
+  title: "Marketplace | Pokémon MVP",
+  description:
+    "Browse and buy Pokémon and Riftbound cards for sale on Pokémon MVP's marketplace.",
+};
 
 // Card data must reflect the live DB on every visit; do not let this route
 // be statically prerendered (MarketPlace.tsx skips its own client fetch on

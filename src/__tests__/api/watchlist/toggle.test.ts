@@ -35,7 +35,7 @@ import { POST } from "@/app/api/cards/[id]/watchlist/route";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PARAMS = { params: { id: "card-1" } };
+const PARAMS = { params: Promise.resolve({ id: "card-1" }) };
 const SESSION = { user: { id: "user-1" } };
 
 // ═════════════════════════════════════════════════════════════════════════════

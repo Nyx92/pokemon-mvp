@@ -1,5 +1,5 @@
 import type { Metadata } from "next"; // Next.js type for page metadata (SEO, title, description, etc.)
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import NavBar from "./shared-components/navbar/Navbar";
 import Footer from "./shared-components/footer/Footer";
@@ -12,10 +12,15 @@ import { CartProvider } from "@/app/context/CartContext";
 import { NotificationProvider } from "@/app/context/NotificationContext";
 import { NAVBAR_HEIGHT } from "@/app/utils/navChrome";
 
-const inter = Inter({
-  subsets: ["latin"],
+// Self-hosted (not next/font/google) so the build has no dependency on
+// reaching fonts.googleapis.com at build time — same font/weights/subset
+// (Inter, variable weight 100-900, latin), sourced from @fontsource-variable
+// under the SIL Open Font License (see src/app/fonts/LICENSE).
+const inter = localFont({
+  src: "./fonts/Inter-Variable.woff2",
   display: "swap",
-  variable: "--font-inter", // 👈 Add this line
+  variable: "--font-inter",
+  weight: "100 900",
 });
 
 // Default metadata for your app (SEO + browser tab info)

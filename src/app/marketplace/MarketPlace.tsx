@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -78,7 +78,6 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
-  const skippedInitialFetch = useRef(false);
 
   // Fetch the lightweight browse-index once on mount — feeds search + facets.
   useEffect(() => {
@@ -154,15 +153,22 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
   useEffect(() => {
     // The Server Component in page.tsx already fetched exactly this view
     // (page 1, forSale=true, game=POKEMON, no filters, no search) before
-    // this component ever mounted — skip re-fetching it once on mount so
-    // the user doesn't see a loading spinner replace data that's already
-    // on screen. Any later change to filters/search runs this effect
-    // normally, since skippedInitialFetch is only ever set once.
-    if (!skippedInitialFetch.current) {
-      skippedInitialFetch.current = true;
-      if (isDefaultMarketplaceView(filters, search)) {
-        return;
-      }
+    // this component ever mounted — skip re-fetching it while the on-screen
+    // `cards` are still that exact server-provided array (referentially
+    // unchanged) and the view is still the default one. This is checked by
+    // comparing data state rather than a "have I run yet" ref flag: a ref
+    // flag only flips once and has no matching cleanup, so React's dev-only
+    // Strict Mode double-invocation of effects on mount defeats it (the
+    // first invocation quietly flips the ref and returns; the second sees
+    // the ref already flipped and falls through to a real, redundant fetch
+    // — flashing a loading spinner over data that was already correct).
+    // Comparing `cards === initialCards` instead is idempotent regardless
+    // of how many times this effect body runs, and still correctly
+    // refetches if the user leaves the default view and later returns to
+    // it (by then `cards` has been replaced by a real fetch result, so the
+    // reference no longer matches `initialCards`).
+    if (cards === initialCards && isDefaultMarketplaceView(filters, search)) {
+      return;
     }
 
     if (searchAwaitingIndex) {

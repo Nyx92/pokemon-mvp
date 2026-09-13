@@ -13,10 +13,8 @@ import { prisma } from "@/lib/prisma";
 
 // ── PATCH — mark as read ──────────────────────────────────────────────────────
 
-export async function PATCH(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -50,10 +48,8 @@ export async function PATCH(
 
 // ── DELETE — dismiss ──────────────────────────────────────────────────────────
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });

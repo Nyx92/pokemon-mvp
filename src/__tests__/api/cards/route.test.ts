@@ -27,6 +27,7 @@ const mockPrisma = vi.hoisted(() => ({
   listing: { create: vi.fn() },
   pokemonCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
   riftboundCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
+  user: { findUnique: vi.fn() },
 }));
 
 const mockSupabaseInstance = vi.hoisted(() => ({
@@ -107,6 +108,10 @@ const USER_SESSION = { user: { id: "user-1", role: "user" } };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: the requested owner exists — POST /api/cards verifies this
+  // before creating a listing (see route.ts). Individual tests can
+  // override with mockResolvedValue(null) to exercise the 400 path.
+  mockPrisma.user.findUnique.mockResolvedValue({ id: "owner-1" });
 });
 
 describe("POST /api/cards", () => {
@@ -121,6 +126,14 @@ describe("POST /api/cards", () => {
     mockGetServerSession.mockResolvedValue(USER_SESSION);
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(403);
+    expect(mockPrisma.listing.create).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when the selected owner does not exist", async () => {
+    mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
+    mockPrisma.user.findUnique.mockResolvedValue(null);
+    const res = await POST(postRequest(buildFormData({ ownerId: "ghost-user" })));
+    expect(res.status).toBe(400);
     expect(mockPrisma.listing.create).not.toHaveBeenCalled();
   });
 

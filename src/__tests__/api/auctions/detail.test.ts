@@ -19,7 +19,7 @@ vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
 import { GET } from "@/app/api/auctions/[id]/route";
 
-const PARAMS = { params: { id: "auction-1" } };
+const PARAMS = { params: Promise.resolve({ id: "auction-1" }) };
 
 function makeDbAuction(overrides = {}) {
   return {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import {
   Box,
   Button,
@@ -411,9 +412,18 @@ export default function UploadCard({ initialData }: UploadCardProps) {
                   }}
                 >
                   {catalogLookup.catalog.imageUrl && (
-                    <img
+                    <Image
                       src={catalogLookup.catalog.imageUrl}
                       alt={catalogLookup.catalog.title}
+                      width={56}
+                      height={78}
+                      // Riftbound catalog images are served from the TCG data
+                      // provider's own CDN (cmsassets.rgpub.io), not our
+                      // Supabase storage host that next.config.mjs allowlists
+                      // — unoptimized skips the remotePatterns check instead
+                      // of speculatively widening that security allow-list
+                      // for a single small admin-only preview thumbnail.
+                      unoptimized
                       style={{ width: 56, height: 78, objectFit: "contain", borderRadius: 4, flexShrink: 0 }}
                     />
                   )}
@@ -719,11 +729,21 @@ export default function UploadCard({ initialData }: UploadCardProps) {
                       p: 1.5,
                     }}
                   >
-                    <img
+                    <Image
                       src={displayUrl!}
                       alt={`Preview ${currentImageIndex + 1}`}
+                      width={600}
+                      height={320}
+                      // A "new" slot's previewUrl is a blob: URL from
+                      // URL.createObjectURL() — next/image's optimizer can't
+                      // fetch those, so they must be unoptimized. An
+                      // "existing" slot is a real Supabase storage URL
+                      // already covered by next.config.mjs's remotePatterns,
+                      // so it gets real optimization.
+                      unoptimized={images[currentImageIndex]?.kind === "new"}
                       style={{
                         width: "100%",
+                        height: "auto",
                         maxHeight: 320,
                         objectFit: "contain",
                         borderRadius: 12,
@@ -775,9 +795,16 @@ export default function UploadCard({ initialData }: UploadCardProps) {
                             border: i === currentImageIndex ? "2px solid #1976d2" : "1px solid #ddd",
                           }}
                         >
-                          <img
+                          <Image
                             src={slot.kind === "existing" ? slot.url : slot.previewUrl}
                             alt={`Thumb ${i + 1}`}
+                            width={56}
+                            height={56}
+                            // Same reasoning as the main preview image above:
+                            // a "new" slot's previewUrl is a local blob: URL
+                            // and must be unoptimized; an "existing" slot is
+                            // a real, allowlisted Supabase storage URL.
+                            unoptimized={slot.kind === "new"}
                             style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                           />
                         </Box>

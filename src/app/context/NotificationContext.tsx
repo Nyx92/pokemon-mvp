@@ -80,7 +80,6 @@ export function NotificationProvider({
       es.close();
     };
   // streamKey is intentionally included so refresh() restarts the connection.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn, streamKey]);
 
   // Tears down and recreates the SSE connection so the server sends a fresh

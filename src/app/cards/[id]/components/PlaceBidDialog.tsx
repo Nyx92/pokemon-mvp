@@ -19,7 +19,7 @@
  *   On concurrent bid (409): show inline error so buyer can retry immediately.
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,

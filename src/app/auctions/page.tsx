@@ -7,7 +7,7 @@
  * Clicking a tile navigates to the card detail page where the buyer can place a bid.
  */
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Box, CircularProgress, Tabs, Tab, Typography } from "@mui/material";

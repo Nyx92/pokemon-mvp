@@ -123,7 +123,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
   // ── Happy path ────────────────────────────────────────────────────────────
 
   it("captures PI, creates order (PAID), archives all offers, transfers card, creates transaction record", async () => {
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -202,7 +202,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
   it("refunds the buyer if the DB transaction fails after PI capture", async () => {
     mockPrisma.$transaction.mockRejectedValue(new Error("DB exploded"));
 
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
 
     expect(res.status).toBe(500);
     expect(mockStripeInstance.paymentIntents.capture).toHaveBeenCalledWith("pi_123");
@@ -213,7 +213,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
     mockPrisma.$transaction.mockRejectedValue(new Error("DB exploded"));
     mockStripeInstance.refunds.create.mockRejectedValue(new Error("refund also failed"));
 
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
 
     expect(res.status).toBe(500);
     expect(mockStripeInstance.refunds.create).toHaveBeenCalled();
@@ -223,24 +223,24 @@ describe("PATCH /api/offers/[id] — accept", () => {
 
   it("returns 401 when not authenticated", async () => {
     mockGetServerSession.mockResolvedValue(null);
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when a non-owner tries to accept", async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: "buyer-1" } });
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(403);
   });
 
   it("returns 404 when offer does not exist", async () => {
     mockPrisma.offer.findUnique.mockResolvedValue(null);
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-x" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-x" }) });
     expect(res.status).toBe(404);
   });
 
   it("returns 400 when action is not accept or reject", async () => {
-    const res = await PATCH(patchRequest({ action: "delete" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "delete" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(400);
   });
 
@@ -248,27 +248,27 @@ describe("PATCH /api/offers/[id] — accept", () => {
 
   it("returns 409 when offer is archived (already sold)", async () => {
     mockPrisma.offer.findUnique.mockResolvedValue({ ...PENDING_OFFER, archivedAt: new Date() });
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "Offer is archived" });
   });
 
   it("returns 409 when offer is already rejected (not pending)", async () => {
     mockPrisma.offer.findUnique.mockResolvedValue({ ...PENDING_OFFER, status: "rejected" });
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "Offer is not pending" });
   });
 
   it("returns 409 when offer is already paid", async () => {
     mockPrisma.offer.findUnique.mockResolvedValue({ ...PENDING_OFFER, status: "paid" });
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(409);
   });
 
   it("returns 409 when offer has no paymentIntentId", async () => {
     mockPrisma.offer.findUnique.mockResolvedValue({ ...PENDING_OFFER, paymentIntentId: null });
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "No payment intent found for this offer" });
   });
@@ -281,7 +281,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
       reservedUntil: new Date(Date.now() + 60_000),
     });
 
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "Card is currently reserved by a pending checkout" });
 
@@ -297,7 +297,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
       inAuction: true,
     });
 
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     expect(res.status).toBe(409);
     expect(await res.json()).toMatchObject({ error: "Card is currently in an active auction" });
 
@@ -313,7 +313,7 @@ describe("PATCH /api/offers/[id] — accept", () => {
     });
     mockExpireOffer.mockResolvedValue(undefined);
 
-    const res = await PATCH(patchRequest({ action: "accept" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "accept" }), { params: Promise.resolve({ id: "offer-1" }) });
     const data = await res.json();
 
     expect(res.status).toBe(409);
@@ -341,7 +341,7 @@ describe("PATCH /api/offers/[id] — reject", () => {
   });
 
   it("cancels the PI and marks the offer rejected", async () => {
-    const res = await PATCH(patchRequest({ action: "reject" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "reject" }), { params: Promise.resolve({ id: "offer-1" }) });
     const data = await res.json();
 
     expect(res.status).toBe(200);
@@ -358,7 +358,7 @@ describe("PATCH /api/offers/[id] — reject", () => {
   it("still marks offer rejected even if PI cancel fails (PI may already be cancelled)", async () => {
     mockStripeInstance.paymentIntents.cancel.mockRejectedValue(new Error("already cancelled"));
 
-    const res = await PATCH(patchRequest({ action: "reject" }), { params: { id: "offer-1" } });
+    const res = await PATCH(patchRequest({ action: "reject" }), { params: Promise.resolve({ id: "offer-1" }) });
 
     expect(res.status).toBe(200);
     expect(mockPrisma.offer.update).toHaveBeenCalledWith({

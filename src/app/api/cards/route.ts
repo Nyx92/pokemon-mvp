@@ -19,6 +19,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Server-side cap on a single uploaded image, checked before it's buffered
+// into memory. Not just a UX nicety — without this, a client can send an
+// arbitrarily large "image" and force the server to buffer all of it.
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10MB
+
 // GET /api/cards?forSale=true
 export async function GET(req: Request) {
   try {
@@ -152,12 +157,52 @@ export async function POST(req: Request) {
       );
     }
 
+    // ownerId here is client-supplied (the admin "select owner" dropdown) —
+    // confirm it actually points at a real user before creating a Listing
+    // for it (matches the same guard on PUT /api/cards/[id]).
+    const ownerExists = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { id: true },
+    });
+    if (!ownerExists) {
+      return NextResponse.json(
+        { error: "The selected owner does not exist." },
+        { status: 400 }
+      );
+    }
+
+    // Reject oversized files up front, before any of them are buffered.
+    for (const image of images) {
+      if (image.size > MAX_IMAGE_BYTES) {
+        return NextResponse.json(
+          { error: "Each image must be 10MB or smaller." },
+          { status: 413 }
+        );
+      }
+    }
+
     const imageUrls: string[] = [];
 
     for (const image of images) {
       const arrayBuffer = await image.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
-      const compressed = await compressCardImage(buffer);
+
+      // compressCardImage decodes the buffer with sharp before re-encoding
+      // it — a non-image file (regardless of what content-type the client
+      // claimed) fails to decode and throws here, so this doubles as real
+      // content-type validation instead of trusting the client-supplied
+      // MIME type string alone.
+      let compressed;
+      try {
+        compressed = await compressCardImage(buffer);
+      } catch (err) {
+        console.error("❌ Image decode failed:", err);
+        return NextResponse.json(
+          { error: "One of the uploaded files is not a valid image." },
+          { status: 400 }
+        );
+      }
+
       const filename = toWebpStoragePath(`cards/${Date.now()}-${image.name}`);
 
       const { data, error } = await supabase.storage
@@ -229,9 +274,12 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ card: withListingDisplay(listing) });
   } catch (error: any) {
+    // Log the real error server-side only — never echo error.message back to
+    // the client, it can leak internal details (DB/Prisma errors, Supabase
+    // errors, etc.) that aren't meant for an API consumer to see.
     console.error("❌ Error creating card:", error);
     return NextResponse.json(
-      { error: error.message || "Failed to create card" },
+      { error: "Failed to create listing. Please try again." },
       { status: 500 }
     );
   }

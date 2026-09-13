@@ -79,7 +79,7 @@ export default function UserProfileForm() {
     });
 
     // ✅ Validation
-    if (formData.password.length < 6) {
+    if (formData.password.length < 10) {
       setErrors((prev) => ({ ...prev, passwordTooShort: true }));
       setLoading(false);
       return;
@@ -269,7 +269,7 @@ export default function UserProfileForm() {
               error={errors.passwordTooShort}
               helperText={
                 errors.passwordTooShort
-                  ? "Password must be at least 6 characters"
+                  ? "Password must be at least 10 characters"
                   : ""
               }
               onChange={(e) => handleChange("password", e.target.value)}

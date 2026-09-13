@@ -25,10 +25,8 @@ import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay"
  *
  * Body: { action: "accept" | "reject" }
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // ── 1. Auth check ──────────────────────────────────────────────────────────
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {

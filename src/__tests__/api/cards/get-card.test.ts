@@ -57,13 +57,13 @@ describe("GET /api/cards/[id]", () => {
   it("returns 404 when the card doesn't exist", async () => {
     mockGetServerSession.mockResolvedValue(null);
     mockPrisma.listing.findUnique.mockResolvedValue(null);
-    const res = await GET(new Request("http://localhost/api/cards/card-1"), { params: { id: "card-1" } });
+    const res = await GET(new Request("http://localhost/api/cards/card-1"), { params: Promise.resolve({ id: "card-1" }) });
     expect(res.status).toBe(404);
   });
 
   it("returns watchlistedByUser: false and skips the watchlist query for an anonymous viewer", async () => {
     mockGetServerSession.mockResolvedValue(null);
-    const res = await GET(new Request("http://localhost/api/cards/card-1"), { params: { id: "card-1" } });
+    const res = await GET(new Request("http://localhost/api/cards/card-1"), { params: Promise.resolve({ id: "card-1" }) });
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -78,7 +78,7 @@ describe("GET /api/cards/[id]", () => {
     mockGetServerSession.mockResolvedValue({ user: { id: "viewer-1" } });
     mockPrisma.cardWatchlist.findUnique.mockResolvedValue({ listingId: "card-1", userId: "viewer-1" });
 
-    const res = await GET(new Request("http://localhost/api/cards/card-1"), { params: { id: "card-1" } });
+    const res = await GET(new Request("http://localhost/api/cards/card-1"), { params: Promise.resolve({ id: "card-1" }) });
     const body = await res.json();
 
     expect(body.card.watchlistedByUser).toBe(true);

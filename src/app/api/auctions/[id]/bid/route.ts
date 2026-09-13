@@ -40,10 +40,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
  *
  * Body: { paymentIntentId, amount } — amount in dollars
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auctionId = params.id;
 
   // ── 1. Auth ────────────────────────────────────────────────────────────────

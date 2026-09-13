@@ -184,8 +184,12 @@ export async function POST(_req: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {
+    // Log the real error server-side only — never echo err.message back to
+    // the client, it can leak internal details (Prisma/Stripe error text).
     console.error("[checkout/cart] error:", err);
-    const message = err instanceof Error ? err.message : "Failed to create checkout session";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to create checkout session. Please try again." },
+      { status: 500 }
+    );
   }
 }

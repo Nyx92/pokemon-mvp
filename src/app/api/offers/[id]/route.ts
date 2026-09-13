@@ -40,10 +40,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
  *      → Stripe releases the hold on the buyer's card. They are not charged.
  *   2. Mark offer status → "rejected".
  */
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // ── 1. Auth check ──────────────────────────────────────────────────────────
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {

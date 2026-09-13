@@ -14,7 +14,7 @@
  * ⚠️ Auction cannot be cancelled once launched — we show a clear warning.
  */
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Box,

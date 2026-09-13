@@ -32,7 +32,7 @@ import { PATCH, DELETE } from "@/app/api/cart/[itemId]/route";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PARAMS = { params: { itemId: "item-1" } };
+const PARAMS = { params: Promise.resolve({ itemId: "item-1" }) };
 const SESSION = { user: { id: "user-1" } };
 
 // Item owned by the session user

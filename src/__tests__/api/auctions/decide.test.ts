@@ -45,7 +45,7 @@ function postReq(body: object) {
   });
 }
 
-const PARAMS = { params: { id: "auction-1" } };
+const PARAMS = { params: Promise.resolve({ id: "auction-1" }) };
 
 const SELLER_SESSION = { user: { id: "seller-1" } };
 const OTHER_SESSION = { user: { id: "not-seller" } };
