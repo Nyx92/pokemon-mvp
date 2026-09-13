@@ -3,8 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { expireOffer } from "@/lib/offerExpiry";
 
 /**
- * GET /api/cron/expire-offers  ← called by Vercel Cron Jobs (vercel.json)
+ * GET /api/cron/expire-offers  ← called by an external scheduler (cron-job.org)
  * POST /api/cron/expire-offers ← kept for local curl testing
+ *
+ * Not a Vercel Cron Job — this project is on Vercel's Hobby plan, which
+ * caps native cron jobs at once per day, too infrequent for timely offer
+ * expiry. cron-job.org calls this URL directly on its own schedule, which
+ * is configured entirely in its dashboard (not in this repo).
  *
  * Background job that cleans up overdue pending offers.
  *
@@ -21,19 +26,16 @@ import { expireOffer } from "@/lib/offerExpiry";
  *        a. Cancels the Stripe PaymentIntent → releases the hold on buyer's card
  *        b. Sets offer status → "expired" in the DB
  *
- * How to run it:
- * ──────────────
- * Vercel Cron Jobs (vercel.json) call this via GET every 5 minutes on Pro plan.
- * Vercel automatically sends Authorization: Bearer <CRON_SECRET> for you.
- *
  * For local testing:
  *   curl http://localhost:3000/api/cron/expire-offers \
  *     -H "Authorization: Bearer <CRON_SECRET>"
  *
  * Security:
  * ─────────
- * Protected by CRON_SECRET env var. Set it in Vercel → Settings → Environment
- * Variables AND in your local .env file with the same value.
+ * Protected by CRON_SECRET env var — the caller must send
+ * `Authorization: Bearer <CRON_SECRET>` or this returns 401. Set it in
+ * Vercel → Settings → Environment Variables, in your local .env, and as a
+ * custom header on the cron-job.org job hitting this URL.
  */
 async function runExpiry(req: NextRequest): Promise<NextResponse> {
   // ── 1. Authorise the cron caller ──────────────────────────────────────────

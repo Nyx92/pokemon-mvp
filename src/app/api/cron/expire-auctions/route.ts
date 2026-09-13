@@ -5,10 +5,16 @@ import { notifyAsync } from "@/lib/notifications";
 import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 
 /**
- * GET /api/cron/expire-auctions  ← called by Vercel Cron Jobs (vercel.json)
+ * GET /api/cron/expire-auctions  ← called by an external scheduler (cron-job.org)
  * POST /api/cron/expire-auctions ← kept for local curl testing
  *
- * Runs every 5 minutes. Two passes per run:
+ * Not a Vercel Cron Job — this project is on Vercel's Hobby plan, which
+ * caps native cron jobs at once per day, too infrequent for timely auction
+ * expiry. cron-job.org calls this URL directly on its own schedule, which
+ * is configured entirely in its dashboard (not in this repo — see the
+ * Security section below for the auth header it must send).
+ *
+ * Two passes per run:
  *
  * Pass 1 — Close active auctions whose endsAt has passed:
  *   a) No bids:
@@ -27,6 +33,13 @@ import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay"
  *   → cancel highest bid PI
  *   → mark auction "expired", release Listing.inAuction, cancel bid
  *   → notify bidder and seller
+ *
+ * Security:
+ * ─────────
+ * Protected by CRON_SECRET env var — the caller must send
+ * `Authorization: Bearer <CRON_SECRET>` or this returns 401. Set it in
+ * Vercel → Settings → Environment Variables, in your local .env, and as a
+ * custom header on the cron-job.org job hitting this URL.
  */
 
 async function runExpiry(req: NextRequest): Promise<NextResponse> {

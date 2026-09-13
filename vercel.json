@@ -1,12 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/expire-offers",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/expire-auctions",
-      "schedule": "*/5 * * * *"
-    }
-  ]
-}
+{}
