@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { centsToDollars } from "@/lib/money";
 import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
+import type { Prisma } from "@prisma/client";
+
+// This route has no Request param and touches no dynamic API, so without
+// this Next would statically prerender it once at build time and freeze it
+// there forever (same rationale as GET /api/cards/browse-index). A 60s
+// window also means the expensive query below (see cheapestListingPerTcgPlayerId)
+// runs at most once a minute instead of on every homepage visit — this
+// route was measured taking 8-9s in production (cross-region DB round trips
+// stacking up across many queries), so serving a cached response the rest
+// of the time matters a lot more here than it does for a single fast query.
+export const revalidate = 60;
 
 function mapCard(listing: any) {
   const withDisplay = withListingDisplay(listing);
@@ -55,6 +66,43 @@ const listingInclude = {
   ...listingCatalogInclude,
 } as const;
 
+type ListingWithInclude = Prisma.ListingGetPayload<{ include: typeof listingInclude }>;
+
+// Both bestSellers and highestTransacted originally issued one
+// prisma.listing.findFirst per tcgPlayerId (up to 12 queries between the
+// two, fanned out via Promise.all) to find "the cheapest forSale listing
+// for this card". Batches that into a single findMany + one in-memory pass
+// instead — each caller still gets "cheapest listing per tcgPlayerId", just
+// via one round trip instead of N. orderBy price asc means the first listing
+// seen per tcgPlayerId in the loop below is the cheapest one, since a Map
+// only keeps the first value ever set for a key.
+async function cheapestListingPerTcgPlayerId(
+  tcgPlayerIds: string[]
+): Promise<Map<string, ListingWithInclude>> {
+  if (tcgPlayerIds.length === 0) return new Map();
+
+  const listings = await prisma.listing.findMany({
+    where: {
+      forSale: true,
+      OR: [
+        { pokemonCard: { tcgPlayerId: { in: tcgPlayerIds } } },
+        { riftboundCard: { tcgPlayerId: { in: tcgPlayerIds } } },
+      ],
+    },
+    include: listingInclude,
+    orderBy: { price: "asc" },
+  });
+
+  const cheapestByTcgPlayerId = new Map<string, ListingWithInclude>();
+  for (const listing of listings) {
+    const tcgPlayerId = listing.pokemonCard?.tcgPlayerId ?? listing.riftboundCard?.tcgPlayerId;
+    if (tcgPlayerId && !cheapestByTcgPlayerId.has(tcgPlayerId)) {
+      cheapestByTcgPlayerId.set(tcgPlayerId, listing);
+    }
+  }
+  return cheapestByTcgPlayerId;
+}
+
 export async function GET() {
   try {
     const [bestSellers, highestTransacted, newlyListedRaw, endingSoonRaw] = await Promise.all([
@@ -65,24 +113,12 @@ export async function GET() {
         const bestSellerRows = await prisma.bestSeller.findMany({
           orderBy: { position: "asc" },
         });
-        return (
-          await Promise.all(
-            bestSellerRows.map(({ tcgPlayerId }) =>
-              prisma.listing.findFirst({
-                where: {
-                  forSale: true,
-                  OR: [
-                    { pokemonCard: { tcgPlayerId } },
-                    { riftboundCard: { tcgPlayerId } },
-                  ],
-                },
-                include: listingInclude,
-                orderBy: { price: "asc" },
-              })
-            )
-          )
-        )
-          .filter(Boolean)
+        const cheapestByTcgPlayerId = await cheapestListingPerTcgPlayerId(
+          bestSellerRows.map((r) => r.tcgPlayerId)
+        );
+        return bestSellerRows
+          .map(({ tcgPlayerId }) => cheapestByTcgPlayerId.get(tcgPlayerId))
+          .filter((listing): listing is ListingWithInclude => Boolean(listing))
           .slice(0, 5)
           .map(mapCard);
       })(),
@@ -101,24 +137,12 @@ export async function GET() {
           ORDER BY count DESC
           LIMIT 5
         `;
-        return (
-          await Promise.all(
-            topTcgPlayerIds.map(({ tcgPlayerId }) =>
-              prisma.listing.findFirst({
-                where: {
-                  forSale: true,
-                  OR: [
-                    { pokemonCard: { tcgPlayerId } },
-                    { riftboundCard: { tcgPlayerId } },
-                  ],
-                },
-                include: listingInclude,
-                orderBy: { price: "asc" },
-              })
-            )
-          )
-        )
-          .filter(Boolean)
+        const cheapestByTcgPlayerId = await cheapestListingPerTcgPlayerId(
+          topTcgPlayerIds.map((t) => t.tcgPlayerId)
+        );
+        return topTcgPlayerIds
+          .map(({ tcgPlayerId }) => cheapestByTcgPlayerId.get(tcgPlayerId))
+          .filter((listing): listing is ListingWithInclude => Boolean(listing))
           .map(mapCard);
       })(),
 

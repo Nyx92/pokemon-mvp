@@ -15,7 +15,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockPrisma = vi.hoisted(() => ({
   bestSeller: { findMany: vi.fn() },
-  listing: { findFirst: vi.fn(), findMany: vi.fn() },
+  listing: { findMany: vi.fn() },
   auction: { findMany: vi.fn() },
   $queryRaw: vi.fn(),
 }));
@@ -83,7 +83,6 @@ describe("GET /api/home/featured", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.bestSeller.findMany.mockResolvedValue([{ tcgPlayerId: "tcg-1" }]);
-    mockPrisma.listing.findFirst.mockResolvedValue(makeListing());
     mockPrisma.$queryRaw.mockResolvedValue([{ tcgPlayerId: "tcg-1", count: BigInt(3) }]);
     mockPrisma.listing.findMany.mockResolvedValue([makeListing()]);
     mockPrisma.auction.findMany.mockResolvedValue([]);
@@ -117,29 +116,57 @@ describe("GET /api/home/featured", () => {
     // mocks return an email-free owner regardless of what select the route
     // passes to Prisma, so reverting `listingInclude.owner`'s select back to
     // including `email: true` would still pass them. Assert on the actual
-    // call arguments for every call site that shares `listingInclude` — the
-    // findFirst calls driving bestSellers/highestTransacted, and the
-    // findMany call driving newlyListed — so this test fails if that
-    // select is ever widened again.
-    expect(mockPrisma.listing.findFirst.mock.calls.length).toBeGreaterThan(0);
-    for (const [args] of mockPrisma.listing.findFirst.mock.calls) {
+    // call arguments for every prisma.listing.findMany call — both the
+    // batched cheapestListingPerTcgPlayerId calls driving bestSellers/
+    // highestTransacted, and the direct call driving newlyListed all share
+    // listingInclude — so this test fails if that select is ever widened again.
+    expect(mockPrisma.listing.findMany.mock.calls.length).toBeGreaterThan(0);
+    for (const [args] of mockPrisma.listing.findMany.mock.calls) {
       expect(args.include.owner).toEqual({ select: { id: true, username: true } });
     }
-
-    const findManyArgs = mockPrisma.listing.findMany.mock.calls[0][0];
-    expect(findManyArgs.include.owner).toEqual({ select: { id: true, username: true } });
   });
 
-  it("matches bestSellers/highestTransacted against either catalog relation's tcgPlayerId", async () => {
+  it("matches bestSellers/highestTransacted against either catalog relation's tcgPlayerId, batched into one query", async () => {
     await GET();
 
-    for (const [args] of mockPrisma.listing.findFirst.mock.calls) {
+    // Only the cheapestListingPerTcgPlayerId-driven calls have an OR clause
+    // (newlyListed's call filters on forSale/createdAt only) — filter down
+    // to those before asserting on the batched `in` shape.
+    const batchedCalls = mockPrisma.listing.findMany.mock.calls
+      .map(([args]) => args)
+      .filter((args) => args.where.OR);
+
+    expect(batchedCalls.length).toBeGreaterThan(0);
+    for (const args of batchedCalls) {
       expect(args.where.OR).toEqual([
-        { pokemonCard: { tcgPlayerId: "tcg-1" } },
-        { riftboundCard: { tcgPlayerId: "tcg-1" } },
+        { pokemonCard: { tcgPlayerId: { in: ["tcg-1"] } } },
+        { riftboundCard: { tcgPlayerId: { in: ["tcg-1"] } } },
       ]);
       expect(args.where.forSale).toBe(true);
     }
+  });
+
+  it("batches bestSellers into a single query rather than one findMany per row", async () => {
+    mockPrisma.bestSeller.findMany.mockResolvedValue([
+      { tcgPlayerId: "tcg-1" },
+      { tcgPlayerId: "tcg-2" },
+      { tcgPlayerId: "tcg-3" },
+    ]);
+
+    await GET();
+
+    const batchedCalls = mockPrisma.listing.findMany.mock.calls
+      .map(([args]) => args)
+      .filter((args) => args.where.OR);
+
+    // One batched call carries all three tcgPlayerIds — not three separate calls.
+    const bestSellersCall = batchedCalls.find((args) =>
+      args.where.OR[0].pokemonCard.tcgPlayerId.in.includes("tcg-2")
+    );
+    expect(bestSellersCall.where.OR).toEqual([
+      { pokemonCard: { tcgPlayerId: { in: ["tcg-1", "tcg-2", "tcg-3"] } } },
+      { riftboundCard: { tcgPlayerId: { in: ["tcg-1", "tcg-2", "tcg-3"] } } },
+    ]);
   });
 
   it("queries transaction counts directly off CardTransaction without joining a card table", async () => {
