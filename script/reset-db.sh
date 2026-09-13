@@ -19,4 +19,9 @@ echo "🌱 Seeding database..."
 pnpm run seed
 
 echo ""
+echo "🌱 Seeding Riftbound listings..."
+echo "   Images already in Supabase Storage are reused, not re-uploaded."
+pnpm run seed:riftbound-listings
+
+echo ""
 echo "✅ Database reset and reseeded."

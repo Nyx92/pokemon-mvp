@@ -111,6 +111,12 @@ interface BuyBoxProps {
   onBuyOut?: () => void;
   // Owner: Accept or Decline the highest bid during the pending_seller_decision window
   onAuctionDecide?: (action: "accept" | "reject") => void;
+  // True when the viewer is the actual seller of THIS auction. Kept separate from
+  // `mode` because `mode="owner"` also covers admins managing someone else's listing
+  // (canManageListing = isOwner || isAdmin) — an admin browsing another seller's
+  // auction must still see the bid / buy-out buttons, not the seller's Accept/Decline
+  // controls. Falls back to isOwnerMode when omitted so non-auction callers are unaffected.
+  isAuctionSeller?: boolean;
 }
 
 export default function BuyBox({
@@ -136,6 +142,7 @@ export default function BuyBox({
   onPlaceBid,
   onBuyOut,
   onAuctionDecide,
+  isAuctionSeller,
 }: BuyBoxProps) {
   const router = useRouter();
   const isOwnerMode = mode === "owner";
@@ -328,6 +335,11 @@ export default function BuyBox({
   const rightBtnDisabled = isOwnerMode ? false : !isForSale;
 
   // ── Auction-specific derived values ───────────────────────────────────────
+  // 0. auctionSellerMode: who sees the seller-side auction controls (Accept/Decline,
+  //    "bids are open" banner) vs the buyer-side ones (Place Bid / Buy Now).
+  //    Defaults to isOwnerMode so this is a no-op unless the caller opts in.
+  const auctionSellerMode = isAuctionSeller ?? isOwnerMode;
+
   // 1. biddingOpen: auction is live and the client-side timer hasn't expired.
   const biddingOpen = !!auction && auction.status === "active" && !auctionTimeLeft.done;
 
@@ -587,7 +599,7 @@ export default function BuyBox({
             {/* 4.1. Viewer: Place Bid + Buy Now (buy-out).
                   Both buttons are disabled when biddingOpen = false — i.e. the
                   client-side timer has expired or the server status is no longer "active". */}
-            {!isOwnerMode && (
+            {!auctionSellerMode && (
               <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1.2 }}>
                 <Button
                   fullWidth
@@ -634,7 +646,7 @@ export default function BuyBox({
             {/* 4.2. Owner (decision window): Accept or Decline the highest bid.
                   Shown only when inDecisionWindow = true (status === "pending_seller_decision").
                   The decide endpoint enforces this — it rejects any other status with 409. */}
-            {isOwnerMode && inDecisionWindow && auction.currentBid !== null && (
+            {auctionSellerMode && inDecisionWindow && auction.currentBid !== null && (
               <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1, mb: 1.2 }}>
                 <Button
                   fullWidth
@@ -665,7 +677,7 @@ export default function BuyBox({
             {/* 4.3. Owner (pre-cron window): timer expired with bids, status still "active".
                   The cron hasn't run yet (up to ~5 min lag). We can't show Accept/Decline
                   here because the decide endpoint requires pending_seller_decision. */}
-            {isOwnerMode && pendingSystemUpdate && (
+            {auctionSellerMode && pendingSystemUpdate && (
               <Box sx={{ p: 1.2, backgroundColor: "#fef9c3", borderRadius: 1.5, mb: 1.2 }}>
                 <Typography sx={{ fontSize: 12, color: "#92400e" }}>
                   Auction ended — results are being processed. Refresh in a moment to accept or decline.
@@ -674,7 +686,7 @@ export default function BuyBox({
             )}
 
             {/* 4.4. Owner (auction live): informational banner while bids are still open. */}
-            {isOwnerMode && biddingOpen && (
+            {auctionSellerMode && biddingOpen && (
               <Box sx={{ p: 1.2, backgroundColor: "#f0f9ff", borderRadius: 1.5, mb: 1.2 }}>
                 <Typography sx={{ fontSize: 12, color: "#0369a1" }}>
                   Auction is live — bids are open.

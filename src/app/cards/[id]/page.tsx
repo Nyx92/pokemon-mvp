@@ -343,11 +343,22 @@ export default function CardDetailPage() {
                below (0.1 s) → BuyBox from right (0.15 s). Columns use flex-basis
                so the motion wrapper is the correct flex child width. */}
         {/* ===== COL 1: image ===== */}
-        <motion.div
+        {/* Box (not a plain motion.div with an inline `style`) so the flex-basis
+            can actually be responsive via sx breakpoints: a plain inline `style`
+            can't express "0 0 360px" on desktop but full-width on mobile, and
+            without the xs width override this column collapses to the width of
+            its smallest child (the watchlist icon) once flexDirection switches
+            to "column" below md. */}
+        <Box
+          component={motion.div}
           initial={{ opacity: 0, x: -24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.45, ease: "easeOut" }}
-          style={{ flex: "0 0 360px", maxWidth: "100%" }}
+          sx={{
+            flex: { xs: "0 0 auto", md: "0 0 360px" },
+            width: { xs: "100%", md: "auto" },
+            maxWidth: "100%",
+          }}
         >
         <Box
           sx={{
@@ -462,14 +473,15 @@ export default function CardDetailPage() {
             </Box>
           )}
         </Box>
-        </motion.div>
+        </Box>
 
         {/* ===== COL 2: title + metadata ===== */}
-        <motion.div
+        <Box
+          component={motion.div}
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: "easeOut", delay: 0.1 }}
-          style={{ flex: 1, minWidth: 0 }}
+          sx={{ flex: 1, minWidth: 0, width: { xs: "100%", md: "auto" } }}
         >
         <Box
           sx={{
@@ -524,14 +536,19 @@ export default function CardDetailPage() {
             ))}
           </Box>
         </Box>
-        </motion.div>
+        </Box>
 
         {/* ===== COL 3: buybox + market chart ===== */}
-        <motion.div
+        <Box
+          component={motion.div}
           initial={{ opacity: 0, x: 24 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.45, ease: "easeOut", delay: 0.15 }}
-          style={{ flex: "0 0 500px", maxWidth: "100%" }}
+          sx={{
+            flex: { xs: "0 0 auto", md: "0 0 500px" },
+            width: { xs: "100%", md: "auto" },
+            maxWidth: "100%",
+          }}
         >
         <Box
           sx={{
@@ -592,11 +609,15 @@ export default function CardDetailPage() {
               setBidDialogOpen(true);
             }) : undefined}
             onAuctionDecide={isOwner && liveAuction ? (action) => handleAuctionDecide(liveAuction.id, action) : undefined}
+            // Genuine ownership of THIS auction, independent of the admin-wide
+            // "manage" mode — an admin browsing someone else's auction must see
+            // the buyer-side bid/buy-out controls, not the seller's Accept/Decline.
+            isAuctionSeller={isOwner}
           />
 
           <CardMarketChart card={card} />
         </Box>
-        </motion.div>
+        </Box>
       </Box>
 
       {/* All Listings */}

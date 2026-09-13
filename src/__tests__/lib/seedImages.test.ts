@@ -32,10 +32,12 @@ import {
 function buildSupabaseMock() {
   const upload = vi.fn().mockResolvedValue({ data: { path: "mock/riftbound/unl-176-219.webp" }, error: null });
   const remove = vi.fn().mockResolvedValue({ data: [], error: null });
+  // Default: object not found, so existing upload-path tests are unaffected.
+  const list = vi.fn().mockResolvedValue({ data: [], error: null });
   const getPublicUrl = vi.fn().mockReturnValue({
     data: { publicUrl: "https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.webp" },
   });
-  const from = vi.fn(() => ({ upload, getPublicUrl, remove }));
+  const from = vi.fn(() => ({ upload, getPublicUrl, remove, list }));
   return { storage: { from } } as any;
 }
 
@@ -144,6 +146,39 @@ describe("uploadImage", () => {
     await expect(
       uploadImage(supabase, { buffer: Buffer.from("x"), contentType: "image/png" }, "mock/riftbound/x.png")
     ).rejects.toThrow(/bucket not found/);
+  });
+
+  it("skips the upload entirely and reuses the public URL when the object already exists", async () => {
+    const supabase = buildSupabaseMock();
+    supabase.storage.from().list.mockResolvedValue({
+      data: [{ name: "unl-176-219.webp" }],
+      error: null,
+    });
+
+    const url = await uploadImage(
+      supabase,
+      { buffer: Buffer.from("bytes"), contentType: "image/png" },
+      "mock/riftbound/unl-176-219.png"
+    );
+
+    const { upload, list } = supabase.storage.from.mock.results[0].value;
+    expect(list).toHaveBeenCalledWith("mock/riftbound", { search: "unl-176-219.webp", limit: 1 });
+    expect(upload).not.toHaveBeenCalled();
+    expect(url).toBe("https://tfjkxfalbqegwjsfbyuo.supabase.co/storage/v1/object/public/card-images/mock/riftbound/unl-176-219.webp");
+  });
+
+  it("uploads anyway when the existence check itself errors (fails open)", async () => {
+    const supabase = buildSupabaseMock();
+    supabase.storage.from().list.mockResolvedValue({ data: null, error: { message: "network hiccup" } });
+
+    await uploadImage(
+      supabase,
+      { buffer: Buffer.from("bytes"), contentType: "image/png" },
+      "mock/riftbound/unl-176-219.png"
+    );
+
+    const { upload } = supabase.storage.from.mock.results[0].value;
+    expect(upload).toHaveBeenCalled();
   });
 });
 

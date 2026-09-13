@@ -52,16 +52,45 @@ export async function downloadImageWithCache(
   return { buffer, contentType };
 }
 
+// Free-tier Supabase projects have real storage/bandwidth caps, and reseed
+// scripts can re-run the exact same upload hundreds of times (e.g. after
+// prisma/seed.ts wipes the Listing table, seedRiftboundListings.ts sees
+// every catalog card as "not yet listed" again even though the image is
+// already sitting in the bucket, unchanged). Check first and skip the
+// upload entirely when the object is already there.
+async function objectExists(
+  supabase: SupabaseClient,
+  bucket: string,
+  storagePath: string
+): Promise<boolean> {
+  const folder = path.dirname(storagePath);
+  const filename = path.basename(storagePath);
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .list(folder === "." ? undefined : folder, { search: filename, limit: 1 });
+  // Fail open — if the existence check itself errors, fall through to a
+  // normal upload rather than silently skipping a genuinely-missing image.
+  if (error) return false;
+  return !!data?.some((f) => f.name === filename);
+}
+
 export async function uploadImage(
   supabase: SupabaseClient,
   image: DownloadedImage,
   storagePath: string
 ): Promise<string> {
-  const compressed = await compressCardImage(image.buffer);
   const webpPath = toWebpStoragePath(storagePath);
+  const bucket = "card-images";
+
+  if (await objectExists(supabase, bucket, webpPath)) {
+    const { data: existingUrl } = supabase.storage.from(bucket).getPublicUrl(webpPath);
+    return existingUrl.publicUrl;
+  }
+
+  const compressed = await compressCardImage(image.buffer);
 
   const { data, error } = await supabase.storage
-    .from("card-images")
+    .from(bucket)
     .upload(webpPath, compressed.buffer, { contentType: compressed.contentType, upsert: true });
   if (error) {
     throw new Error(`Failed to upload ${webpPath} to Supabase: ${error.message}`);
@@ -71,11 +100,11 @@ export async function uploadImage(
   // source extension (e.g. .png) — clean it up so the bucket doesn't carry
   // both copies. Best-effort: the object may simply not exist.
   if (webpPath !== storagePath) {
-    await supabase.storage.from("card-images").remove([storagePath]);
+    await supabase.storage.from(bucket).remove([storagePath]);
   }
 
   const { data: publicUrlData } = supabase.storage
-    .from("card-images")
+    .from(bucket)
     .getPublicUrl(data.path);
   return publicUrlData.publicUrl;
 }

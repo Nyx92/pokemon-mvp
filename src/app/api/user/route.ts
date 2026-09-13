@@ -16,6 +16,12 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+    if (data.password.length < 6) {
+      return NextResponse.json(
+        { error: "Password must be at least 6 characters" },
+        { status: 400 }
+      );
+    }
 
     // Hash password before storing
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -54,6 +60,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, user: newUser }, { status: 201 });
   } catch (err: any) {
     console.error("❌ Error creating user:", err);
+    if (err.code === "P2002") {
+      const field = Array.isArray(err.meta?.target) ? err.meta.target[0] : err.meta?.target;
+      const error = field === "username" ? "That username is already taken." : "That email is already in use.";
+      return NextResponse.json({ error }, { status: 409 });
+    }
     return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
   }
 }

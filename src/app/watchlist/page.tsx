@@ -34,7 +34,12 @@ export default function WatchlistPage() {
   const router = useRouter();
 
   const [cards, setCards] = useState<CardItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Starts true (matching MyCollection.tsx's same fetch-on-mount pattern) so the
+  // spinner shows immediately once the auth gate clears — false here left a one-frame
+  // window where cards.length === 0 rendered the "No cards saved yet" empty state
+  // before the fetch effect had even set loading, which QA caught as a real (if
+  // usually imperceptibly brief) misleading flash under slow-server conditions.
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // ── Auth guard ───────────────────────────────────────────────────────────────

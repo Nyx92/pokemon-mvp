@@ -59,6 +59,7 @@ export default function UserProfileForm() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({
     passwordMismatch: false,
+    passwordTooShort: false,
     phoneInvalid: false,
   });
 
@@ -73,10 +74,16 @@ export default function UserProfileForm() {
     setLoading(true);
     setErrors({
       passwordMismatch: false,
+      passwordTooShort: false,
       phoneInvalid: false,
     });
 
     // ✅ Validation
+    if (formData.password.length < 6) {
+      setErrors((prev) => ({ ...prev, passwordTooShort: true }));
+      setLoading(false);
+      return;
+    }
     if (formData.password !== formData.confirmPassword) {
       setErrors((prev) => ({ ...prev, passwordMismatch: true }));
       setLoading(false);
@@ -108,7 +115,8 @@ export default function UserProfileForm() {
       router.push("/auth/login");
     } catch (err) {
       console.error("❌ Registration failed:", err);
-      alert("Failed to create account. Check console for details.");
+      const message = err instanceof Error ? err.message : "Failed to create account.";
+      alert(message);
     }
 
     setLoading(false);
@@ -258,6 +266,12 @@ export default function UserProfileForm() {
               label="Password"
               type="password"
               value={formData.password}
+              error={errors.passwordTooShort}
+              helperText={
+                errors.passwordTooShort
+                  ? "Password must be at least 6 characters"
+                  : ""
+              }
               onChange={(e) => handleChange("password", e.target.value)}
               slotProps={{
                 inputLabel: {

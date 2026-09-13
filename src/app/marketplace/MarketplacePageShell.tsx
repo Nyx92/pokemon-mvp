@@ -43,7 +43,7 @@ export default function MarketplacePageShell({ children }: { children: React.Rea
                 Marketplace
               </Typography>
               <Typography sx={{ fontSize: 13, color: "rgba(255,255,255,0.6)", mt: 0.25 }}>
-                Browse and buy Pokémon cards listed by other collectors.
+                Browse and buy Pokémon and Riftbound cards listed by other collectors.
               </Typography>
             </Box>
           </motion.div>

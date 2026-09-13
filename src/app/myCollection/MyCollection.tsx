@@ -75,16 +75,6 @@ export default function MyCollection() {
             price: c.price != null ? centsToDollars(c.price) : null,
           }));
           setCards(normalized);
-
-          // Dynamically extract binders from the user's cards
-          const binderMap = new Map<string, string>();
-          data.cards.forEach((c: any) => {
-            if (c.binder) binderMap.set(c.binder.id, c.binder.name);
-          });
-          setBinders([
-            { id: "all", name: "All Cards" },
-            ...Array.from(binderMap).map(([id, name]) => ({ id, name })),
-          ]);
         } else {
           console.error("Error loading cards:", data.error);
           setFetchError(true);
@@ -98,6 +88,27 @@ export default function MyCollection() {
     };
 
     fetchCards();
+  }, []);
+
+  // 1b. Fetch the user's binders separately from /api/binders (not derived from
+  // `cards` above) — a freshly-created, still-empty binder has no cards yet, so
+  // deriving the list from card.binder would never let it show up at all.
+  useEffect(() => {
+    const fetchBinders = async () => {
+      try {
+        const res = await fetch("/api/binders");
+        const data = await res.json();
+        if (res.ok && Array.isArray(data.binders)) {
+          setBinders([{ id: "all", name: "All Cards" }, ...data.binders]);
+        } else {
+          console.error("Error loading binders:", data.error);
+        }
+      } catch (err) {
+        console.error("Failed to fetch binders:", err);
+      }
+    };
+
+    fetchBinders();
   }, []);
 
   // Fuzzy search
@@ -118,17 +129,29 @@ export default function MyCollection() {
     return matchesBinder && matchesFilter;
   });
 
-  const handleCreateBinder = () => {
-    if (!newBinderName.trim()) return;
-    const newId = newBinderName.toLowerCase().replace(/\s+/g, "-");
-    if (binders.find((b) => b.id === newId)) {
-      alert("Binder name already exists!");
-      return;
+  const handleCreateBinder = async () => {
+    const name = newBinderName.trim();
+    if (!name) return;
+
+    try {
+      const res = await fetch("/api/binders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to create binder.");
+        return;
+      }
+      setBinders([...binders, data.binder]);
+      setBinder(data.binder.id);
+      setNewBinderName("");
+      setOpenDialog(false);
+    } catch (err) {
+      console.error("Failed to create binder:", err);
+      alert("Failed to create binder.");
     }
-    setBinders([...binders, { id: newId, name: newBinderName }]);
-    setBinder(newId);
-    setNewBinderName("");
-    setOpenDialog(false);
   };
 
   if (loading) {

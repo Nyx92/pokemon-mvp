@@ -67,6 +67,12 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
   const [filters, setFilters] = useState<MarketplaceFilterState>(DEFAULT_FILTERS);
   const [search, setSearch] = useState("");
   const [cards, setCards] = useState<CardItem[]>(initialCards);
+  // Bumped only when a settled (non-aborted) result is actually applied to
+  // `cards` below — used as the AnimatePresence key instead of raw `search`
+  // so the grid's exit/enter replay happens once per resolved query, not
+  // once per keystroke (see the effect below for why keying on `search`
+  // directly caused overlapping, doubled-up render generations).
+  const [gridKey, setGridKey] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [loading, setLoading] = useState(false);
@@ -171,22 +177,37 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
     // A search with zero matches has nothing to fetch — skip the request.
     if (matchedIds && matchedIds.length === 0) {
       setCards([]);
+      setGridKey((k) => k + 1);
       setHasMore(false);
       setLoading(false);
       return;
     }
 
+    // Every keystroke re-runs this effect and fires a new fetch — without
+    // cancellation, an earlier, broader-matching keystroke's request can
+    // resolve AFTER a later, narrower one (ordinary network/DB jitter) and
+    // its plain setCards() replace clobbers the correct, more recent result
+    // with a stale one. Abort the in-flight request from the previous run
+    // (or on unmount) so only the latest query's response is ever applied.
+    const controller = new AbortController();
     setLoading(true);
     setFetchError(false);
-    fetch(`/api/cards?${buildQuery(1)}`)
+    fetch(`/api/cards?${buildQuery(1)}`, { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         setCards(reorderToMatchSearch(data.cards ?? []));
+        setGridKey((k) => k + 1);
         setHasMore(matchedIds ? matchedIds.length > PAGE_SIZE : Boolean(data.hasMore));
         setPage(1);
       })
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (err.name !== "AbortError") setFetchError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, search, searchAwaitingIndex]);
 
@@ -271,11 +292,17 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
             // before the footer once there's no more Load More button to
             // provide it.
             <Box sx={{ pb: 6 }}>
-              {/* 3. key={search} causes AnimatePresence to unmount + remount the grid
-                     whenever the search query changes, replaying the stagger entrance. */}
+              {/* 3. key={gridKey} causes AnimatePresence to unmount + remount the grid
+                     once per settled query result, replaying the stagger entrance.
+                     Deliberately NOT key={search}: that changes on every keystroke,
+                     so an in-progress exit/enter cycle from one keystroke could still
+                     be animating out when the next keystroke's grid mounted in,
+                     briefly rendering both generations' tiles at once. gridKey only
+                     bumps when a fetch actually resolves and cards are applied (see
+                     the effect above), so at most one exit/enter cycle is ever live. */}
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={search}
+                  key={gridKey}
                   variants={gridVariants}
                   initial="hidden"
                   animate="visible"

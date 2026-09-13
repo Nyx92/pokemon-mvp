@@ -16,9 +16,15 @@ import GavelIcon from "@mui/icons-material/Gavel";
 import UploadIcon from "@mui/icons-material/Upload";
 import { useAuth } from "@/app/hooks/useAuth";
 
+const TAB_VALUES = ["/myCollection", "/marketplace", "/auctions", "/upload"];
+
 export default function Home() {
   const pathname = usePathname();
   const { isLoggedIn, isAdmin } = useAuth();
+  // The home page itself isn't one of the tabs — MUI's Tabs logs a console
+  // warning if `value` doesn't match any Tab's `value`, so fall back to
+  // `false` (its documented "no tab selected" state) instead of passing "/".
+  const tabsValue = TAB_VALUES.includes(pathname) ? pathname : false;
 
   return (
     <Box
@@ -58,7 +64,7 @@ export default function Home() {
         <Box sx={{ mt: 4, px: { xs: 2, md: 4 } }}>
           <Box sx={{ display: "flex", justifyContent: "center" }}>
             <Tabs
-              value={pathname}
+              value={tabsValue}
               textColor="primary"
               indicatorColor="primary"
               variant="scrollable"
