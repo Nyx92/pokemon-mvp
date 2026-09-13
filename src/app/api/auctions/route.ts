@@ -2,43 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { centsToDollars, dollarsToCents } from "@/lib/money";
-import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
+import { dollarsToCents } from "@/lib/money";
+import {
+  formatAuction,
+  getAuctionsPage,
+  AUCTION_INCLUDE,
+  type AuctionSort,
+} from "@/lib/auctionsQuery";
 
-// ── Shared shape for converting a DB Auction row to the API response ────────
-// Prices are stored as cents in the DB; callers receive dollars. Card
-// identity (title, rarity, etc.) is resolved via the catalog relation on
-// the linked Listing — the external response shape is unchanged.
-function formatAuction(auction: any) {
-  return {
-    id:             auction.id,
-    cardId:         auction.listingId,
-    sellerId:       auction.sellerId,
-    startingBid:    centsToDollars(auction.startingBid),
-    reservePrice:   auction.reservePrice   != null ? centsToDollars(auction.reservePrice)   : null,
-    buyOutPrice:    auction.buyOutPrice    != null ? centsToDollars(auction.buyOutPrice)    : null,
-    currentBid:     auction.currentBid    != null ? centsToDollars(auction.currentBid)     : null,
-    highestBidderId: auction.highestBidderId,
-    status:          auction.status,
-    endsAt:          auction.endsAt.toISOString(),
-    sellerDecisionDeadline: auction.sellerDecisionDeadline?.toISOString() ?? null,
-    version:         auction.version,
-    bidCount:        auction._count.bids,
-    card:            withListingDisplay(auction.listing),
-  };
-}
-
-const LISTING_SELECT = {
-  id: true, imageUrls: true, condition: true, inAuction: true,
-  owner: { select: { id: true, username: true } },
-  ...listingCatalogInclude,
-} as const;
+const VALID_SORTS: AuctionSort[] = ["endingSoon", "mostBids", "newest", "priceLow", "priceHigh"];
 
 /**
  * GET /api/auctions
  *   ?cardId=xxx        — active auction for a specific card (used by card detail page)
  *   ?expiringSoon=true — the 5 active auctions expiring soonest (used by homepage row)
- *   (no params)        — all active auctions (used by /auctions listing page)
+ *   (no params)        — browse: game/setName/rarity/type/language/condition
+ *                         (repeatable), buyNowOnly, endingWithinHours, sort,
+ *                         ids (repeatable), page, pageSize — used by the
+ *                         /auctions listing page. All optional; with none
+ *                         given, behaves exactly as before (all active
+ *                         auctions, soonest-ending first, capped at 100).
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -59,7 +42,7 @@ export async function GET(req: NextRequest) {
           listingId: cardId,
           status: { in: ["active", "pending_seller_decision"] },
         },
-        include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
+        include: AUCTION_INCLUDE,
       });
 
       return NextResponse.json({ auction: auction ? formatAuction(auction) : null });
@@ -71,7 +54,7 @@ export async function GET(req: NextRequest) {
     if (expiringSoon) {
       const auctions = await prisma.auction.findMany({
         where:   { status: "active", endsAt: { gt: new Date() } },
-        include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
+        include: AUCTION_INCLUDE,
         orderBy: { endsAt: "asc" },
         take:    5,
       });
@@ -79,16 +62,38 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ auctions: auctions.map(formatAuction) });
     }
 
-    // ── All active auctions (auctions browse page) ────────────────────────────
-    // Same endsAt > now guard: exclude auctions the cron hasn't expired yet.
-    const auctions = await prisma.auction.findMany({
-      where:   { status: "active", endsAt: { gt: new Date() } },
-      include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
-      orderBy: { endsAt: "asc" },
-      take:    100,
+    // ── Browse (auctions listing page) ────────────────────────────────────────
+    const gameParam = searchParams.get("game");
+    const sortParam = searchParams.get("sort");
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+    const endingWithinHoursParam = searchParams.get("endingWithinHours");
+
+    // Same isPaginated guard as cards/route.ts — without the Number.isNaN
+    // check, `?page=abc` would fall through as "paginated" with a NaN page,
+    // producing a NaN skip/take that Prisma throws on (500) instead of
+    // gracefully falling back to unpaginated.
+    const rawPage = pageParam ? parseInt(pageParam, 10) : null;
+    const rawPageSize = pageSizeParam ? parseInt(pageSizeParam, 10) : null;
+    const isPaginated =
+      rawPage != null && rawPageSize != null && !Number.isNaN(rawPage) && !Number.isNaN(rawPageSize);
+
+    const result = await getAuctionsPage({
+      game: gameParam === "POKEMON" || gameParam === "RIFTBOUND" ? gameParam : null,
+      setNames: searchParams.getAll("setName"),
+      rarities: searchParams.getAll("rarity"),
+      types: searchParams.getAll("type"),
+      languages: searchParams.getAll("language"),
+      conditions: searchParams.getAll("condition"),
+      ids: searchParams.getAll("ids"),
+      buyNowOnly: searchParams.get("buyNowOnly") === "true",
+      endingWithinHours: endingWithinHoursParam ? Number(endingWithinHoursParam) : null,
+      sort: VALID_SORTS.includes(sortParam as AuctionSort) ? (sortParam as AuctionSort) : "endingSoon",
+      page: isPaginated ? rawPage : null,
+      pageSize: isPaginated ? rawPageSize : null,
     });
 
-    return NextResponse.json({ auctions: auctions.map(formatAuction) });
+    return NextResponse.json(result);
   } catch (err) {
     console.error("[auctions GET] error:", err);
     return NextResponse.json({ error: "Failed to fetch auctions" }, { status: 500 });
@@ -265,7 +270,7 @@ export async function POST(req: NextRequest) {
           endsAt,
           status: "active",
         },
-        include: { listing: { select: LISTING_SELECT }, _count: { select: { bids: true } } },
+        include: AUCTION_INCLUDE,
       }),
       // Prevent Buy Now / offers while auction is live.
       prisma.listing.update({

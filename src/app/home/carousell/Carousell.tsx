@@ -74,7 +74,7 @@ const items: SlideItem[] = [
       tag: "Origins",
       title: "Where It All Begins",
       subtitle: "The founding cards of Riftbound, together in one set for the first time.",
-      primaryCta: { label: "Browse Origins Cards", href: "/marketplace" },
+      primaryCta: { label: "Browse Origins Cards", href: "/marketplace?game=RIFTBOUND&setName=Origins" },
       secondaryCta: { label: "View Live Auctions", href: "/auctions" },
       accent: "#a855f7",
     },
@@ -88,7 +88,7 @@ const items: SlideItem[] = [
       title: "Vendetta",
       subtitle:
         "Old rivalries, new blades. Chase the latest Vendetta singles before they're gone.",
-      primaryCta: { label: "Browse Vendetta Cards", href: "/marketplace" },
+      primaryCta: { label: "Browse Vendetta Cards", href: "/marketplace?game=RIFTBOUND&setName=Vendetta" },
       secondaryCta: { label: "View Live Auctions", href: "/auctions" },
       accent: "#f59e0b",
       eyebrowAccent: "#ec4899",
@@ -119,7 +119,7 @@ const items: SlideItem[] = [
       title: "Forged By Spirit",
       subtitle:
         "Ethereal blades and ribboned steel. The newest Riftbound set arrives in shimmering style.",
-      primaryCta: { label: "Browse Spiritforged Cards", href: "/marketplace" },
+      primaryCta: { label: "Browse Spiritforged Cards", href: "/marketplace?game=RIFTBOUND&setName=Spiritforged" },
       secondaryCta: { label: "View Live Auctions", href: "/auctions" },
       accent: "#f472b6",
     },

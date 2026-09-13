@@ -1,5 +1,18 @@
 // src/types/auction.ts
 
+import type { CardBrowseIndexItem } from "./card";
+
+// Lightweight, text-only projection of every active auction — fed by
+// GET /api/auctions/browse-index. Structurally a CardBrowseIndexItem (so
+// src/lib/marketplaceFacets.ts's computeFacets can be reused as-is for the
+// set/rarity/condition/type/language facets) plus the auction-specific
+// fields the auctions filter bar's own facets/sort need.
+export interface AuctionBrowseIndexItem extends CardBrowseIndexItem {
+  bidCount: number;
+  endsAt: string; // ISO string
+  hasBuyOut: boolean;
+}
+
 export interface AuctionCard {
   id: string;
   title: string;

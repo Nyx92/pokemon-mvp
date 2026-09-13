@@ -271,7 +271,14 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
                 "@keyframes spin": { "0%": { transform: "rotate(0deg)" }, "100%": { transform: "rotate(180deg)" } },
               }}
             />
+            {/* suppressHydrationWarning: this text is computed from Date.now()
+                (via getTimeLeft), so it legitimately differs by a second or
+                two between the server-rendered HTML (now that /auctions is
+                SSR'd) and the client's first render before the countdown
+                effect below ticks it forward — a real, expected mismatch,
+                not a bug, and exactly what this prop exists for. */}
             <Typography
+              suppressHydrationWarning
               sx={{ fontSize: "0.7rem", fontWeight: 700, color: timeLeft.done ? "#6b7280" : "#f97316", whiteSpace: "nowrap" }}
             >
               {timeLeft.done ? "Ended" : `${timeLeft.h}h ${pad(timeLeft.m)}m ${pad(timeLeft.s)}s`}

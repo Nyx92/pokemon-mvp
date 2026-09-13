@@ -68,6 +68,30 @@ export function resolveListingDisplay(
   );
 }
 
+// Narrower counterpart to resolveListingDisplay, for the handful of routes
+// that deliberately fetch pokemonCard/riftboundCard via a narrow `select`
+// (title/setName/rarity/type/language only — see GET /api/cards/browse-index
+// and GET /api/auctions/browse-index) rather than the full catalog relation
+// resolveListingDisplay expects. Those routes can't use resolveListingDisplay
+// (its type requires the fuller relation shape), but still share the exact
+// same pokemon-then-riftbound fallback ordering and "English" default — this
+// is the one place that ordering is written down, so a future change to it
+// (e.g. the language default) only needs to happen here.
+export function resolveCatalogDisplayCore(listing: {
+  pokemonCard?: { nameEn: string; rarity: string | null; setNameEn: string | null; language: string } | null;
+  riftboundCard?: { name: string; rarity: string | null; setLabel: string | null; type: string } | null;
+}): { title: string; setName: string | null; rarity: string | null; type: string | null; language: string } {
+  const p = listing.pokemonCard;
+  const r = listing.riftboundCard;
+  return {
+    title: p?.nameEn ?? r?.name ?? "",
+    setName: p?.setNameEn ?? r?.setLabel ?? null,
+    rarity: p?.rarity ?? r?.rarity ?? null,
+    type: r?.type ?? null,
+    language: p?.language ?? "English",
+  };
+}
+
 // Merges a listing's resolved display fields into its own object, dropping
 // the raw pokemonCard/riftboundCard relation objects from the result (the
 // frontend doesn't consume those — it reads the flat fields this spreads

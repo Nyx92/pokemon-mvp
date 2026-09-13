@@ -20,7 +20,7 @@ import EmptyState from "../shared-components/EmptyState";
 import type { CardItem, CardBrowseIndexItem } from "@/types/card";
 import { computeFacets } from "@/lib/marketplaceFacets";
 import FilterBar, { type MarketplaceFilterState } from "./FilterBar";
-import { isDefaultMarketplaceView } from "./isDefaultMarketplaceView";
+import { isSameMarketplaceView } from "./isSameMarketplaceView";
 
 // ── Animation variants ────────────────────────────────────────────────────────
 // 1. Individual card tile: fade up on enter.
@@ -44,7 +44,7 @@ const gridVariants: Variants = {
 const MARKETPLACE_SEARCH_KEYS = ["title", "setName", "rarity"];
 const PAGE_SIZE = 24;
 const DEFAULT_FILTERS: MarketplaceFilterState = {
-  game: "POKEMON",
+  game: "RIFTBOUND",
   setNames: [],
   rarities: [],
   types: [],
@@ -55,16 +55,25 @@ const DEFAULT_FILTERS: MarketplaceFilterState = {
 interface MarketplaceProps {
   initialCards: CardItem[];
   initialHasMore: boolean;
+  // The exact filters page.tsx used for its server-side fetch (resolved
+  // from the URL's game/setName search params, e.g. a carousel "Browse
+  // Origins Cards" deep link) — defaults to DEFAULT_FILTERS for callers
+  // that don't pass one.
+  initialFilters?: MarketplaceFilterState;
 }
 
-export default function Marketplace({ initialCards, initialHasMore }: MarketplaceProps) {
+export default function Marketplace({
+  initialCards,
+  initialHasMore,
+  initialFilters = DEFAULT_FILTERS,
+}: MarketplaceProps) {
   const { userId } = useAuth();
   const router = useRouter();
   const watchlistedIds = useWatchlistIds();
 
   const [browseIndex, setBrowseIndex] = useState<CardBrowseIndexItem[]>([]);
   const [browseIndexReady, setBrowseIndexReady] = useState(false);
-  const [filters, setFilters] = useState<MarketplaceFilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<MarketplaceFilterState>(initialFilters);
   const [search, setSearch] = useState("");
   const [cards, setCards] = useState<CardItem[]>(initialCards);
   // Bumped only when a settled (non-aborted) result is actually applied to
@@ -79,7 +88,22 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
   const [loadingMore, setLoadingMore] = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
-  // Fetch the lightweight browse-index once on mount — feeds search + facets.
+  // Fetch the lightweight browse-index once on mount — feeds search + facets
+  // (and gates FilterBar's loading skeleton).
+  //
+  // Deliberately does NOT use an AbortController to cancel this on cleanup.
+  // React's dev-only Strict Mode double-invokes this effect on mount, which
+  // does fire two real requests to this route — but aborting the first one
+  // was tried and reverted: under this Next 16 + Turbopack dev server, a
+  // client-aborted request to this exact route left the SECOND (soon to be
+  // the only surviving) request hanging indefinitely at the network layer —
+  // no response, no failure event, ever — which permanently stuck
+  // `browseIndexReady` at false for the rest of that page load. The
+  // duplicate-request cost of leaving this un-aborted is dev-only (Strict
+  // Mode's double-invoke never happens in production) and harmless; the
+  // stuck-forever bug the "fix" caused was much worse. Confirmed via live
+  // testing (network log showed request #1 aborted correctly, request #2
+  // never resolving) before reverting.
   useEffect(() => {
     fetch("/api/cards/browse-index")
       .then((r) => r.json())
@@ -151,23 +175,24 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
   // effect in exactly that case (see its own comment above) without
   // reintroducing the redundant-fetch problem in the common no-search case.
   useEffect(() => {
-    // The Server Component in page.tsx already fetched exactly this view
-    // (page 1, forSale=true, game=POKEMON, no filters, no search) before
+    // The Server Component in page.tsx already fetched exactly `initialFilters`
+    // (resolved from the URL's game/setName search params — defaults to
+    // Riftbound/no-filters, or a carousel deep link's specific set) before
     // this component ever mounted — skip re-fetching it while the on-screen
     // `cards` are still that exact server-provided array (referentially
-    // unchanged) and the view is still the default one. This is checked by
-    // comparing data state rather than a "have I run yet" ref flag: a ref
-    // flag only flips once and has no matching cleanup, so React's dev-only
-    // Strict Mode double-invocation of effects on mount defeats it (the
-    // first invocation quietly flips the ref and returns; the second sees
-    // the ref already flipped and falls through to a real, redundant fetch
-    // — flashing a loading spinner over data that was already correct).
-    // Comparing `cards === initialCards` instead is idempotent regardless
-    // of how many times this effect body runs, and still correctly
-    // refetches if the user leaves the default view and later returns to
-    // it (by then `cards` has been replaced by a real fetch result, so the
-    // reference no longer matches `initialCards`).
-    if (cards === initialCards && isDefaultMarketplaceView(filters, search)) {
+    // unchanged) and the view still matches `initialFilters`. This is
+    // checked by comparing data state rather than a "have I run yet" ref
+    // flag: a ref flag only flips once and has no matching cleanup, so
+    // React's dev-only Strict Mode double-invocation of effects on mount
+    // defeats it (the first invocation quietly flips the ref and returns;
+    // the second sees the ref already flipped and falls through to a real,
+    // redundant fetch — flashing a loading spinner over data that was
+    // already correct). Comparing `cards === initialCards` instead is
+    // idempotent regardless of how many times this effect body runs, and
+    // still correctly refetches if the user leaves this view and later
+    // returns to it (by then `cards` has been replaced by a real fetch
+    // result, so the reference no longer matches `initialCards`).
+    if (cards === initialCards && search === "" && isSameMarketplaceView(filters, initialFilters)) {
       return;
     }
 
@@ -280,7 +305,7 @@ export default function Marketplace({ initialCards, initialHasMore }: Marketplac
       </Box>
 
       <Box sx={{ width: "95%", mx: "auto" }}>
-        <FilterBar facets={facets} filters={filters} onChange={setFilters} />
+        <FilterBar facets={facets} filters={filters} onChange={setFilters} loading={!browseIndexReady} />
 
         <Box>
           {loading ? (

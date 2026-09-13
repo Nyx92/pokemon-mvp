@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { listingCatalogInclude, resolveListingDisplay } from "@/lib/listingDisplay";
+import { resolveCatalogDisplayCore } from "@/lib/listingDisplay";
 import type { CardBrowseIndexItem } from "@/types/card";
 
 // This route has no Request param and touches no dynamic API, so Next
@@ -19,26 +19,37 @@ export const revalidate = 60;
 // (fuse.js, same pattern already used there) and filter-sidebar facet
 // counts — deliberately excludes price/images/description to keep this
 // small enough to fetch once per page load regardless of catalog size.
+//
+// Uses a narrow `select` (not the shared listingCatalogInclude/
+// resolveListingDisplay helper other routes use) rather than the full
+// catalog relation — this route only ever reads 4 catalog fields, but
+// `include: { pokemonCard: true, riftboundCard: true }` pulls every column
+// of both catalog tables (illustrator, dexIds, setReleaseDate, etc.) for
+// every row. With the catalog's real row count (1300+ for-sale listings
+// at time of writing), that measured ~3x slower than this narrow select —
+// worth fetching only these 4 fields for a route whose whole purpose is
+// being cheap on every page load. resolveCatalogDisplayCore (shared with
+// GET /api/auctions/browse-index, which fetches the same narrow shape)
+// keeps the pokemon-then-riftbound fallback logic itself in one place.
 export async function GET() {
   try {
     const listings = await prisma.listing.findMany({
       where: { forSale: true },
-      include: listingCatalogInclude,
+      select: {
+        id: true,
+        game: true,
+        condition: true,
+        pokemonCard: { select: { nameEn: true, rarity: true, setNameEn: true, language: true } },
+        riftboundCard: { select: { name: true, rarity: true, setLabel: true, type: true } },
+      },
     });
 
-    const items: CardBrowseIndexItem[] = listings.map((listing) => {
-      const display = resolveListingDisplay(listing);
-      return {
-        id: listing.id,
-        title: display.title,
-        setName: display.setName,
-        rarity: display.rarity,
-        type: display.type ?? null,
-        language: display.language,
-        condition: listing.condition,
-        game: listing.game as "POKEMON" | "RIFTBOUND",
-      };
-    });
+    const items: CardBrowseIndexItem[] = listings.map((listing) => ({
+      id: listing.id,
+      ...resolveCatalogDisplayCore(listing),
+      condition: listing.condition,
+      game: listing.game as "POKEMON" | "RIFTBOUND",
+    }));
 
     return NextResponse.json({ items });
   } catch (error: any) {
