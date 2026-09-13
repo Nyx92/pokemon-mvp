@@ -50,3 +50,5 @@ jobs:
           NEXTAUTH_URL: http://localhost:3000
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
           DATABASE_URL: postgresql://test:test@localhost:5432/test
+          SUPABASE_URL: https://fake.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: fake-service-role-key

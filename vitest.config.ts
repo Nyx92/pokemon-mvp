@@ -57,6 +57,13 @@ export default defineConfig({
       // module import throws before a single test runs. Resend is never actually
       // called — real network calls only happen through mocked modules in tests.
       RESEND_API_KEY: "re_test_fake",
+      // src/lib/env.ts requires these at import time (via src/lib/prisma.ts's
+      // side-effect import). Most test files mock @/lib/prisma so this never
+      // runs, but a few (auth.test.ts, isAdminOrOwner.test.ts) import @/lib/auth
+      // directly, which pulls in the real prisma.ts — no Supabase client is
+      // ever actually constructed in tests, so these values never need to work.
+      SUPABASE_URL: "https://fake.supabase.co",
+      SUPABASE_SERVICE_ROLE_KEY: "fake-service-role-key",
     },
 
     // ── Test discovery ────────────────────────────────────────────────────────
