@@ -29,7 +29,6 @@ function makeListing(overrides: Partial<any> = {}) {
     id: "card-1",
     price: 1000,
     forSale: true,
-    binder: null,
     owner: { id: "owner-1", username: "Ash" },
     pokemonCard: {
       nameEn: "Charizard",

@@ -213,6 +213,16 @@ describe("POST /api/auctions", () => {
     expect(body.error).toMatch(/already.*auction/i);
   });
 
+  it("returns 409 when card is marked for in-person collection", async () => {
+    mockGetServerSession.mockResolvedValue(SELLER_SESSION);
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, collectionRequestId: "req-1" });
+    const res = await POST(postReq({ cardId: "card-1", startingBid: 5, durationDays: 3 }));
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toMatch(/in-person collection/i);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+  });
+
   it("returns 409 when card has a pending offer", async () => {
     mockGetServerSession.mockResolvedValue(SELLER_SESSION);
     mockPrisma.listing.findUnique.mockResolvedValue(LISTING);

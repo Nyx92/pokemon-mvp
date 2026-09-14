@@ -72,6 +72,18 @@ describe("PUT /api/cards/[id] — owner update", () => {
     expect(mockPrisma.listing.update).not.toHaveBeenCalled();
   });
 
+  it("returns 409 when the owner tries to list a card for sale while it's marked for in-person collection", async () => {
+    mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, forSale: false, collectionRequestId: "req-1" });
+
+    const res = await PUT(putRequest({ price: "15", forSale: "true" }), { params: Promise.resolve({ id: "card-1" }) });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({
+      error: "Cannot list a card for sale while it is marked for in-person collection",
+    });
+    expect(mockPrisma.listing.update).not.toHaveBeenCalled();
+  });
+
   it("allows unlisting (forSale: false) even while in an active auction", async () => {
     mockPrisma.listing.findUnique.mockResolvedValue({ ...LISTING, inAuction: true, forSale: false });
 

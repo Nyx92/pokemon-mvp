@@ -60,3 +60,14 @@ export function checkRateLimit(key: string, opts: RateLimitOptions): RateLimitRe
   existing.count += 1;
   return { allowed: true };
 }
+
+/**
+ * Best-effort caller IP for per-IP rate-limit keys — reads the first hop off
+ * `x-forwarded-for` (set by the platform's proxy; unset in local dev), or
+ * "unknown" if absent. "unknown" collapses every such caller into one shared
+ * bucket, which is an acceptable trade-off for a stopgap in-memory limiter.
+ */
+export function getClientIp(req: Request): string {
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  return forwardedFor?.split(",")[0]?.trim() || "unknown";
+}

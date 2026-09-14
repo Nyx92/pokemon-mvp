@@ -130,13 +130,11 @@ async function main() {
   await prisma.order.deleteMany();
   // Auction references Listing/User
   await prisma.auction.deleteMany();
-  // Listing references Binder/User/catalog tables
+  // Listing references User/catalog tables
   await prisma.listing.deleteMany();
   // Catalog tables are standalone (only referenced by Listing, already cleared above)
   await prisma.pokemonCardCatalog.deleteMany();
   await prisma.riftboundCardCatalog.deleteMany();
-  // Binder references User
-  await prisma.binder.deleteMany();
   // User references Account/Session (if you have these tables populated in dev)
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
@@ -219,24 +217,6 @@ async function main() {
     admin.username,
     ash.username,
     misty.username
-  );
-
-  // Binders
-  const rareBinder = await prisma.binder.create({
-    data: { name: "Rare Holos", userId: ash.id },
-  });
-  const grassBinder = await prisma.binder.create({
-    data: { name: "Grass-Type Binder", userId: ash.id },
-  });
-  const waterBinder = await prisma.binder.create({
-    data: { name: "Water Wonders", userId: misty.id },
-  });
-
-  console.log(
-    "✅ Binders created:",
-    rareBinder.name,
-    grassBinder.name,
-    waterBinder.name
   );
 
   // Upload mock image
@@ -418,7 +398,6 @@ async function main() {
       description: "A stunning Charizard VMAX with fiery holo effect.",
       imageUrls: [mockImageUrlOne],
       forSale: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -434,7 +413,6 @@ async function main() {
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       {
@@ -445,7 +423,6 @@ async function main() {
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       {
@@ -456,7 +433,6 @@ async function main() {
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       {
@@ -467,7 +443,6 @@ async function main() {
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       {
@@ -478,7 +453,6 @@ async function main() {
         description: "A Grass-type classic with nostalgic artwork.",
         imageUrls: [mockImageUrlTwo],
         forSale: false,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       // ── Venusaur V — graded ─────────────────────────────────────────────────
@@ -490,7 +464,6 @@ async function main() {
         description: "PSA 10 Gem Mint — flawless Grass-type classic.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       {
@@ -501,7 +474,6 @@ async function main() {
         description: "PSA 9 Mint — near-perfect Grass-type classic.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       {
@@ -512,7 +484,6 @@ async function main() {
         description: "BGS 9.5 Gem Mint — stunning sub-grade Grass-type classic.",
         imageUrls: [mockImageUrlTwo],
         forSale: true,
-        binderId: grassBinder.id,
         ownerId: ash.id,
       },
       // ── Blastoise Holo Rare — raw grades ────────────────────────────────────
@@ -524,7 +495,6 @@ async function main() {
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       {
@@ -535,7 +505,6 @@ async function main() {
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       {
@@ -546,7 +515,6 @@ async function main() {
         description: "Classic Blastoise with vintage holo from Base Set.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       // ── Blastoise Holo Rare — graded ────────────────────────────────────────
@@ -558,7 +526,6 @@ async function main() {
         description: "PSA 8 NM-MT — classic Blastoise holo in excellent shape.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       {
@@ -569,7 +536,6 @@ async function main() {
         description: "CGC 9 Mint — classic Blastoise holo certified by CGC.",
         imageUrls: [mockImageUrlThree],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       {
@@ -580,7 +546,6 @@ async function main() {
         description: "SGC 9 Mint — classic Blastoise holo certified by SGC.",
         imageUrls: [mockImageUrlThree],
         forSale: false,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
     ],
@@ -598,7 +563,6 @@ async function main() {
         description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -609,7 +573,6 @@ async function main() {
         description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -620,7 +583,6 @@ async function main() {
         description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -631,7 +593,6 @@ async function main() {
         description: "Misty’s loyal Water-type partner with a dazzling spin attack.",
         imageUrls: [mockImageUrlFour],
         forSale: false,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       // ── Starmie GX — graded ─────────────────────────────────────────────────
@@ -643,7 +604,6 @@ async function main() {
         description: "PSA 9 Mint — Misty’s Starmie GX in near-perfect shape.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -654,7 +614,6 @@ async function main() {
         description: "BGS 9.5 Gem Mint — beautifully graded Starmie GX.",
         imageUrls: [mockImageUrlFour],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       // ── Psyduck ─────────────────────────────────────────────────────────────
@@ -666,7 +625,6 @@ async function main() {
         description: "A confused Psyduck that Misty adores.",
         imageUrls: [mockImageUrlFive],
         forSale: false,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -677,7 +635,6 @@ async function main() {
         description: "A confused Psyduck that Misty adores.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -688,7 +645,6 @@ async function main() {
         description: "PSA 10 Gem Mint — a surprisingly valuable Psyduck.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       // ── Gyarados VMAX — raw grades ──────────────────────────────────────────
@@ -700,7 +656,6 @@ async function main() {
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -711,7 +666,6 @@ async function main() {
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -722,7 +676,6 @@ async function main() {
         description: "A mighty Gyarados that dominates Misty’s team.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       // ── Gyarados VMAX — graded ──────────────────────────────────────────────
@@ -734,7 +687,6 @@ async function main() {
         description: "PSA 10 Gem Mint — the apex predator, perfectly graded.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -745,7 +697,6 @@ async function main() {
         description: "CGC 9.5 Gem Mint — top-tier Gyarados VMAX.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -756,7 +707,6 @@ async function main() {
         description: "SGC 9 Mint — certified Gyarados VMAX.",
         imageUrls: [mockImageUrlSix],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
     ],
@@ -776,7 +726,6 @@ async function main() {
         description: "PSA 10 Gem Mint — the rarest Shuckle you'll ever see.",
         imageUrls: [mockImageUrlShuckle],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       {
@@ -787,7 +736,6 @@ async function main() {
         description: "Shuckle from Neo Revelation in great shape.",
         imageUrls: [mockImageUrlShuckle],
         forSale: true,
-        binderId: rareBinder.id,
         ownerId: ash.id,
       },
       {
@@ -798,7 +746,6 @@ async function main() {
         description: "Psyduck V — a modern staple with confusing energy.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
       {
@@ -809,7 +756,6 @@ async function main() {
         description: "Psyduck V in near-mint condition.",
         imageUrls: [mockImageUrlFive],
         forSale: true,
-        binderId: waterBinder.id,
         ownerId: misty.id,
       },
     ],
@@ -835,7 +781,6 @@ async function main() {
       imageUrls: [mockImageUrlOne],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -850,7 +795,6 @@ async function main() {
       imageUrls: [mockImageUrlThree],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -865,7 +809,6 @@ async function main() {
       imageUrls: [mockImageUrlSix],
       forSale: false,
       inAuction: true,
-      binderId: waterBinder.id,
       ownerId: misty.id,
     },
   });
@@ -880,7 +823,6 @@ async function main() {
       imageUrls: [mockImageUrlTwo],
       forSale: false,
       inAuction: true,
-      binderId: grassBinder.id,
       ownerId: ash.id,
     },
   });
@@ -895,7 +837,6 @@ async function main() {
       imageUrls: [mockImageUrlFour],
       forSale: false,
       inAuction: true,
-      binderId: waterBinder.id,
       ownerId: misty.id,
     },
   });
@@ -910,7 +851,6 @@ async function main() {
       imageUrls: [mockImageUrlShuckle],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -932,7 +872,6 @@ async function main() {
       imageUrls: [mockImageUrlThree],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -947,7 +886,6 @@ async function main() {
       imageUrls: [mockImageUrlFive],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -962,7 +900,6 @@ async function main() {
       imageUrls: [mockImageUrlSix],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -977,7 +914,6 @@ async function main() {
       imageUrls: [mockImageUrlFour],
       forSale: false,
       inAuction: true,
-      binderId: rareBinder.id,
       ownerId: ash.id,
     },
   });
@@ -1138,7 +1074,6 @@ async function main() {
         reservedById: null,
         reservedUntil: null,
         reservedCheckoutSessionId: null,
-        binderId: null,
       },
     }),
     // Mark the specific offer as paid and archive it

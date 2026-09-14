@@ -13,7 +13,7 @@
  * This lets the homepage "Ending Soon" row reuse the exact same tile without a separate component.
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -29,7 +29,7 @@ import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import GavelIcon from "@mui/icons-material/Gavel";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
-import { getTimeLeft, pad, getLanguageChip } from "./tileHelpers";
+import { getTimeLeft, pad, getLanguageChip, isCardOwner } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { CardItem } from "@/types/card";
@@ -80,9 +80,13 @@ export default function CardListItem({
   );
   const [spin, setSpin] = useState(false);
 
+  // Wrapped in startTransition — this fires every second for as long as
+  // the card is mounted (e.g. on the home page), so an ordinary setState
+  // here can otherwise keep preempting a pending route-change transition
+  // indefinitely. See the same fix + rationale in HomeFeatured.tsx.
   useEffect(() => {
     if (!auctionOverride) return;
-    const tick = () => setTimeLeft(getTimeLeft(auctionOverride.endsAt));
+    const tick = () => startTransition(() => setTimeLeft(getTimeLeft(auctionOverride.endsAt)));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -91,14 +95,15 @@ export default function CardListItem({
   useEffect(() => {
     if (!auctionOverride || timeLeft.done) return;
     const id = setInterval(() => {
-      setSpin(true);
-      setTimeout(() => setSpin(false), 600);
+      startTransition(() => setSpin(true));
+      setTimeout(() => startTransition(() => setSpin(false)), 600);
     }, 2000);
     return () => clearInterval(id);
   }, [auctionOverride, timeLeft.done]);
 
-  // Owners cannot watchlist their own cards
-  const isOwner = !!userId && card.owner?.id === userId;
+  // Owners cannot watchlist their own cards — see isCardOwner for why both
+  // the ownerId scalar and the owner relation are checked.
+  const isOwner = isCardOwner(userId, card);
 
   const handleWatchlistToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();

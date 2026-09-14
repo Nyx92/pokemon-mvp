@@ -17,6 +17,7 @@ import {
   Box,
   CircularProgress,
   Typography,
+  Alert,
 } from "@mui/material";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 
@@ -87,10 +88,15 @@ export default function WatchlistPage() {
   return (
     <AccountLayout>
       <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}>
-        <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 3 }}>
+        <Typography component="h1" sx={{ fontSize: { xs: 24, md: 28 }, fontWeight: 800, letterSpacing: "-0.5px", mb: 2 }}>
           Watchlist
         </Typography>
       </motion.div>
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        A card is automatically removed from your watchlist once it&apos;s no longer for sale or on
+        auction, or once you own it yourself.
+      </Alert>
 
       {loading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 10 }}>

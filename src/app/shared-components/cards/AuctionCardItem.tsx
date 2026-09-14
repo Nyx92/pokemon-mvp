@@ -13,7 +13,7 @@
  * There is intentionally no inline BID button — the detail page handles the full bid flow.
  */
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, startTransition } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -28,7 +28,7 @@ import BookmarkIcon from "@mui/icons-material/Bookmark";
 import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import ConditionBadge from "./ConditionBadge";
-import { getTimeLeft, pad, getLanguageChip, fmtPrice } from "./tileHelpers";
+import { getTimeLeft, pad, getLanguageChip, fmtPrice, isCardOwner } from "./tileHelpers";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import type { AuctionItem } from "@/types/auction";
@@ -58,9 +58,12 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
     setWatchlisted(initialWatchlisted);
   }, [initialWatchlisted]);
 
-  // Live countdown — updates every second
+  // Live countdown — updates every second. Wrapped in startTransition so
+  // this indefinitely-repeating default-priority update doesn't keep
+  // preempting a pending route-change transition for as long as this card
+  // stays mounted — see the same fix + rationale in HomeFeatured.tsx.
   useEffect(() => {
-    const tick = () => setTimeLeft(getTimeLeft(auction.endsAt));
+    const tick = () => startTransition(() => setTimeLeft(getTimeLeft(auction.endsAt)));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -70,13 +73,13 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
   useEffect(() => {
     if (timeLeft.done) return;
     const id = setInterval(() => {
-      setSpin(true);
-      setTimeout(() => setSpin(false), 600);
+      startTransition(() => setSpin(true));
+      setTimeout(() => startTransition(() => setSpin(false)), 600);
     }, 2000);
     return () => clearInterval(id);
   }, [timeLeft.done]);
 
-  const isOwner = !!userId && auction.card.owner?.id === userId;
+  const isOwner = isCardOwner(userId, auction.card);
 
   const handleWatchlistToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();

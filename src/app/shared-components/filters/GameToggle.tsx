@@ -1,10 +1,20 @@
 "use client";
 
-// Shared Pokémon/Riftbound pill toggle — used by both marketplace/FilterBar
-// and auctions/AuctionFilterBar so the two filter bars look and behave
-// identically for the one control they both have.
+// Shared Pokémon/Riftbound picker — used by marketplace/FilterBar,
+// auctions/AuctionFilterBar, and myCollection's toolbar, so all three
+// filter bars look and behave identically for the one control they all
+// have. Renders via SingleSelectFilter so it shares the exact same visual
+// language (height, radius, type scale, active-blue state) as every other
+// filter chip in these bars, rather than standing out as a differently
+// styled control.
 
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
+import SportsEsportsOutlinedIcon from "@mui/icons-material/SportsEsportsOutlined";
+import { SingleSelectFilter } from "./SingleSelectFilter";
+
+const OPTIONS = [
+  { value: "POKEMON" as const, label: "Pokémon" },
+  { value: "RIFTBOUND" as const, label: "Riftbound" },
+];
 
 export function GameToggle({
   value,
@@ -14,39 +24,12 @@ export function GameToggle({
   onChange: (value: "POKEMON" | "RIFTBOUND") => void;
 }) {
   return (
-    <ToggleButtonGroup
-      exclusive
-      size="small"
+    <SingleSelectFilter
+      icon={<SportsEsportsOutlinedIcon fontSize="inherit" />}
+      label="Game"
+      options={OPTIONS}
       value={value}
-      onChange={(_, next: "POKEMON" | "RIFTBOUND" | null) => {
-        if (!next) return; // exclusive group — ignore the deselect-to-nothing click
-        onChange(next);
-      }}
-      sx={{
-        backgroundColor: "#f3f4f6",
-        borderRadius: 2.5,
-        p: 0.5,
-        gap: 0.5,
-        "& .MuiToggleButton-root": {
-          border: "none",
-          borderRadius: "18px !important",
-          px: 2,
-          py: 0.75,
-          fontSize: 13.5,
-          fontWeight: 700,
-          color: "#6b7280",
-          letterSpacing: "0.01em",
-          transition: "background-color 0.15s ease, color 0.15s ease",
-        },
-        "& .Mui-selected": {
-          backgroundColor: "#0053ff !important",
-          color: "#fff !important",
-          boxShadow: "0 2px 6px rgba(0,83,255,0.35)",
-        },
-      }}
-    >
-      <ToggleButton value="POKEMON">Pokémon</ToggleButton>
-      <ToggleButton value="RIFTBOUND">Riftbound</ToggleButton>
-    </ToggleButtonGroup>
+      onChange={onChange}
+    />
   );
 }

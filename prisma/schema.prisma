@@ -73,9 +73,8 @@ model User {
   // 🔗  Relations
   accounts           Account[]
   sessions           Session[]
-  // A user can own multiple cards and binders, make offers, send messages, and participate in conversations.
+  // A user can own multiple cards, make offers, send messages, and participate in conversations.
   listings           Listing[]
-  binders            Binder[]
   offers             Offer[]           @relation("UserOffers")
   receivedOffers     Offer[]           @relation("OffersReceived")
   sellerOrders       Order[]           @relation("SellerOrders")
@@ -89,6 +88,7 @@ model User {
   auctions           Auction[]         @relation("SellerAuctions")
   bids               Bid[]             @relation("UserBids")
   highestBidAuctions Auction[]         @relation("AuctionHighestBidder")
+  collectionRequests CollectionRequest[]
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -137,20 +137,6 @@ model VerificationToken {
 //////////////////////////////////////////////////////////////
 // 🧩 Custom Models for Pokémon Marketplace & Inventory System
 //////////////////////////////////////////////////////////////
-
-// 🗂️ Binder — represents a user's collection folder or grouping of cards
-model Binder {
-  id     String @id @default(uuid())
-  name   String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId String
-
-  // Relation: A binder contains multiple listings
-  listings Listing[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
 
 // One row per real, canonical Pokémon card — shared by every seller who
 // lists that card. This is "what card is this," not "this seller's copy of
@@ -251,8 +237,6 @@ model Listing {
   reservedCheckoutSessionId String?
 
   // Relations
-  binder       Binder?           @relation(fields: [binderId], references: [id], onDelete: SetNull)
-  binderId     String?
   owner        User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   ownerId      String
   offers       Offer[]
@@ -265,6 +249,18 @@ model Listing {
   inAuction    Boolean           @default(false)
   auctions     Auction[]
 
+  // In-person collection: set while this card is earmarked for pickup at the
+  // physical shop (mutually exclusive with forSale/inAuction at the
+  // application layer — see the guards in POST /api/auctions,
+  // PUT /api/cards/[id], and POST /api/collection-requests). Kept on the
+  // listing (not cleared) after collection so it stays linked to its
+  // CollectionRequest for history — collectedAt is what actually hides it
+  // from "My Collection" (see GET /api/user/cards), same "never delete,
+  // just flag" pattern the sold/auction-settlement paths already use.
+  collectionRequest   CollectionRequest? @relation(fields: [collectionRequestId], references: [id], onDelete: SetNull)
+  collectionRequestId String?
+  collectedAt         DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -273,6 +269,62 @@ model Listing {
   @@index([game])
   @@index([pokemonCardId])
   @@index([riftboundCardId])
+  @@index([collectionRequestId])
+}
+
+// 📦 CollectionRequest — a customer's request to pick up one or more owned
+// cards in person from the physical shop, instead of shipping (shipping is
+// a future feature). Groups cards via the nullable Listing.collectionRequestId
+// FK (no join table needed — a card belongs to at most one open request).
+//
+// Lifecycle: REQUESTED (customer asked to pick up) → PACKED (staff has
+// physically pulled and bagged the cards — see POST
+// /api/collection-requests/[id]/mark-packed) → COLLECTED (customer verified
+// their identity in-store via a one-time code and the cards were handed
+// over — see POST /api/collection-requests/[id]/otp/confirm).
+//
+// A customer can keep adding more ready-to-collect cards to their own open
+// (REQUESTED or PACKED) request rather than creating a new one each time —
+// topping up a PACKED request reverts it to REQUESTED so staff re-packs
+// with the new items included.
+model CollectionRequest {
+  id        String @id @default(cuid())
+  // Human-readable reference shown to the customer and in the Discord
+  // staff alert, e.g. "PU-2609-A1B2" — easier to say/write than a cuid.
+  requestRef String @unique
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  status String @default("REQUESTED") // REQUESTED | PACKED | COLLECTED
+
+  requestedAt DateTime  @default(now())
+  packedAt    DateTime?
+  collectedAt DateTime?
+
+  // One Discord message per "top up" alert (a customer can add items to an
+  // already-alerted request) — all of them get edited to a resolved state
+  // together when staff mark the request packed. Silent no-op if
+  // DISCORD_WEBHOOK_URL isn't configured — see src/lib/discord.ts.
+  discordMessageIds String[]
+
+  // Pickup verification code: the customer requests a code (sent to their
+  // already-phone-verified number) and enters it themselves in-app to
+  // confirm their own identity before the cards are released — same
+  // hash-only-storage + attempt-lockout principle as
+  // User.emailVerificationCodeHash / phoneVerificationCodeHash (see
+  // src/lib/verificationCode.ts), reused here rather than duplicated.
+  pickupCodeHash      String?
+  pickupCodeExpiresAt DateTime?
+  pickupCodeAttempts  Int       @default(0)
+
+  listings Listing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
 }
 
 model Order {

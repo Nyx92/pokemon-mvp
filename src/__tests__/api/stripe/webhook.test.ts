@@ -189,7 +189,6 @@ describe("POST /api/stripe/webhook", () => {
         reservedById: null,
         reservedUntil: null,
         reservedCheckoutSessionId: null,
-        binderId: null,
       },
     });
     expect(mockTx.cardTransaction.create).toHaveBeenCalledWith(

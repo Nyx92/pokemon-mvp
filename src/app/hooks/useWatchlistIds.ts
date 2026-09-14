@@ -9,7 +9,7 @@
  * Returns an empty Set when the user is not authenticated.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { useAuth } from "./useAuth";
 
 export function useWatchlistIds(): Set<string> {
@@ -25,7 +25,13 @@ export function useWatchlistIds(): Set<string> {
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data.cards)) {
-          setIds(new Set(data.cards.map((c: { id: string }) => c.id)));
+          // Wrapped in startTransition — this hook runs on every page (e.g.
+          // Marketplace, HomeFeatured), and an ordinary setState here can
+          // otherwise win the scheduler over a pending route-change
+          // transition, visibly delaying navigation. See HomeFeatured.tsx.
+          startTransition(() => {
+            setIds(new Set(data.cards.map((c: { id: string }) => c.id)));
+          });
         }
       })
       .catch(() => {});

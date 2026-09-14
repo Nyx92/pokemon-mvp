@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
     // ── 3. Verify the card belongs to the seller and is not in auction ───────
     const listing = await prisma.listing.findUnique({
       where:  { id: cardId },
-      select: { ownerId: true, inAuction: true, reservedById: true, reservedUntil: true },
+      select: { ownerId: true, inAuction: true, reservedById: true, reservedUntil: true, collectionRequestId: true },
     });
 
     if (!listing) {
@@ -218,6 +218,15 @@ export async function POST(req: NextRequest) {
     if (listing.inAuction) {
       return NextResponse.json(
         { error: "This card already has an active auction" },
+        { status: 409 }
+      );
+    }
+    // Same reasoning as offers/reservation guards below — a card earmarked
+    // for in-person pickup must not re-enter the market. See POST
+    // /api/collection-requests.
+    if (listing.collectionRequestId) {
+      return NextResponse.json(
+        { error: "Cannot start an auction on a card marked for in-person collection" },
         { status: 409 }
       );
     }

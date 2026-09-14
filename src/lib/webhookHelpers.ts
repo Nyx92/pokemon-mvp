@@ -34,7 +34,6 @@ export async function transferCardOwnership(
       reservedById: null,
       reservedUntil: null,
       reservedCheckoutSessionId: null,
-      binderId: null,
     },
   });
   return moved.count;

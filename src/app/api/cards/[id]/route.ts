@@ -31,7 +31,6 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
       prisma.listing.findUnique({
         where: { id: params.id },
         include: {
-          binder: true,
           // Public card detail page — email deliberately excluded (nothing in
           // the frontend reads it here, and card owners' emails shouldn't be
           // exposed to anonymous visitors).
@@ -111,6 +110,17 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     if (forSale && listing.inAuction) {
       return NextResponse.json(
         { error: "Cannot list a card for sale while it is in an active auction" },
+        { status: 409 }
+      );
+    }
+
+    // Same reasoning as the inAuction guard above — a card earmarked for
+    // in-person pickup must not become sellable again, or the shop could
+    // end up packing (or unpacking) a card that was sold out from under
+    // the pickup request. See POST /api/collection-requests.
+    if (forSale && listing.collectionRequestId) {
+      return NextResponse.json(
+        { error: "Cannot list a card for sale while it is marked for in-person collection" },
         { status: 409 }
       );
     }

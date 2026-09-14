@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Box, Typography, Button, Divider, Alert } from "@mui/material";
 import { useRouter } from "next/navigation";
 import GavelIcon from "@mui/icons-material/Gavel";
@@ -191,7 +191,11 @@ export default function BuyBox({
       auction.status === "pending_seller_decision" && auction.sellerDecisionDeadline
         ? auction.sellerDecisionDeadline
         : auction.endsAt;
-    const tick = () => setAuctionTimeLeft(getTimeLeft(target));
+    // Wrapped in startTransition — this fires every second for as long as
+    // this component is mounted, so an ordinary setState here can
+    // otherwise keep preempting a pending route-change transition
+    // indefinitely. See the same fix + rationale in HomeFeatured.tsx.
+    const tick = () => startTransition(() => setAuctionTimeLeft(getTimeLeft(target)));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -200,8 +204,8 @@ export default function BuyBox({
   useEffect(() => {
     if (!auction || auctionTimeLeft.done) return;
     const id = setInterval(() => {
-      setAuctionSpin(true);
-      setTimeout(() => setAuctionSpin(false), 600);
+      startTransition(() => setAuctionSpin(true));
+      setTimeout(() => startTransition(() => setAuctionSpin(false)), 600);
     }, 2000);
     return () => clearInterval(id);
   }, [auction, auctionTimeLeft.done]);

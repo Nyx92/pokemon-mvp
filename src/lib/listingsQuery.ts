@@ -35,13 +35,12 @@ export interface ListingsQueryParams {
 // Hoisted so the type used by mapListing() and the `include` passed to the
 // real prisma.listing.findMany() call below are the exact same value —
 // previously the type was reconstructed from only listingCatalogInclude,
-// so tsc had no way to notice if the query's actual include (binder,
-// owner) ever drifted from what mapListing() assumed it received. See
-// MarketPlace.tsx's `!(userId && product.owner?.id === userId)` check,
-// which silently hides a user's own listings from the marketplace — the
-// one consumer of `owner` this include exists to keep type-safe.
+// so tsc had no way to notice if the query's actual include (owner) ever
+// drifted from what mapListing() assumed it received. See MarketPlace.tsx's
+// `!(userId && product.owner?.id === userId)` check, which silently hides
+// a user's own listings from the marketplace — the one consumer of
+// `owner` this include exists to keep type-safe.
 const listingsInclude = {
-  binder: true,
   // Public listing — email is deliberately excluded (nothing in the
   // frontend reads it here, and card owners' emails shouldn't be exposed
   // to anonymous marketplace visitors). CardItem types owner.email as
@@ -64,12 +63,6 @@ function mapListing(listing: ListingWithRelations) {
   return {
     ...withDisplay,
     price: withDisplay.price != null ? centsToDollars(withDisplay.price) : null,
-    // CardItem.binder is optional (absent), not nullable — a listing with
-    // no binderId comes back from Prisma as `binder: null`, so normalize
-    // that to `undefined` here to match. Every consumer (MyCollection.tsx)
-    // already only ever checks binder truthily or via `?.`, so this is a
-    // no-behavior-change type fix, not a functional one.
-    binder: withDisplay.binder ?? undefined,
     // Listing.game is a plain `String` column (not a Prisma enum), but every
     // write path validates it's one of these two literals before persisting
     // (see the `game !== "POKEMON" && game !== "RIFTBOUND"` 400 check in
@@ -104,26 +97,26 @@ function mapListing(listing: ListingWithRelations) {
   };
 }
 
-export async function getListingsPage(params: ListingsQueryParams): Promise<ListingsPageResult> {
+// Builds the catalog-facet (game/set/rarity/type/condition/language) AND
+// clauses shared by getListingsPage below and GET /api/user/cards — both
+// query the same Listing model against the same pokemonCard/riftboundCard
+// catalog split, so this one function is the single place that OR-across-
+// catalogs logic is written. tcgPlayerId/forSale/ids stay in the caller
+// since only getListingsPage's public marketplace query needs them.
+export function buildCatalogFacetClauses(params: {
+  game?: "POKEMON" | "RIFTBOUND" | null;
+  setNames?: string[];
+  rarities?: string[];
+  types?: string[];
+  languages?: string[];
+  conditions?: string[];
+}): Prisma.ListingWhereInput[] {
   const {
-    forSale, tcgPlayerId, game,
-    setNames = [], rarities = [], types = [], languages = [], conditions = [], ids = [],
-    page = null, pageSize = null,
+    game, setNames = [], rarities = [], types = [], languages = [], conditions = [],
   } = params;
 
   const and: Prisma.ListingWhereInput[] = [];
-  if (forSale === true) and.push({ forSale: true });
-  if (tcgPlayerId) {
-    and.push({
-      OR: [
-        { pokemonCard: { tcgPlayerId } },
-        { riftboundCard: { tcgPlayerId } },
-      ],
-    });
-  }
   if (game === "POKEMON" || game === "RIFTBOUND") and.push({ game });
-  const clampedIds = ids.slice(0, MAX_IDS);
-  if (clampedIds.length > 0) and.push({ id: { in: clampedIds } });
   if (setNames.length > 0) {
     and.push({
       OR: [
@@ -150,6 +143,29 @@ export async function getListingsPage(params: ListingsQueryParams): Promise<List
       ],
     });
   }
+  return and;
+}
+
+export async function getListingsPage(params: ListingsQueryParams): Promise<ListingsPageResult> {
+  const {
+    forSale, tcgPlayerId, game,
+    setNames = [], rarities = [], types = [], languages = [], conditions = [], ids = [],
+    page = null, pageSize = null,
+  } = params;
+
+  const and: Prisma.ListingWhereInput[] = [];
+  if (forSale === true) and.push({ forSale: true });
+  if (tcgPlayerId) {
+    and.push({
+      OR: [
+        { pokemonCard: { tcgPlayerId } },
+        { riftboundCard: { tcgPlayerId } },
+      ],
+    });
+  }
+  const clampedIds = ids.slice(0, MAX_IDS);
+  if (clampedIds.length > 0) and.push({ id: { in: clampedIds } });
+  and.push(...buildCatalogFacetClauses({ game, setNames, rarities, types, languages, conditions }));
 
   const where: Prisma.ListingWhereInput = and.length > 0 ? { AND: and } : {};
 

@@ -33,7 +33,6 @@ import { GET } from "@/app/api/cards/[id]/route";
 const LISTING = {
   id: "card-1",
   price: 5000,
-  binder: null,
   owner: { id: "owner-1", username: "Ash" },
   _count: { watchlist: 3 },
   pokemonCard: {

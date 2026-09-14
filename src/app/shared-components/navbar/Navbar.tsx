@@ -13,7 +13,6 @@
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   AppBar, Badge, Box, Button, Container, Divider, IconButton,
@@ -30,6 +29,7 @@ import ShoppingCartOutlinedIcon from "@mui/icons-material/ShoppingCartOutlined";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { NAVBAR_HEIGHT } from "@/app/utils/navChrome";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import { useAuth } from "@/app/hooks/useAuth";
 import { useWatchlistAnimation } from "@/app/context/WatchlistAnimationContext";
 import { useCart } from "@/app/context/CartContext";
@@ -46,11 +46,13 @@ const ACCOUNT_ITEMS = [
   { label: "Notifications", href: "/notifications", Icon: NotificationsNoneOutlinedIcon },
 ] as const;
 
+// Staff-only — appended to the dropdown below only when session.user.role === "admin".
+const ADMIN_ITEM = { label: "Pickup Requests", href: "/admin/collection-requests", Icon: Inventory2OutlinedIcon } as const;
+
 const DARK = "#ffffff";
 
 export default function Navbar() {
   const { user, isLoggedIn } = useAuth();
-  const router = useRouter();
   const displayUser = user?.username ?? "Profile";
   const { navbarIconRef, count } = useWatchlistAnimation();
   const { count: cartCount } = useCart();
@@ -77,11 +79,6 @@ export default function Navbar() {
 
   const handleOpenMenu  = (e: React.MouseEvent<HTMLElement>) => setAnchorEl(e.currentTarget);
   const handleCloseMenu = () => setAnchorEl(null);
-
-  const handleNavItem = (href: string) => {
-    handleCloseMenu();
-    router.push(href);
-  };
 
   return (
     <AppBar
@@ -146,9 +143,20 @@ export default function Navbar() {
           <Box sx={{ flex: 1 }} />
 
           {/* ── Icon buttons ──────────────────────────────────────────────── */}
+          {/* component={Link} (not onClick + router.push) on every nav
+              affordance in this bar — Cart/Watchlist/Notifications here and
+              the account dropdown items below — so Next.js prefetches the
+              destination on hover/focus instead of only starting that fetch
+              at click time. That doesn't change scheduling priority the way
+              wrapping a competing setState in startTransition does (see
+              HomeFeatured.tsx for that separate fix) — it's a complementary
+              technique that shrinks how long a click spends waiting on data,
+              which is exactly the window during which a slow in-flight page
+              fetch elsewhere in the tree could make the click feel stuck. */}
           <IconButton
+            component={Link}
+            href="/cart"
             aria-label="Cart"
-            onClick={() => router.push("/cart")}
             sx={{ color: "#ffffff", p: { xs: 0.75, sm: 1.25 }, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
           >
             <Badge
@@ -171,9 +179,14 @@ export default function Navbar() {
           </IconButton>
 
           <IconButton
-            ref={navbarIconRef as React.Ref<HTMLButtonElement>}
+            component={Link}
+            href="/watchlist"
+            // navbarIconRef is typed for a <button> since useWatchlistAnimation
+            // is shared with contexts that don't render as a Link — only
+            // getBoundingClientRect is ever called on it, which any element
+            // ref supports, so the cast here is safe.
+            ref={navbarIconRef as unknown as React.Ref<HTMLAnchorElement>}
             aria-label="Watchlist"
-            onClick={() => router.push("/watchlist")}
             sx={{ color: "#ffffff", p: { xs: 0.75, sm: 1.25 }, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
           >
             <Badge
@@ -196,8 +209,9 @@ export default function Navbar() {
           </IconButton>
 
           <IconButton
+            component={Link}
+            href="/notifications"
             aria-label="Notifications"
-            onClick={() => router.push("/notifications")}
             sx={{ color: "#ffffff", p: { xs: 0.75, sm: 1.25 }, mr: 0.5, "&:hover": { backgroundColor: "rgba(255,255,255,0.10)" } }}
           >
             <Badge
@@ -299,9 +313,11 @@ export default function Navbar() {
                     },
                   }}
                 >
-                  {/* Account nav items */}
-                  {ACCOUNT_ITEMS.map(({ label, href, Icon }) => (
-                    <MenuItem key={href} onClick={() => handleNavItem(href)}>
+                  {/* Account nav items — component={Link}, same prefetch
+                      rationale as the Cart/Watchlist/Notifications buttons
+                      above. */}
+                  {[...ACCOUNT_ITEMS, ...(user?.role === "admin" ? [ADMIN_ITEM] : [])].map(({ label, href, Icon }) => (
+                    <MenuItem key={href} component={Link} href={href} onClick={handleCloseMenu}>
                       <ListItemIcon sx={{ minWidth: 32 }}>
                         <Icon sx={{ fontSize: 18, color: "rgba(255,255,255,0.6)" }} />
                       </ListItemIcon>

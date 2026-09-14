@@ -13,6 +13,7 @@ import React, {
   useContext,
   useEffect,
   useState,
+  startTransition,
 } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 
@@ -43,7 +44,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuth();
   const [count, setCount] = useState(0);
 
-  // Fetch total item count from the cart API and seed the badge
+  // Fetch total item count from the cart API and seed the badge.
+  // setCount is wrapped in startTransition — this provider wraps every
+  // page, and an ordinary setState here can otherwise win the scheduler
+  // over a pending route-change transition, visibly delaying navigation.
+  // See the same fix + rationale in HomeFeatured.tsx.
   const refreshCount = useCallback(() => {
     fetch("/api/cart")
       .then((r) => r.json())
@@ -53,7 +58,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             (sum, pkg) => sum + pkg.items.length,
             0
           );
-          setCount(total);
+          startTransition(() => setCount(total));
         }
       })
       .catch(() => {});

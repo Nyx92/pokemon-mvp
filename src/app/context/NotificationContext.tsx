@@ -20,6 +20,7 @@ import {
   useEffect,
   useRef,
   useState,
+  startTransition,
 } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 
@@ -64,7 +65,12 @@ export function NotificationProvider({
     es.onmessage = (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data) as { unreadCount: number };
-        setUnreadCount(data.unreadCount);
+        // Wrapped in startTransition — this provider wraps every page and
+        // ticks every 5s for as long as the user is logged in, so an
+        // ordinary setState here can repeatedly win the scheduler over a
+        // pending route-change transition, indefinitely delaying
+        // navigation. See the same fix + rationale in HomeFeatured.tsx.
+        startTransition(() => setUnreadCount(data.unreadCount));
       } catch {
         // Malformed message — ignore.
       }

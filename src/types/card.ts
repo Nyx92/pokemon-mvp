@@ -27,6 +27,12 @@ export interface CardItem {
   watchlistCount?: number;
   watchlistedByUser?: boolean;
 
+  // Populated by GET /api/user/cards — set while this card is earmarked
+  // for in-person collection from the shop. See src/app/myCollection.
+  collectionRequestId?: string | null;
+  collectionRequestRef?: string | null;
+  collectionRequestStatus?: "REQUESTED" | "PACKED" | "COLLECTED" | null;
+
   createdAt: string;
   updatedAt: string;
 
@@ -42,7 +48,13 @@ export interface CardItem {
     email?: string;
   };
 
-  binder?: { id: string; name: string };
+  // Raw ownerId scalar — present on every endpoint's response (it's just a
+  // Listing column, unlike the `owner` relation object above, which some
+  // routes such as GET /api/user/cards don't bother including since the
+  // caller obviously already owns everything it returns). CardListItem's
+  // isOwner check falls back to this so "hide the watchlist button on your
+  // own card" still works on those routes too.
+  ownerId?: string;
 }
 
 // Lightweight per-card fields for the marketplace's client-side search
@@ -57,4 +69,12 @@ export interface CardBrowseIndexItem {
   language: string;
   condition: string;
   game: "POKEMON" | "RIFTBOUND";
+}
+
+// My Collection's counterpart to CardBrowseIndexItem — same "small enough
+// to fetch in full for client-side search" rationale, plus the one field
+// its own filter UI needs (status) that the public marketplace index has
+// no use for. See GET /api/user/cards/browse-index.
+export interface MyCollectionBrowseIndexItem extends CardBrowseIndexItem {
+  status: "available" | "for_sale" | "in_auction" | "pending_collection";
 }

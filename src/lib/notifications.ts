@@ -22,6 +22,7 @@
  *   auction_sold            — seller: your card sold via auction
  *   auction_decision_needed — seller: auction ended below reserve; you have 1 day to decide
  *   auction_expired         — bidder/seller: auction ended without a sale
+ *   collection_packed       — customer: staff packed your in-person pickup request
  */
 
 import { prisma } from "@/lib/prisma";
@@ -37,7 +38,8 @@ export type NotificationType =
   | "auction_won"
   | "auction_sold"
   | "auction_decision_needed"
-  | "auction_expired";
+  | "auction_expired"
+  | "collection_packed";
 
 export interface CreateNotificationInput {
   userId: string;

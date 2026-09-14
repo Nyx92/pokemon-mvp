@@ -37,7 +37,7 @@
  *     `clearInterval` is called to prevent memory leaks and phantom state updates.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, startTransition } from "react";
 import { Typography } from "@mui/material";
 
 interface OfferCountdownProps {
@@ -72,9 +72,15 @@ export default function OfferCountdown({ expiresAt, onExpired }: OfferCountdownP
   // ── 2-4. Start ticking, check expiry, clean up on unmount ─────────────────
   useEffect(() => {
     const tick = () => {
-      // 3. Recalculate remaining ms on every tick
+      // 3. Recalculate remaining ms on every tick. Wrapped in startTransition
+      // — this fires every second for as long as the component is mounted,
+      // so an ordinary setState here can otherwise keep preempting a
+      // pending route-change transition indefinitely. See the same fix +
+      // rationale in HomeFeatured.tsx. onExpired stays outside the
+      // transition — it signals something that actually happened (offer
+      // expired), not just a cosmetic clock update.
       const ms = new Date(expiresAt).getTime() - Date.now();
-      setRemaining(ms);
+      startTransition(() => setRemaining(ms));
 
       // 4. Stop the interval and fire the callback when time is up
       if (ms <= 0) {

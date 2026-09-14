@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockPrisma = vi.hoisted(() => ({
   cardWatchlist: {
     findMany: vi.fn(),
+    deleteMany: vi.fn(),
   },
 }));
 
@@ -33,17 +34,19 @@ import { GET } from "@/app/api/watchlist/route";
 
 const SESSION = { user: { id: "user-1" } };
 
-function makeWatchlistEntry(listingId: string, priceInCents: number | null) {
+function makeWatchlistEntry(listingId: string, priceInCents: number | null, opts: { forSale?: boolean; inAuction?: boolean; ownerId?: string } = {}) {
   return {
+    id: `entry-${listingId}`,
     listing: {
       id: listingId,
+      ownerId: opts.ownerId ?? "owner-1",
       price: priceInCents,
       condition: "NM",
-      forSale: true,
+      forSale: opts.forSale ?? true,
+      inAuction: opts.inAuction ?? false,
       imageUrls: [],
       status: "available",
       description: "",
-      binderId: null,
       pokemonCard: {
         nameEn: `Card ${listingId}`,
         rarity: "Rare",
@@ -161,5 +164,48 @@ describe("GET /api/watchlist", () => {
     expect(findManyArgs.include.listing.include.owner).toEqual({
       select: { id: true, username: true },
     });
+  });
+
+  // What's being tested: stale entries (listing no longer for sale or on
+  // auction — sold, marked for in-person collection, etc.) are pruned as a
+  // side effect of loading the watchlist, and never appear in the response.
+
+  it("prunes and omits entries whose listing is no longer for sale or on auction", async () => {
+    mockPrisma.cardWatchlist.findMany.mockResolvedValueOnce([
+      makeWatchlistEntry("still-for-sale", 1000, { forSale: true }),
+      makeWatchlistEntry("now-unavailable", 1000, { forSale: false, inAuction: false }),
+      makeWatchlistEntry("now-in-auction", 1000, { forSale: false, inAuction: true }),
+    ]);
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(body.cards.map((c: any) => c.id)).toEqual(["still-for-sale", "now-in-auction"]);
+    expect(mockPrisma.cardWatchlist.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["entry-now-unavailable"] } },
+    });
+  });
+
+  it("prunes and omits an entry the caller now owns (watchlisted, then bought it)", async () => {
+    mockPrisma.cardWatchlist.findMany.mockResolvedValueOnce([
+      makeWatchlistEntry("still-someone-elses", 1000, { ownerId: "owner-1" }),
+      makeWatchlistEntry("now-owned-by-caller", 1000, { forSale: true, ownerId: "user-1" }),
+    ]);
+
+    const res = await GET();
+    const body = await res.json();
+
+    expect(body.cards.map((c: any) => c.id)).toEqual(["still-someone-elses"]);
+    expect(mockPrisma.cardWatchlist.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ["entry-now-owned-by-caller"] } },
+    });
+  });
+
+  it("doesn't call deleteMany when nothing is stale", async () => {
+    mockPrisma.cardWatchlist.findMany.mockResolvedValueOnce([makeWatchlistEntry("c1", 1000)]);
+
+    await GET();
+
+    expect(mockPrisma.cardWatchlist.deleteMany).not.toHaveBeenCalled();
   });
 });

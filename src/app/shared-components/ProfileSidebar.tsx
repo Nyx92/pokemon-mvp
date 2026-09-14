@@ -9,7 +9,8 @@
  * content panel scrolls.
  */
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import {
   Box, List, ListItem, ListItemButton,
@@ -22,6 +23,8 @@ import GavelIcon from "@mui/icons-material/Gavel";
 import SellOutlinedIcon from "@mui/icons-material/SellOutlined";
 import LogoutIcon from "@mui/icons-material/Logout";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import { useAuth } from "@/app/hooks/useAuth";
 
 // ── Nav items ─────────────────────────────────────────────────────────────────
 // Add new account-section pages here — they will appear in the sidebar
@@ -35,11 +38,15 @@ const NAV_ITEMS = [
   { label: "Notifications", href: "/notifications", Icon: NotificationsNoneOutlinedIcon },
 ] as const;
 
+// Staff-only — mirrors ADMIN_ITEM in Navbar.tsx's dropdown, keep in sync.
+const ADMIN_ITEM = { label: "Pickup Requests", href: "/admin/collection-requests", Icon: Inventory2OutlinedIcon } as const;
+
 const ACTIVE_BLUE = "#0053ff";
 
 export default function ProfileSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { isAdmin } = useAuth();
+  const items = isAdmin ? [...NAV_ITEMS, ADMIN_ITEM] : NAV_ITEMS;
 
   return (
     <Box
@@ -73,13 +80,16 @@ export default function ProfileSidebar() {
       </Typography>
 
       {/* ── Nav items ── */}
+      {/* component={Link}, same prefetch rationale as Navbar.tsx's nav
+          buttons/dropdown. */}
       <List disablePadding>
-        {NAV_ITEMS.map(({ label, href, Icon }) => {
+        {items.map(({ label, href, Icon }) => {
           const active = pathname === href;
           return (
             <ListItem key={href} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
-                onClick={() => router.push(href)}
+                component={Link}
+                href={href}
                 sx={{
                   borderRadius: 1.5,
                   px: 1.5,

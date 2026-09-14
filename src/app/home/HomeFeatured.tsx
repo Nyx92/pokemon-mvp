@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, startTransition } from "react";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
@@ -209,12 +209,29 @@ export default function HomeFeatured() {
   const watchlistedIds = useWatchlistIds();
 
   // 1. Fetch all featured data in one request; surface error state on failure.
+  //
+  // The state updates below are wrapped in startTransition so React treats
+  // "swap the spinner for the loaded feed" as low priority. Next.js's App
+  // Router itself queues every client-side navigation (router.push, <Link>)
+  // as a transition — without this, an ordinary (default-priority) setState
+  // here always wins the scheduler over a pending route change, so clicking
+  // a nav link while this fetch is in flight visibly waits for it to finish
+  // before the URL actually changes.
   useEffect(() => {
     fetch("/api/home/featured")
       .then((r) => r.json())
-      .then(setData)
-      .catch(() => setFetchError(true))
-      .finally(() => setLoading(false));
+      .then((json) => {
+        startTransition(() => {
+          setData(json);
+          setLoading(false);
+        });
+      })
+      .catch(() => {
+        startTransition(() => {
+          setFetchError(true);
+          setLoading(false);
+        });
+      });
   }, []);
 
   const handleCardClick = (card: CardItem) => {

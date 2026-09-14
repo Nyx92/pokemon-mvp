@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useRef,
   useState,
+  startTransition,
 } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/app/hooks/useAuth";
@@ -144,7 +145,11 @@ export function WatchlistAnimationProvider({
   // Avoid SSR/hydration mismatch for the portal
   useEffect(() => setMounted(true), []);
 
-  // Seed badge count from the server whenever auth state changes
+  // Seed badge count from the server whenever auth state changes.
+  // setCount is wrapped in startTransition — this provider wraps every
+  // page, and an ordinary setState here can otherwise win the scheduler
+  // over a pending route-change transition, visibly delaying navigation.
+  // See the same fix + rationale in HomeFeatured.tsx.
   useEffect(() => {
     if (!isLoggedIn) {
       setCount(0);
@@ -153,7 +158,7 @@ export function WatchlistAnimationProvider({
     fetch("/api/watchlist")
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data.cards)) setCount(data.cards.length);
+        if (Array.isArray(data.cards)) startTransition(() => setCount(data.cards.length));
       })
       .catch(() => {});
   }, [isLoggedIn]);

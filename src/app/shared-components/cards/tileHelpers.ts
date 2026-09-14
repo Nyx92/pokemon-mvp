@@ -30,6 +30,19 @@ export function fmtPrice(amount: number): string {
   return fixed.endsWith(".00") ? String(Math.round(amount)) : fixed;
 }
 
+// ── Ownership ────────────────────────────────────────────────────────────────
+
+// Checks both the raw ownerId scalar and the populated owner relation —
+// some routes (e.g. GET /api/user/cards, which only ever returns the
+// caller's own listings) don't bother including `owner`, so relying on
+// `owner?.id` alone silently fails to hide the watchlist button there.
+export function isCardOwner(
+  userId: string | null | undefined,
+  card: { ownerId?: string | null; owner?: { id: string } | null }
+): boolean {
+  return !!userId && (card.ownerId === userId || card.owner?.id === userId);
+}
+
 // ── Language chip ─────────────────────────────────────────────────────────────
 
 export function getLanguageChip(

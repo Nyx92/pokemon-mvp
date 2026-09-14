@@ -19,6 +19,7 @@ const mockPrisma = vi.hoisted(() => ({
     delete: vi.fn(),
     count: vi.fn(),
   },
+  listing: { findUnique: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -47,6 +48,9 @@ describe("POST /api/cards/[id]/watchlist", () => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue(SESSION);
     mockPrisma.cardWatchlist.count.mockResolvedValue(1);
+    // Default: some other user's listing — most tests exercise a real
+    // watchlist toggle, not the own-card rejection (see its own test below).
+    mockPrisma.listing.findUnique.mockResolvedValue({ ownerId: "someone-else" });
   });
 
   // What's being tested: the auth gate.
@@ -79,6 +83,20 @@ describe("POST /api/cards/[id]/watchlist", () => {
       data: { listingId: "card-1", userId: "user-1" },
     });
     expect(mockPrisma.cardWatchlist.delete).not.toHaveBeenCalled();
+  });
+
+  // What's being tested: watchlisting your own card is rejected — it isn't
+  // in your watchlist yet (findUnique returns null, same as the "add" path
+  // above), but the listing belongs to the caller.
+
+  it("returns 400 when trying to watchlist your own card", async () => {
+    mockPrisma.cardWatchlist.findUnique.mockResolvedValueOnce(null);
+    mockPrisma.listing.findUnique.mockResolvedValueOnce({ ownerId: "user-1" });
+
+    const res = await POST(new NextRequest("http://localhost"), PARAMS);
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.cardWatchlist.create).not.toHaveBeenCalled();
   });
 
   // What's being tested: the remove path.
