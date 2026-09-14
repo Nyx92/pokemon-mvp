@@ -293,6 +293,7 @@ export default function CartPage() {
   const [fetchError,     setFetchError]     = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutNeedsVerification, setCheckoutNeedsVerification] = useState(false);
   // Cart item whose "Make Offer" was clicked — drives the offer dialog
   const [offerTarget, setOfferTarget] = useState<CartItemData | null>(null);
 
@@ -390,11 +391,15 @@ export default function CartPage() {
 
   const handleCheckout = useCallback(async () => {
     setCheckoutError(null);
+    setCheckoutNeedsVerification(false);
     setCheckoutLoading(true);
     try {
       const res = await fetch("/api/checkout/cart", { method: "POST" });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Checkout failed");
+      if (!res.ok) {
+        setCheckoutNeedsVerification(res.status === 403);
+        throw new Error(data.error || "Checkout failed");
+      }
       window.location.href = data.url;
     } catch (err) {
       setCheckoutError(err instanceof Error ? err.message : "Checkout failed. Please try again.");
@@ -642,6 +647,18 @@ export default function CartPage() {
               {checkoutError && (
                 <Typography sx={{ fontSize: 12, color: "#ef4444", textAlign: "center", mt: 1 }}>
                   {checkoutError}
+                  {checkoutNeedsVerification && (
+                    <>
+                      {" "}
+                      <Typography
+                        component="span"
+                        onClick={() => router.push("/profile")}
+                        sx={{ fontSize: 12, color: "#0053ff", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+                      >
+                        Verify account
+                      </Typography>
+                    </>
+                  )}
                 </Typography>
               )}
 

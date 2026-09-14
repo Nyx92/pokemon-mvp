@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ── STEP 1: Create mock objects ───────────────────────────────────────────────
 
 const mockPrisma = vi.hoisted(() => ({
-  user: { create: vi.fn(), update: vi.fn() },
+  user: { create: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -152,6 +152,10 @@ describe("POST /api/user (signup)", () => {
 describe("PUT /api/user (profile update)", () => {
   beforeEach(() => {
     mockGetServerSession.mockResolvedValue(SESSION);
+    // The PUT handler compares against the DB's current email to decide
+    // whether to reset emailVerified — default to a different address so
+    // most tests (which submit a new email) exercise that path.
+    mockPrisma.user.findUnique.mockResolvedValue({ email: "old@example.com" });
   });
 
   it("returns 401 when not authenticated", async () => {
@@ -208,5 +212,46 @@ describe("PUT /api/user (profile update)", () => {
     mockPrisma.user.update.mockRejectedValue(new Error("db exploded"));
     const res = await PUT(putRequest({ email: "new@example.com" }));
     expect(res.status).toBe(500);
+  });
+
+  describe("phone number", () => {
+    it("returns 400 for a malformed phone number", async () => {
+      const res = await PUT(putRequest({ email: "old@example.com", phoneNumber: "91234567" })); // missing "+"
+      expect(res.status).toBe(400);
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("resets phoneVerified when the number changes", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ email: "old@example.com", phoneNumber: "+6591111111" });
+      mockPrisma.user.update.mockResolvedValue({ id: "user-1" });
+
+      await PUT(putRequest({ email: "old@example.com", phoneNumber: "+6592222222" }));
+
+      const updateArgs = mockPrisma.user.update.mock.calls[0][0];
+      expect(updateArgs.data.phoneNumber).toBe("+6592222222");
+      expect(updateArgs.data.phoneVerified).toBe(false);
+      expect(updateArgs.data.phoneVerificationCodeHash).toBeNull();
+    });
+
+    it("leaves phoneVerified untouched when the number is unchanged", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ email: "old@example.com", phoneNumber: "+6591111111" });
+      mockPrisma.user.update.mockResolvedValue({ id: "user-1" });
+
+      await PUT(putRequest({ email: "old@example.com", phoneNumber: "+6591111111" }));
+
+      const updateArgs = mockPrisma.user.update.mock.calls[0][0];
+      expect(updateArgs.data.phoneVerified).toBeUndefined();
+    });
+
+    it("leaves phoneNumber untouched when the field is omitted entirely", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ email: "old@example.com", phoneNumber: "+6591111111" });
+      mockPrisma.user.update.mockResolvedValue({ id: "user-1" });
+
+      await PUT(putRequest({ email: "old@example.com", firstName: "Ash" }));
+
+      const updateArgs = mockPrisma.user.update.mock.calls[0][0];
+      expect(updateArgs.data).not.toHaveProperty("phoneNumber");
+      expect(updateArgs.data.phoneVerified).toBeUndefined();
+    });
   });
 });

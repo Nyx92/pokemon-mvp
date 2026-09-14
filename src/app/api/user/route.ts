@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { isValidE164 } from "@/lib/phone";
 
 // This function is to store user details on successful sign up
 export async function POST(req: Request) {
@@ -98,6 +99,26 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
+    // Phone number is optional here — Personal Information can be saved
+    // without touching it. When present, it must already be a normalized
+    // E.164 string (EditProfilePage normalizes react-phone-input-2's raw
+    // digits before sending); see src/lib/phone.ts.
+    if (data.phoneNumber !== undefined && data.phoneNumber !== null && !isValidE164(data.phoneNumber)) {
+      return NextResponse.json({ error: "Invalid phone number" }, { status: 400 });
+    }
+
+    // A previously-verified email/phone doesn't carry over to a new
+    // value — the user must re-verify. Compare against the DB, not the
+    // client-supplied form (which round-trips the old value unless the
+    // user edits it).
+    const existing = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { email: true, phoneNumber: true },
+    });
+    const emailChanged = existing?.email !== data.email;
+    const phoneChanged =
+      data.phoneNumber !== undefined && existing?.phoneNumber !== data.phoneNumber;
+
     const updatedUser = await prisma.user.update({
       where: { id: session.user.id },
       data: {
@@ -109,6 +130,13 @@ export async function PUT(req: Request) {
         sex: data.sex,
         dob: data.dob ? new Date(data.dob) : null,
         address: data.address,
+        ...(data.phoneNumber !== undefined ? { phoneNumber: data.phoneNumber } : {}),
+        ...(emailChanged
+          ? { emailVerified: null, emailVerificationCodeHash: null, emailVerificationCodeExpiresAt: null }
+          : {}),
+        ...(phoneChanged
+          ? { phoneVerified: false, phoneVerificationCodeHash: null, phoneVerificationCodeExpiresAt: null }
+          : {}),
       },
       select: {
         id: true,
@@ -121,6 +149,7 @@ export async function PUT(req: Request) {
         dob: true,
         address: true,
         phoneNumber: true,
+        phoneVerified: true,
         verified: true,
         role: true,
       },

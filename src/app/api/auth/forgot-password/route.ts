@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
 import { sendEmailAsync, buildPasswordResetEmail } from "@/lib/email";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -23,6 +24,24 @@ const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
  * plaintext.
  */
 export async function POST(req: NextRequest) {
+  // 🔒 Rate limit by IP — 10 per hour, same limit as signup (see
+  // src/app/api/users/route.ts). Without this, an attacker can force a
+  // Resend send (and flood a victim's inbox) on every request, since this
+  // endpoint is intentionally unauthenticated. In-memory stopgap (see
+  // src/lib/rateLimit.ts).
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ip = forwardedFor?.split(",")[0]?.trim() || "unknown";
+  const { allowed } = checkRateLimit(`forgot-password:${ip}`, {
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   try {
     const { email } = await req.json();
     if (!email || typeof email !== "string") {

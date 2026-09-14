@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
-import { Box, CircularProgress, Typography, IconButton } from "@mui/material";
+import { Box, CircularProgress, Typography, IconButton, Snackbar, Alert, Button } from "@mui/material";
 import { motion } from "framer-motion";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import BookmarkIcon from "@mui/icons-material/Bookmark";
@@ -52,6 +52,10 @@ export default function CardDetailClient() {
   const [bidDialogOpen,     setBidDialogOpen]     = useState(false);
   // Pre-filled bid amount for the Buy Now (buy-out) flow; undefined means no prefill.
   const [bidInitialAmount,  setBidInitialAmount]  = useState<number | undefined>(undefined);
+  // Surfaces a checkout failure (e.g. the purchase-verification gate) —
+  // handleBuyNow previously only console.error'd, so a blocked buyer saw
+  // nothing happen at all when they clicked Buy Now.
+  const [checkoutError, setCheckoutError] = useState<{ message: string; needsVerification: boolean } | null>(null);
 
   // Combined card + auction fetch on [id].
   // 1. Fetch card; classify non-ok responses so the user sees the right error.
@@ -259,11 +263,19 @@ export default function CardDetailClient() {
           buyerId: userId,
         }),
       });
-      if (!res.ok) return console.error("Failed to create checkout session");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.error("Failed to create checkout session:", data.error);
+        setCheckoutError({
+          message: data.error || "Failed to start checkout. Please try again.",
+          needsVerification: res.status === 403,
+        });
+        return;
+      }
       if (data.url) window.location.href = data.url;
     } catch (err) {
       console.error("Error calling /api/checkout:", err);
+      setCheckoutError({ message: "Failed to start checkout. Please try again.", needsVerification: false });
     }
   };
 
@@ -737,6 +749,29 @@ export default function CardDetailClient() {
           }}
         />
       )}
+
+      <Snackbar
+        open={!!checkoutError}
+        autoHideDuration={8000}
+        onClose={() => setCheckoutError(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setCheckoutError(null)}
+          severity="error"
+          variant="filled"
+          sx={{ width: "100%" }}
+          action={
+            checkoutError?.needsVerification ? (
+              <Button color="inherit" size="small" onClick={() => router.push("/profile")}>
+                Verify account
+              </Button>
+            ) : undefined
+          }
+        >
+          {checkoutError?.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

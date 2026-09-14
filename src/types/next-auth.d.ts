@@ -14,6 +14,7 @@ declare module "next-auth" {
     phoneNumber?: string | null;
     emailVerified?: string | null;
     verified?: boolean;
+    phoneVerified?: boolean;
   }
 
   interface Session {
@@ -36,5 +37,6 @@ declare module "next-auth/jwt" {
     phoneNumber?: string | null;
     emailVerified?: string | null;
     verified?: boolean;
+    phoneVerified?: boolean;
   }
 }

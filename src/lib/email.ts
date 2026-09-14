@@ -41,6 +41,25 @@ export function sendEmailAsync(opts: SendEmailOptions): void {
     });
 }
 
+// Awaited variant — used only where the caller must know whether the send
+// actually succeeded (e.g. a verification code, where "we tried" isn't
+// enough: the user needs to be told to check their inbox vs. try again).
+// Every other transactional email (notifications, password reset) stays on
+// the fire-and-forget path above.
+export async function sendEmail(opts: SendEmailOptions): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { error } = await resend.emails.send({ from: FROM, to: opts.to, subject: opts.subject, html: opts.html });
+    if (error) {
+      console.error("[email] Resend API error sending to", opts.to, error);
+      return { success: false, error: error.message };
+    }
+    return { success: true };
+  } catch (err) {
+    console.error("[email] Failed to send to", opts.to, err);
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
 // ── HTML email template ───────────────────────────────────────────────────────
 // Simple inline-styled layout — works across all major email clients.
 // Shared shell so every transactional email (notifications, password reset,
@@ -122,5 +141,19 @@ export function buildPasswordResetEmail(resetUrl: string): string {
     ctaLabel: "Reset password",
     ctaUrl: resetUrl,
     footer: "You're receiving this because a password reset was requested for your MXYYC account.",
+  });
+}
+
+// The code itself is rendered as the "CTA" text since there's no link to
+// click — the shared shell doesn't assume its action is always a button.
+export function buildEmailVerificationCodeEmail(code: string): string {
+  return buildEmailShell({
+    title: "Verify your email",
+    body:
+      `Your MXYYC verification code is <strong style="font-size:20px;letter-spacing:2px;">${code}</strong>. ` +
+      "This code expires in 10 minutes. If you didn't request this, you can safely ignore this email.",
+    ctaLabel: code,
+    ctaUrl: `${SITE_URL}/profile`,
+    footer: "You're receiving this because an email verification code was requested for your MXYYC account.",
   });
 }

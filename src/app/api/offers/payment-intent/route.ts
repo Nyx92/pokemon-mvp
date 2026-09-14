@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { requireVerifiedForPurchase } from "@/lib/purchaseVerification";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -58,6 +59,11 @@ export async function POST(req: NextRequest) {
       { status: 429 }
     );
   }
+
+  // 🔒 Buyer must have verified both email and phone before committing to
+  // any purchase. See src/lib/purchaseVerification.ts.
+  const verificationError = await requireVerifiedForPurchase(buyerId);
+  if (verificationError) return verificationError;
 
   try {
     const { cardId, price } = await req.json();

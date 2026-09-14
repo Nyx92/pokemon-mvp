@@ -16,6 +16,7 @@ const mockStripeInstance = vi.hoisted(() => ({
 
 const mockPrisma = vi.hoisted(() => ({
   auction: { findUnique: vi.fn() },
+  user: { findUnique: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -66,6 +67,12 @@ const BASE_AUCTION = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Verified bidder by default — see the dedicated "purchase verification
+  // gate" tests below for the unverified-bidder case.
+  mockPrisma.user.findUnique.mockResolvedValue({
+    emailVerified: new Date(),
+    phoneVerified: true,
+  });
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -155,5 +162,19 @@ describe("POST /api/auctions/[id]/bid/intent", () => {
         }),
       })
     );
+  });
+
+  describe("purchase verification gate", () => {
+    it("returns 403 when the bidder hasn't verified their email or phone", async () => {
+      mockGetServerSession.mockResolvedValue(BUYER_SESSION);
+      mockPrisma.user.findUnique.mockResolvedValueOnce({ emailVerified: null, phoneVerified: false });
+
+      const res = await POST(postReq({ amount: 10 }), PARAMS);
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({
+        error: expect.stringMatching(/verify your email and phone/i),
+      });
+      expect(mockPrisma.auction.findUnique).not.toHaveBeenCalled();
+    });
   });
 });

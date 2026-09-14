@@ -17,6 +17,7 @@ const mockStripeInstance = vi.hoisted(() => ({
 
 const mockPrisma = vi.hoisted(() => ({
   listing: { findUnique: vi.fn() },
+  user: { findUnique: vi.fn() },
 }));
 
 const mockGetServerSession = vi.hoisted(() => vi.fn());
@@ -57,6 +58,13 @@ describe("POST /api/offers/payment-intent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue({ user: { id: "buyer-1" } });
+    // Verified buyer by default — see the dedicated "purchase verification
+    // gate" tests below for the unverified-buyer cases.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "buyer-1",
+      emailVerified: new Date(),
+      phoneVerified: true,
+    });
     mockPrisma.listing.findUnique.mockResolvedValue(LISTING);
     mockStripeInstance.paymentIntents.create.mockResolvedValue({
       id: "pi_123",
@@ -125,5 +133,22 @@ describe("POST /api/offers/payment-intent", () => {
         }),
       })
     );
+  });
+
+  describe("purchase verification gate", () => {
+    it("returns 403 when the buyer hasn't verified their email or phone", async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: "buyer-1",
+        emailVerified: null,
+        phoneVerified: false,
+      });
+
+      const res = await POST(makeRequest({ cardId: "card-1", price: 5000 }));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({
+        error: expect.stringMatching(/verify your email and phone/i),
+      });
+      expect(mockPrisma.listing.findUnique).not.toHaveBeenCalled();
+    });
   });
 });

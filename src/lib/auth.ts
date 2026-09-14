@@ -196,6 +196,7 @@ export const authOptions: NextAuthOptions = {
           dob:           user.dob ? user.dob.toISOString() : null,
           address:       user.address,
           phoneNumber:   user.phoneNumber,
+          phoneVerified: user.phoneVerified,
           emailVerified: user.emailVerified ? user.emailVerified.toISOString() : null,
           verified:      user.verified,
         };
@@ -288,6 +289,7 @@ export const authOptions: NextAuthOptions = {
         token.dob           = user.dob           ?? null;
         token.address       = user.address       ?? null;
         token.phoneNumber   = user.phoneNumber   ?? null;
+        token.phoneVerified = user.phoneVerified ?? false;
         token.emailVerified = user.emailVerified
           ? (user.emailVerified instanceof Date
               ? user.emailVerified.toISOString()
@@ -346,6 +348,7 @@ export const authOptions: NextAuthOptions = {
             token.dob           = dbUser.dob ? dbUser.dob.toISOString() : null;
             token.address       = dbUser.address;
             token.phoneNumber   = dbUser.phoneNumber;
+            token.phoneVerified = dbUser.phoneVerified;
             token.emailVerified = dbUser.emailVerified
               ? dbUser.emailVerified.toISOString()
               : null;
@@ -383,6 +386,7 @@ export const authOptions: NextAuthOptions = {
         session.user.dob           = token.dob           as string | null;
         session.user.address       = token.address       as string | null;
         session.user.phoneNumber   = token.phoneNumber   as string | null;
+        session.user.phoneVerified = token.phoneVerified as boolean;
         session.user.emailVerified = token.emailVerified as string | null;
         session.user.verified      = token.verified      as boolean;
       }

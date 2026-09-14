@@ -47,6 +47,23 @@ model User {
   role          String    @default("user")
   emailVerified DateTime?
   verified      Boolean   @default(false)
+  // Purchase-gate flag: whether phoneNumber has completed OTP verification.
+  // Kept separate from `verified` above, which is a legacy "trusted signup"
+  // flag (e.g. auto-set true for Google OAuth users) unrelated to phone
+  // ownership — see AccountLayout/ProfileContent for how the two are shown.
+  phoneVerified Boolean   @default(false)
+  // Email/phone OTP verification: a random 6-digit code is sent to the
+  // user, and only its SHA-256 hash + expiry are stored here — same
+  // principle as passwordResetTokenHash above. attempts tracks wrong guesses
+  // against the current code so a fixed number of tries locks it out,
+  // instead of letting the 15-min rate-limit window be the only thing
+  // standing between an attacker and brute-forcing a 6-digit (1e6) space.
+  emailVerificationCodeHash      String?
+  emailVerificationCodeExpiresAt DateTime?
+  emailVerificationAttempts      Int       @default(0)
+  phoneVerificationCodeHash      String?
+  phoneVerificationCodeExpiresAt DateTime?
+  phoneVerificationAttempts      Int       @default(0)
   country       String?
   sex           String?
   dob           DateTime? @db.Date

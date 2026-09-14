@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"; // adjust to your path
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
+import { requireVerifiedForPurchase } from "@/lib/purchaseVerification";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2025-02-24.acacia",
@@ -20,6 +21,11 @@ export async function POST(req: NextRequest) {
 
     if (!buyerId)
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
+    // 🔒 Buyer must have verified both email and phone before committing to
+    // any purchase. See src/lib/purchaseVerification.ts.
+    const verificationError = await requireVerifiedForPurchase(buyerId);
+    if (verificationError) return verificationError;
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 

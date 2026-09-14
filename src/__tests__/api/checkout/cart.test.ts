@@ -20,6 +20,7 @@ const mockPrisma = vi.hoisted(() => ({
   cart: { findUnique: vi.fn() },
   listing: { findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
   order: { create: vi.fn(), update: vi.fn() },
+  user: { findUnique: vi.fn() },
   $transaction: vi.fn(),
 }));
 
@@ -86,6 +87,13 @@ describe("POST /api/checkout/cart", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetServerSession.mockResolvedValue(SESSION);
+    // Verified buyer by default — see the dedicated "purchase verification
+    // gate" tests below for the unverified-buyer cases.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: SESSION.user.id,
+      emailVerified: new Date(),
+      phoneVerified: true,
+    });
   });
 
   // What's being tested: auth gate
@@ -288,5 +296,22 @@ describe("POST /api/checkout/cart", () => {
 
     const res = await POST(makeRequest());
     expect(res.status).toBe(500);
+  });
+
+  describe("purchase verification gate", () => {
+    it("returns 403 when the buyer hasn't verified their email or phone", async () => {
+      mockPrisma.user.findUnique.mockResolvedValueOnce({
+        id: SESSION.user.id,
+        emailVerified: null,
+        phoneVerified: false,
+      });
+
+      const res = await POST(makeRequest());
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({
+        error: expect.stringMatching(/verify your email and phone/i),
+      });
+      expect(mockPrisma.cart.findUnique).not.toHaveBeenCalled();
+    });
   });
 });

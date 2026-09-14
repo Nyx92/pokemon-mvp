@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 // Matches the signup form's own rule (src/app/auth/signup/page.tsx) so a
 // reset can't produce a weaker password than signup would ever allow.
@@ -18,6 +19,23 @@ const MIN_PASSWORD_LENGTH = 10;
  * clears the token so it can't be reused.
  */
 export async function POST(req: NextRequest) {
+  // 🔒 Rate limit by IP — 10 per hour. The reset token itself has 256 bits
+  // of entropy (not realistically brute-forceable), so this guard is mainly
+  // DoS/abuse protection rather than a brute-force defense. In-memory
+  // stopgap (see src/lib/rateLimit.ts).
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ip = forwardedFor?.split(",")[0]?.trim() || "unknown";
+  const { allowed } = checkRateLimit(`reset-password:${ip}`, {
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+  }
+
   try {
     const { uid, token, password } = await req.json();
     if (

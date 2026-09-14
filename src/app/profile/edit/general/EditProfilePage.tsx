@@ -4,13 +4,16 @@ import { useState, useMemo } from "react";
 import {
   Box, Button, Grid, TextField, Typography,
   FormControl, InputLabel, Select, MenuItem,
-  Snackbar, Alert,
+  Snackbar, Alert, FormHelperText,
 } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { getNames } from "country-list";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
 import { useAuth } from "@/app/hooks/useAuth";
 import AccountLayout from "@/app/shared-components/AccountLayout";
 import AccountLoadingGate from "@/app/shared-components/AccountLoadingGate";
+import { normalizePhoneNumber, isValidE164 } from "@/lib/phone";
 
 const toInputDate = (isoDate: string) => {
   if (!isoDate) return "";
@@ -44,6 +47,8 @@ export default function EditProfilePage() {
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>
     ({ open: false, message: "", severity: "success" });
 
+  // react-phone-input-2 works with digits only (no "+") — strip it from the
+  // stored E.164 value for display; normalizePhoneNumber re-adds it on save.
   const [form, setForm] = useState(() => ({
     firstName: user?.firstName || "",
     lastName:  user?.lastName  || "",
@@ -53,24 +58,43 @@ export default function EditProfilePage() {
     sex:       user?.sex       || "",
     dob:       user?.dob ? toInputDate(user.dob) : "",
     address:   user?.address   || "",
+    phoneNumber: user?.phoneNumber?.replace(/^\+/, "") || "",
   }));
+  const [phoneError, setPhoneError] = useState(false);
 
   const handleChange = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
   const handleSave = async () => {
+    const normalizedPhone = form.phoneNumber ? normalizePhoneNumber(form.phoneNumber) : null;
+    if (normalizedPhone && !isValidE164(normalizedPhone)) {
+      setPhoneError(true);
+      return;
+    }
+    setPhoneError(false);
     setSaving(true);
     try {
       const res = await fetch("/api/user", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, dob: form.dob ? form.dob.split("T")[0] : null }),
+        body: JSON.stringify({
+          ...form,
+          dob: form.dob ? form.dob.split("T")[0] : null,
+          phoneNumber: normalizedPhone,
+        }),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || "Update failed");
       await update();
-      setSnackbar({ open: true, message: "Profile updated successfully!", severity: "success" });
-      setTimeout(() => router.replace("/profile"), 1000);
+      const phoneChanged = normalizedPhone !== (user?.phoneNumber ?? null);
+      setSnackbar({
+        open: true,
+        message: phoneChanged
+          ? "Profile updated. Verify your new phone number on the Verification page."
+          : "Profile updated successfully!",
+        severity: "success",
+      });
+      setTimeout(() => router.replace("/profile"), 1200);
     } catch (err) {
       console.error(err);
       setSnackbar({ open: true, message: "Failed to update profile. Please try again.", severity: "error" });
@@ -163,6 +187,22 @@ export default function EditProfilePage() {
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={FIELD_SX}
               />
+            </Grid>
+
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <Typography sx={{ fontSize: 12, color: "#6b7280", mb: 0.5 }}>Phone Number</Typography>
+              <PhoneInput
+                country={"sg"}
+                value={form.phoneNumber}
+                onChange={(value) => handleChange("phoneNumber", value)}
+                inputStyle={{ width: "100%", height: "40px" }}
+              />
+              {phoneError && <FormHelperText error>Enter a valid phone number</FormHelperText>}
+              {user?.phoneNumber && (
+                <FormHelperText>
+                  Changing this resets phone verification — you&apos;ll need to verify again.
+                </FormHelperText>
+              )}
             </Grid>
           </Grid>
 

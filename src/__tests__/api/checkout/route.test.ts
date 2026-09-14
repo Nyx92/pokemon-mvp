@@ -93,7 +93,13 @@ describe("POST /api/checkout", () => {
     // Default: buyer exists. The route's transaction callback calls
     // prisma.user.findUnique (module-level client, not tx) to double-check
     // the authenticated buyer is a real DB user before reserving the listing.
-    mockPrisma.user.findUnique.mockResolvedValue({ id: "buyer-1" });
+    // Verified buyer by default — see the dedicated "purchase verification
+    // gate" tests below for the unverified-buyer cases.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      id: "buyer-1",
+      emailVerified: new Date(),
+      phoneVerified: true,
+    });
 
     // Default: $transaction calls the callback (interactive form) or resolves array
     mockPrisma.$transaction.mockImplementation(async (fnOrOps) => {
@@ -267,5 +273,36 @@ describe("POST /api/checkout", () => {
         }),
       })
     );
+  });
+
+  describe("purchase verification gate", () => {
+    it("returns 403 when the buyer hasn't verified their email", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: "buyer-1",
+        emailVerified: null,
+        phoneVerified: true,
+      });
+
+      const res = await POST(makeRequest({ cardId: "card-1" }));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({
+        error: expect.stringMatching(/verify your email and phone/i),
+      });
+      expect(mockPrisma.listing.findUnique).not.toHaveBeenCalled();
+    });
+
+    it("returns 403 when the buyer hasn't verified their phone number", async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({
+        id: "buyer-1",
+        emailVerified: new Date(),
+        phoneVerified: false,
+      });
+
+      const res = await POST(makeRequest({ cardId: "card-1" }));
+      expect(res.status).toBe(403);
+      expect(await res.json()).toMatchObject({
+        error: expect.stringMatching(/verify your email and phone/i),
+      });
+    });
   });
 });
