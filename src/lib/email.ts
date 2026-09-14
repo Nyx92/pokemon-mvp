@@ -43,8 +43,16 @@ export function sendEmailAsync(opts: SendEmailOptions): void {
 
 // ── HTML email template ───────────────────────────────────────────────────────
 // Simple inline-styled layout — works across all major email clients.
+// Shared shell so every transactional email (notifications, password reset,
+// …) looks consistent without copy-pasting the same table markup.
 
-export function buildNotificationEmail(title: string, body: string): string {
+function buildEmailShell(opts: {
+  title: string;
+  body: string;
+  ctaLabel: string;
+  ctaUrl: string;
+  footer: string;
+}): string {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -65,15 +73,15 @@ export function buildNotificationEmail(title: string, body: string): string {
         <!-- Body -->
         <tr>
           <td style="padding:32px;">
-            <h2 style="margin:0 0 12px;font-size:20px;color:#111827;">${title}</h2>
+            <h2 style="margin:0 0 12px;font-size:20px;color:#111827;">${opts.title}</h2>
             <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
-              ${body}
+              ${opts.body}
             </p>
-            <a href="${SITE_URL}/notifications"
+            <a href="${opts.ctaUrl}"
                style="display:inline-block;padding:11px 22px;background:#111827;
                       color:#ffffff;border-radius:8px;text-decoration:none;
                       font-size:14px;font-weight:600;">
-              View notification
+              ${opts.ctaLabel}
             </a>
           </td>
         </tr>
@@ -81,7 +89,7 @@ export function buildNotificationEmail(title: string, body: string): string {
         <tr>
           <td style="padding:16px 32px;border-top:1px solid #f3f4f6;">
             <p style="margin:0;font-size:12px;color:#9ca3af;">
-              You're receiving this because you have an account on MXYYC Marketplace.
+              ${opts.footer}
             </p>
           </td>
         </tr>
@@ -90,4 +98,29 @@ export function buildNotificationEmail(title: string, body: string): string {
   </table>
 </body>
 </html>`;
+}
+
+export function buildNotificationEmail(title: string, body: string): string {
+  return buildEmailShell({
+    title,
+    body,
+    ctaLabel: "View notification",
+    ctaUrl: `${SITE_URL}/notifications`,
+    footer: "You're receiving this because you have an account on MXYYC Marketplace.",
+  });
+}
+
+// resetUrl carries the raw token — never the token hash stored in the DB —
+// as a one-time-use query param; see /api/auth/reset-password for how it's
+// verified and consumed.
+export function buildPasswordResetEmail(resetUrl: string): string {
+  return buildEmailShell({
+    title: "Reset your password",
+    body:
+      "We received a request to reset your MXYYC password. This link expires in 1 hour. " +
+      "If you didn't request this, you can safely ignore this email — your password won't change.",
+    ctaLabel: "Reset password",
+    ctaUrl: resetUrl,
+    footer: "You're receiving this because a password reset was requested for your MXYYC account.",
+  });
 }

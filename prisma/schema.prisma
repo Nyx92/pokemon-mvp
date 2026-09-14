@@ -39,6 +39,11 @@ model User {
   username      String?   @unique
   email         String    @unique
   password      String?
+  // Forgot-password flow: a random raw token is emailed to the user, and
+  // only its SHA-256 hash is stored here — same principle as never storing
+  // a plaintext password, so a DB leak alone can't be used to reset accounts.
+  passwordResetTokenHash      String?
+  passwordResetTokenExpiresAt DateTime?
   role          String    @default("user")
   emailVerified DateTime?
   verified      Boolean   @default(false)

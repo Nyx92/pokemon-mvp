@@ -68,6 +68,21 @@ const theme = createTheme({
         },
       },
     },
+    // One override here recolors every plain <CircularProgress /> (the
+    // default color="primary") to grey instead of chasing down each
+    // individual usage. Scoped to ownerState.color === "primary" only —
+    // several small in-button spinners deliberately pass color="inherit"
+    // so they read as white text on a colored button (e.g. AuctionDialog,
+    // PlaceBidDialog, PlaceOfferDialog, SellerOffersDialog); an unconditional
+    // override would clobber those with grey too. Call sites using an
+    // explicit `sx={{ color: ... }}` are unaffected either way — sx is
+    // applied after theme styleOverrides and always wins.
+    MuiCircularProgress: {
+      styleOverrides: {
+        root: ({ theme, ownerState }) =>
+          ownerState.color === "primary" ? { color: theme.palette.grey[400] } : {},
+      },
+    },
   },
 });
 

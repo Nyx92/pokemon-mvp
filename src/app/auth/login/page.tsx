@@ -101,6 +101,9 @@ export default function LoginPage() {
           maxWidth: "1200px",
           mx: "auto",
           py: 6,
+          // Side gutter so the heading/form don't sit flush against the
+          // screen edge on mobile (maxWidth already handles large screens).
+          px: { xs: 2, sm: 4 },
         }}
       >
         {/* Top Heading */}
@@ -180,7 +183,11 @@ export default function LoginPage() {
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={{
                   mb: 1.5,
-                  input: { backgroundColor: "white" },
+                  // Background belongs on the OutlinedInput root (which owns
+                  // the rounded corners), not the raw <input> — the input has
+                  // square corners, so a background painted directly on it
+                  // pokes out past the root's rounded border.
+                  "& .MuiOutlinedInput-root": { backgroundColor: "white" },
                   "& .MuiOutlinedInput-root .fieldset": {
                     borderColor: isFailedLogin ? "red" : "grey.300",
                   },
@@ -197,7 +204,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 slotProps={{ inputLabel: { shrink: true } }}
                 sx={{
-                  input: { backgroundColor: "white" },
+                  "& .MuiOutlinedInput-root": { backgroundColor: "white" },
                   "& .MuiOutlinedInput-root .fieldset": {
                     borderColor: isFailedLogin ? "red" : "grey.300",
                   },
@@ -215,9 +222,11 @@ export default function LoginPage() {
                   fullWidth
                   sx={{
                     mt: 2,
+                    backgroundColor: "black",
                     color: "white",
                     borderRadius: "5px",
                     textTransform: "none",
+                    "&:hover": { backgroundColor: "#222" },
                   }}
                 >
                   Log in
@@ -230,21 +239,22 @@ export default function LoginPage() {
             >
               <Button
                 variant="text"
-                color="primary"
+                href="/auth/forgot-password"
                 sx={{
                   textTransform: "none",
-                  "&:hover": { textDecoration: "underline" },
+                  color: "black",
+                  "&:hover": { textDecoration: "underline", backgroundColor: "transparent" },
                 }}
               >
                 Forgotten password?
               </Button>
               <Button
                 variant="text"
-                color="primary"
                 href="/auth/signup"
                 sx={{
                   textTransform: "none",
-                  "&:hover": { textDecoration: "underline" },
+                  color: "black",
+                  "&:hover": { textDecoration: "underline", backgroundColor: "transparent" },
                 }}
               >
                 Create yours now.

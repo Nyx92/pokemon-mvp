@@ -34,10 +34,11 @@ function GoogleIcon() {
   );
 }
 
+// "User Profile" and "FAQ" removed — both linked to "" (nowhere), a dead
+// no-op click. Only "Login" actually goes somewhere.
 const descriptionBarLabels: DescriptionLabel[] = [
-  { title: "User Profile", link: "" },
+  { title: "", link: "" },
   { button: "Login", link: "/auth/login" },
-  { button: "FAQ", link: "" },
 ];
 
 export default function UserProfileForm() {
@@ -156,7 +157,7 @@ export default function UserProfileForm() {
         </Typography>
 
         {loading ? (
-          <Box sx={{ display: "flex", flexDirection: "column", py: 6 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 6 }}>
             <CircularProgress />
             <Typography sx={{ mt: 2 }}>Please wait...</Typography>
           </Box>
@@ -198,8 +199,9 @@ export default function UserProfileForm() {
               </Typography>
             </Divider>
 
-            {/* Name Fields */}
-            <Box sx={{ display: "flex", gap: 2 }}>
+            {/* Name Fields — stacked on mobile, side by side from sm up
+                (two fullWidth fields in a fixed row get too cramped below ~600px) */}
+            <Box sx={{ display: "flex", flexDirection: { xs: "column", sm: "row" }, gap: 2 }}>
               <TextField
                 required
                 fullWidth
@@ -383,7 +385,13 @@ export default function UserProfileForm() {
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, textTransform: "none" }}
+              sx={{
+                mt: 3,
+                textTransform: "none",
+                backgroundColor: "black",
+                color: "white",
+                "&:hover": { backgroundColor: "#222" },
+              }}
             >
               Create Account
             </Button>
