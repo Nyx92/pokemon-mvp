@@ -166,7 +166,7 @@ model PokemonCardCatalog {
   setTotal       Int?
   rarity         String
   year           Int?
-  tcgPlayerId    String?
+  tcgPlayerId    String?   @unique
   listings       Listing[]
   priceHistory   PriceHistory[]
   // Set once GET /api/cron/backfill-prices has pulled this card's full year
@@ -204,7 +204,7 @@ model RiftboundCardCatalog {
   setLabel        String
   collectorNumber String // string, not Int — overnumbered variants carry a suffix
   imageUrl        String
-  tcgPlayerId     String?
+  tcgPlayerId     String?   @unique
   listings        Listing[]
   priceHistory    PriceHistory[]
   // See PokemonCardCatalog.priceBackfilledAt above — same resumable-queue role.
