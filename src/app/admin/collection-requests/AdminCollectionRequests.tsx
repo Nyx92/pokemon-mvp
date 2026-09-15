@@ -1,12 +1,15 @@
 "use client";
 /**
- * AdminCollectionRequests — staff view of open (REQUESTED/PACKED)
- * in-person pickup requests. Lets staff mark a request "Packed" once
- * they've physically pulled and bagged the cards; the customer is then
- * notified in-app and can request their own pickup verification code.
+ * AdminCollectionRequests — staff view of in-person pickup requests, split
+ * into an Open tab (REQUESTED/PACKED) and a Completed tab (COLLECTED).
+ * On the Open tab, staff mark a request "Packed" once they've physically
+ * pulled and bagged the cards; the customer is then notified in-app and can
+ * request their own pickup verification code. On the Completed tab, staff
+ * can attribute a handover to themselves after the fact, for requests that
+ * were collected without a staff member recording who handled them.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Container, Typography, Box, Card, CardContent, Chip, Button,
   CircularProgress, Alert, Divider, Tabs, Tab,
@@ -38,22 +41,33 @@ export default function AdminCollectionRequests() {
   const [tab, setTab] = useState<"open" | "completed">("open");
   const [attributingId, setAttributingId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  // Mirrors `tab` so an in-flight load() can tell, once its response arrives,
+  // whether the user has since switched tabs — a slower Open fetch that wins
+  // the race after the user has already flipped to Completed would otherwise
+  // render the wrong tab's rows (e.g. "Mark as Packed" under Completed).
+  const tabRef = useRef(tab);
+
+  const load = useCallback(async (forTab: "open" | "completed") => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/collection-requests?status=${tab}`);
+      const res = await fetch(`/api/admin/collection-requests?status=${forTab}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load pickup requests");
+      if (tabRef.current !== forTab) return; // stale response for a tab we've left — ignore it
       setRequests(data.requests);
       setError(null);
     } catch (err) {
+      if (tabRef.current !== forTab) return;
       setError(err instanceof Error ? err.message : "Failed to load pickup requests");
     } finally {
-      setLoading(false);
+      if (tabRef.current === forTab) setLoading(false);
     }
-  }, [tab]);
+  }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    tabRef.current = tab;
+    load(tab);
+  }, [tab, load]);
 
   const handleMarkPacked = async (id: string) => {
     setPackingId(id);
@@ -61,7 +75,7 @@ export default function AdminCollectionRequests() {
       const res = await fetch(`/api/collection-requests/${id}/mark-packed`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to mark packed");
-      await load();
+      await load(tab);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark packed");
     } finally {
@@ -75,7 +89,7 @@ export default function AdminCollectionRequests() {
       const res = await fetch(`/api/admin/collection-requests/${id}/attribute`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to attribute handover");
-      await load();
+      await load(tab);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to attribute handover");
     } finally {

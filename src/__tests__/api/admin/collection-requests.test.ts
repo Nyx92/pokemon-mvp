@@ -57,6 +57,20 @@ describe("GET /api/admin/collection-requests", () => {
     );
   });
 
+  it("caps the completed query at 100 rows, since completed requests never leave the view", async () => {
+    await GET(new Request("http://localhost/api/admin/collection-requests?status=completed"));
+    expect(mockPrisma.collectionRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 100 })
+    );
+  });
+
+  it("does not cap the open query, since open requests are naturally few", async () => {
+    await GET(new Request("http://localhost/api/admin/collection-requests"));
+    expect(mockPrisma.collectionRequest.findMany).toHaveBeenCalledWith(
+      expect.not.objectContaining({ take: expect.anything() })
+    );
+  });
+
   it("includes collectedByStaff in the response shape", async () => {
     mockPrisma.collectionRequest.findMany.mockResolvedValue([
       {

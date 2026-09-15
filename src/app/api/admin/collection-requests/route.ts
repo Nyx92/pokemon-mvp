@@ -33,6 +33,10 @@ export async function GET(req: Request) {
         listings: { include: listingCatalogInclude },
       },
       orderBy: status === "completed" ? { collectedAt: "desc" } : { requestedAt: "asc" },
+      // Completed requests never leave this view, so it only grows over time —
+      // cap it so the query doesn't scan the whole history. Open requests are
+      // naturally self-limiting (they leave the view once packed/collected).
+      ...(status === "completed" ? { take: 100 } : {}),
     });
 
     return NextResponse.json({
