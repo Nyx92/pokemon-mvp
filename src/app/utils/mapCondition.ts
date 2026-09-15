@@ -1,41 +1,16 @@
-// src/utils/mapCondition.ts
+// src/app/utils/mapCondition.ts
+//
+// Turns a Listing's free-text `condition` string into the canonical price
+// variant label used as PriceHistory.variant: "RAW" for any ungraded
+// condition, or "<COMPANY> <GRADE>" (e.g. "PSA 10", "CGC 9.5") for a graded
+// one. Both the refresh job (writing prices) and the chart (reading them)
+// go through this so they always agree on the same label for the same card.
 
-export type ConditionMapping =
-  | { type: "graded"; grade: string } // PSA: bare number, e.g. "10", "9", "8.5". CGC/SGC/Beckett: full lowercased condition string, e.g. "cgc 10 pristine"
-  | { type: "raw"; key: string }; // e.g. "Near Mint", "Lightly Played"
+const GRADE_PATTERN = /^(PSA|CGC|SGC|Beckett)\s+(\d+(?:\.\d+)?)/i;
 
-// Any of these substrings identifies a graded (not raw) card. Kept in sync
-// with the grading companies in src/constants/grades.ts.
-const GRADING_COMPANY_MARKERS = ["psa", "cgc", "sgc", "beckett"];
-
-export function mapConditionToAPI(condition: string): ConditionMapping {
-  const c = condition.toLowerCase();
-
-  // Graded cards (PSA, CGC, SGC, Beckett)
-  const gradingCompany = GRADING_COMPANY_MARKERS.find((marker) => c.includes(marker));
-  if (gradingCompany) {
-    return {
-      type: "graded",
-      grade: gradingCompany === "psa" ? c.replace("psa", "").trim() : c, // "10", "9", "8.5"
-    };
-  }
-
-  if (c.includes("near") || c.includes("nm")) {
-    return { type: "raw", key: "Near Mint" };
-  }
-  if (c.includes("light") || c.includes("lp")) {
-    return { type: "raw", key: "Lightly Played" };
-  }
-  if (c.includes("moderate") || c.includes("mp")) {
-    return { type: "raw", key: "Moderately Played" };
-  }
-  if (c.includes("heavy") || c.includes("hp")) {
-    return { type: "raw", key: "Heavily Played" };
-  }
-  if (c.includes("damaged") || c.includes("poor")) {
-    return { type: "raw", key: "Damaged" };
-  }
-
-  // Default fallback
-  return { type: "raw", key: "Near Mint" };
+export function toPriceVariantLabel(condition: string): string {
+  const match = condition.trim().match(GRADE_PATTERN);
+  if (!match) return "RAW";
+  const [, company, grade] = match;
+  return `${company.toUpperCase()} ${grade}`;
 }

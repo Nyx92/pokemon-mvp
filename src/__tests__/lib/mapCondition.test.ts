@@ -1,47 +1,37 @@
 import { describe, it, expect } from "vitest";
-import { mapConditionToAPI } from "@/app/utils/mapCondition";
+import { toPriceVariantLabel } from "@/app/utils/mapCondition";
 
 /**
- * mapConditionToAPI classifies a card's condition string into either a
- * graded lookup (for the price chart's graded-price data) or a raw lookup
- * (ungraded market price). Before this fix, only "psa" was recognized as
- * graded — every CGC/SGC/Beckett-graded card silently fell through to
- * { type: "raw", key: "Near Mint" }, showing the wrong market chart data.
+ * toPriceVariantLabel maps a Listing's free-text condition string to the
+ * canonical PriceHistory.variant label: "RAW" for ungraded, or
+ * "<COMPANY> <GRADE>" for graded. This is what lets the refresh job and the
+ * price chart agree on the same label for the same card.
  */
 
-describe("mapConditionToAPI", () => {
-  it("classifies PSA grades as graded", () => {
-    expect(mapConditionToAPI("PSA 10")).toEqual({ type: "graded", grade: "10" });
+describe("toPriceVariantLabel", () => {
+  it("maps a PSA grade to its canonical label", () => {
+    expect(toPriceVariantLabel("PSA 10")).toBe("PSA 10");
   });
 
-  it("classifies CGC grades as graded", () => {
-    expect(mapConditionToAPI("CGC 10 Pristine")).toEqual({
-      type: "graded",
-      grade: "cgc 10 pristine",
-    });
+  it("maps a CGC grade to its canonical label, dropping the descriptive suffix", () => {
+    expect(toPriceVariantLabel("CGC 9.5 Gem Mint")).toBe("CGC 9.5");
   });
 
-  it("classifies SGC grades as graded", () => {
-    expect(mapConditionToAPI("SGC 9.5 Gem Mint")).toEqual({
-      type: "graded",
-      grade: "sgc 9.5 gem mint",
-    });
+  it("maps an SGC grade to its canonical label", () => {
+    expect(toPriceVariantLabel("SGC 9 Mint")).toBe("SGC 9");
   });
 
-  it("classifies Beckett grades as graded", () => {
-    expect(mapConditionToAPI("Beckett 9 Mint")).toEqual({
-      type: "graded",
-      grade: "beckett 9 mint",
-    });
+  it("maps a Beckett grade to its canonical label", () => {
+    expect(toPriceVariantLabel("Beckett 9 Mint")).toBe("BECKETT 9");
   });
 
-  it("still classifies raw conditions correctly", () => {
-    expect(mapConditionToAPI("Near Mint")).toEqual({ type: "raw", key: "Near Mint" });
-    expect(mapConditionToAPI("Lightly Played")).toEqual({ type: "raw", key: "Lightly Played" });
-    expect(mapConditionToAPI("Damaged")).toEqual({ type: "raw", key: "Damaged" });
+  it("maps every raw condition to RAW", () => {
+    expect(toPriceVariantLabel("Near Mint")).toBe("RAW");
+    expect(toPriceVariantLabel("Lightly Played")).toBe("RAW");
+    expect(toPriceVariantLabel("Damaged")).toBe("RAW");
   });
 
-  it("falls back to raw Near Mint for an unrecognized string", () => {
-    expect(mapConditionToAPI("???")).toEqual({ type: "raw", key: "Near Mint" });
+  it("falls back to RAW for an unrecognized string", () => {
+    expect(toPriceVariantLabel("???")).toBe("RAW");
   });
 });

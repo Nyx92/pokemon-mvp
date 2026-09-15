@@ -48,6 +48,19 @@ export function centsToDollars(cents: number): number {
  * WHEN TO USE:
  * - Any time a dollar amount is rendered directly in JSX as a price string.
  */
+/**
+ * Converts a USD dollar amount to SGD cents, using the app's configured
+ * static FX rate.
+ *
+ * WHEN TO USE:
+ * - Persisting a vendor market price (JustTCG returns USD) as PriceHistory,
+ *   which stores everything in SGD cents like the rest of the app's money.
+ */
+export function usdToSgdCents(usdDollars: number): number {
+  const rate = Number(process.env.NEXT_PUBLIC_USD_TO_SGD_RATE ?? "1.29");
+  return dollarsToCents(usdDollars * rate);
+}
+
 export function formatPrice(
   dollars: number | null | undefined,
   opts: { fallback?: string } = {}

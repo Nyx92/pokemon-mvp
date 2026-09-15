@@ -1,0 +1,199 @@
+// src/lib/pricing/justtcg.ts
+//
+// Thin client for JustTCG (https://justtcg.com/docs), the vendor that
+// replaced pokemonpricetracker.com. Unlike that old vendor, JustTCG covers
+// Riftbound as well as Pokemon.
+//
+// Two endpoints, two very different jobs:
+//   - fetchCardVariants (/v2/cards): one card per call, but the only one
+//     that returns graded (PSA/CGC/BGS) prices and a configurable
+//     price_history window (up to 1 year). Used by the occasional deep
+//     backfill (see /api/cron/backfill-prices).
+//   - fetchCardVariantsBatch (/v1/cards): up to 100 cards per call, but raw
+//     conditions only, no graded prices, and a fixed ~7-day history we don't
+//     use. Used by the frequent, cheap refresh (see /api/cron/refresh-prices)
+//     to keep today's raw price current without burning the daily call quota.
+
+const V2_BASE_URL = "https://api.justtcg.com/v2/cards";
+const V1_BASE_URL = "https://api.justtcg.com/v1/cards";
+
+export type JustTcgPricePoint = { t: number; p: number }; // t: unix seconds, p: price
+
+export type JustTcgMarket = {
+  currency: string;
+  price: number;
+  price_history?: JustTcgPricePoint[];
+};
+
+export type JustTcgVariant = {
+  type: "raw" | "graded";
+  condition: string | null;
+  grading: { company: string; grade: number } | null;
+  markets: JustTcgMarket[];
+};
+
+function apiKeyOrThrow(): string {
+  const apiKey = process.env.JUSTTCG_API_KEY;
+  if (!apiKey) throw new Error("JUSTTCG_API_KEY is not set");
+  return apiKey;
+}
+
+/**
+ * Maps our own game (+ Pokemon language) to JustTCG's actual game slugs.
+ * Confirmed against JustTCG's own "Invalid game" error body, which lists
+ * every valid slug — "riftbound" alone 400s, and Japanese Pokemon prints
+ * are a wholly separate game slug, not a `language` filter on "pokemon".
+ */
+function justTcgGameSlug(game: "POKEMON" | "RIFTBOUND", language?: string): string {
+  if (game === "RIFTBOUND") return "riftbound-league-of-legends-trading-card-game";
+  return language?.toLowerCase() === "japanese" ? "pokemon-japan" : "pokemon";
+}
+
+/**
+ * Fetches every priced variant (raw + graded) JustTCG has for one card,
+ * looked up by its TCGPlayer product ID — the same ID our catalogs already
+ * store, so no separate name/set matching step is needed.
+ *
+ * `historyWindow` controls how much of JustTCG's own daily price_history
+ * comes back per variant (e.g. "1y" for the deep backfill's up-to-a-year
+ * pull; omitted, it defaults to about a week — plenty for the cheap
+ * refresh, which only reads the live `price` field anyway).
+ *
+ * Returns an empty array if JustTCG has no data for this card, never throws
+ * for that case — only for a missing API key or a failed request, both of
+ * which mean the caller's config is broken rather than "this card has no
+ * price".
+ */
+export async function fetchCardVariants(params: {
+  tcgPlayerId: string;
+  game: "POKEMON" | "RIFTBOUND";
+  language?: string;
+  historyWindow?: string;
+}): Promise<JustTcgVariant[]> {
+  const url = new URL(V2_BASE_URL);
+  url.searchParams.set("tcgplayer_id", params.tcgPlayerId);
+  url.searchParams.set("game", justTcgGameSlug(params.game, params.language));
+  url.searchParams.set("graded", "include");
+  if (params.historyWindow) {
+    url.searchParams.set("include", `price_history.${params.historyWindow}`);
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: { "x-api-key": apiKeyOrThrow() },
+  });
+
+  // A 404 means JustTCG has no record at all for this tcgPlayerId — not a
+  // transient failure, so it's treated the same as "found the card, no
+  // variants" rather than an error the caller should retry forever.
+  if (res.status === 404) return [];
+
+  if (!res.ok) {
+    throw new Error(`JustTCG request failed: ${res.status}`);
+  }
+
+  const json = await res.json();
+  const card = json?.data?.[0];
+  return (card?.variants ?? []) as JustTcgVariant[];
+}
+
+/**
+ * Fetches raw-condition prices for up to 100 cards in a single call, via
+ * JustTCG's v1 batch endpoint. No graded prices — confirmed empirically that
+ * v1 ignores `graded=include` entirely, unlike v2.
+ *
+ * Returns a Map keyed by tcgPlayerId, normalized into the same JustTcgVariant
+ * shape fetchCardVariants returns, so callers don't need to branch on which
+ * endpoint the data came from.
+ */
+export async function fetchCardVariantsBatch(
+  tcgPlayerIds: string[]
+): Promise<Map<string, JustTcgVariant[]>> {
+  if (tcgPlayerIds.length === 0) return new Map();
+  if (tcgPlayerIds.length > 100) {
+    throw new Error("fetchCardVariantsBatch: max 100 cards per call");
+  }
+
+  const res = await fetch(V1_BASE_URL, {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKeyOrThrow(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(tcgPlayerIds.map((tcgplayerId) => ({ tcgplayerId }))),
+  });
+
+  if (!res.ok) {
+    throw new Error(`JustTCG batch request failed: ${res.status}`);
+  }
+
+  const json = await res.json();
+  const result = new Map<string, JustTcgVariant[]>();
+
+  for (const card of json?.data ?? []) {
+    const variants: JustTcgVariant[] = (card.variants ?? []).map((v: any) => ({
+      type: "raw",
+      condition: v.condition ?? null,
+      grading: null,
+      markets: [{ currency: "USD", price: v.price }],
+    }));
+    result.set(card.tcgplayerId, variants);
+  }
+
+  return result;
+}
+
+/** Splits an array into chunks of at most `size` — for fetchCardVariantsBatch's 100-card cap. */
+export function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
+/**
+ * Picks a variant's USD market entry — JustTCG's default currency for the
+ * NA region — including its price_history, so callers can backfill past
+ * days instead of only ever recording "today".
+ */
+export function usdMarket(variant: JustTcgVariant): JustTcgMarket | null {
+  return variant.markets.find((m) => m.currency === "USD") ?? variant.markets[0] ?? null;
+}
+
+// JustTCG's grading.company values, mapped to the label word Listing.condition
+// uses ("Beckett", not JustTCG's "BGS") — see src/app/utils/mapCondition.ts.
+// SGC has no entry: JustTCG doesn't grade-track SGC, so those listings get no price.
+const GRADING_COMPANY_LABELS: Record<string, string> = {
+  PSA: "PSA",
+  CGC: "CGC",
+  BGS: "BECKETT",
+};
+
+/**
+ * Picks exactly the variants we store a price for, out of everything
+ * JustTCG returned for a card: one deliberate "RAW" pick (the Near Mint
+ * condition — the project's standard raw reference, not just whichever raw
+ * sub-condition happens to appear last in the response), plus every graded
+ * variant JustTCG can attribute to PSA, CGC, or BGS.
+ *
+ * Before this, the raw pick wasn't deliberate — every raw sub-condition
+ * (Damaged, Lightly Played, ...) mapped to the same "RAW" label, so
+ * whichever one the API listed last silently won.
+ */
+export function pickPricedVariants(
+  variants: JustTcgVariant[]
+): { label: string; variant: JustTcgVariant }[] {
+  const picks: { label: string; variant: JustTcgVariant }[] = [];
+
+  const nearMint = variants.find(
+    (v) => v.type === "raw" && v.condition?.toLowerCase() === "near mint"
+  );
+  if (nearMint) picks.push({ label: "RAW", variant: nearMint });
+
+  for (const variant of variants) {
+    if (variant.type !== "graded" || !variant.grading) continue;
+    const company = GRADING_COMPANY_LABELS[variant.grading.company.toUpperCase()];
+    if (!company) continue;
+    picks.push({ label: `${company} ${variant.grading.grade}`, variant });
+  }
+
+  return picks;
+}

@@ -64,6 +64,10 @@ export default defineConfig({
       // ever actually constructed in tests, so these values never need to work.
       SUPABASE_URL: "https://fake.supabase.co",
       SUPABASE_SERVICE_ROLE_KEY: "fake-service-role-key",
+      // src/lib/pricing/justtcg.ts and src/lib/money.ts's usdToSgdCents —
+      // JustTCG is mocked in every test file, so this key is never sent anywhere real.
+      JUSTTCG_API_KEY: "tcg_test_fake",
+      NEXT_PUBLIC_USD_TO_SGD_RATE: "1.29",
     },
 
     // ── Test discovery ────────────────────────────────────────────────────────

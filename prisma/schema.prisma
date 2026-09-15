@@ -168,6 +168,12 @@ model PokemonCardCatalog {
   year           Int?
   tcgPlayerId    String?
   listings       Listing[]
+  priceHistory   PriceHistory[]
+  // Set once GET /api/cron/backfill-prices has pulled this card's full year
+  // of history from JustTCG. Null means "never backfilled" — that's the
+  // resumable job's queue, so a card is only ever deep-pulled once, not
+  // re-pulled on every backfill run.
+  priceBackfilledAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -200,6 +206,9 @@ model RiftboundCardCatalog {
   imageUrl        String
   tcgPlayerId     String?
   listings        Listing[]
+  priceHistory    PriceHistory[]
+  // See PokemonCardCatalog.priceBackfilledAt above — same resumable-queue role.
+  priceBackfilledAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -270,6 +279,37 @@ model Listing {
   @@index([pokemonCardId])
   @@index([riftboundCardId])
   @@index([collectionRequestId])
+}
+
+// 📈 PriceHistory — one external market-price snapshot for a card, for one
+// day, for one variant ("RAW" for ungraded, or a grade label like "PSA 10").
+// Sourced from JustTCG (src/lib/pricing/justtcg.ts) by the daily cron job at
+// GET /api/cron/refresh-prices — never written to on a page view.
+//
+// Exactly one of pokemonCardId/riftboundCardId is set, matching `game` — same
+// convention as Listing above. For the same reason Listing has no DB
+// CHECK constraint for that rule, this model has no DB-level unique
+// constraint on (card, variant, capturedAt) either: Postgres does not treat
+// two NULLs as equal, so a compound unique index across both nullable FK
+// columns would not reject duplicate Riftbound rows. The refresh job
+// enforces "one row per card+variant+day" itself with a find-then-write.
+model PriceHistory {
+  id   String @id @default(uuid())
+  game String // "POKEMON" | "RIFTBOUND"
+
+  pokemonCard     PokemonCardCatalog?   @relation(fields: [pokemonCardId], references: [id], onDelete: Cascade)
+  pokemonCardId   String?
+  riftboundCard   RiftboundCardCatalog? @relation(fields: [riftboundCardId], references: [id], onDelete: Cascade)
+  riftboundCardId String?
+
+  variant    String // "RAW" | "PSA 10" | "CGC 9.5" | ... — see toPriceVariantLabel()
+  priceCents Int // SGD, converted from JustTCG's USD price when the row is written
+  capturedAt DateTime @db.Date // the day this snapshot is for (no time component)
+
+  createdAt DateTime @default(now())
+
+  @@index([game, pokemonCardId, variant])
+  @@index([game, riftboundCardId, variant])
 }
 
 // 📦 CollectionRequest — a customer's request to pick up one or more owned

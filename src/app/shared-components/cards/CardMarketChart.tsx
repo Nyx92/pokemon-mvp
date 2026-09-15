@@ -10,15 +10,14 @@ import {
   Tooltip,
   ResponsiveContainer,
   CartesianGrid,
-  Bar,
   ReferenceLine,
 } from "recharts";
 
-import { mapConditionToAPI } from "../../utils/mapCondition";
+import { toPriceVariantLabel } from "../../utils/mapCondition";
+import { formatPrice } from "@/lib/money";
 import type { CardItem } from "@/types/card";
-import type { MarketData, PriceHistoryPoint } from "@/types/market";
+import type { MarketData } from "@/types/market";
 
-// --- Tooltip types local to the chart ---
 type PriceTooltipPayload = {
   dataKey?: string | number;
   value?: number | string | null;
@@ -30,17 +29,12 @@ type PriceTooltipProps = {
   label?: string | number;
 };
 
-// helper to format DD/MM (no year)
 const formatShortDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "2-digit",
   });
 
-// env-based FX rate (USD -> SGD)
-const usdToSgdRate = Number(process.env.NEXT_PUBLIC_USD_TO_SGD_RATE ?? "1.29");
-
-// Custom tooltip that shows price + volume + listed price
 const PriceTooltip: React.FC<PriceTooltipProps> = ({
   active,
   payload,
@@ -50,7 +44,6 @@ const PriceTooltip: React.FC<PriceTooltipProps> = ({
 
   const marketPoint = payload.find((p) => p.dataKey === "price");
   const listedPoint = payload.find((p) => p.dataKey === "listedPrice");
-  const volumePoint = payload.find((p) => p.dataKey === "volume");
 
   return (
     <Box sx={{ p: 1.2 }}>
@@ -69,10 +62,6 @@ const PriceTooltip: React.FC<PriceTooltipProps> = ({
           Listed (SGD): {listedPoint.value.toFixed(2)}
         </Typography>
       )}
-
-      {volumePoint && typeof volumePoint.value === "number" && (
-        <Typography variant="body2">Volume: {volumePoint.value}</Typography>
-      )}
     </Box>
   );
 };
@@ -87,102 +76,37 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   const isForSale = card.forSale && card.status !== "sold";
-  const language = (card as any).language ?? "english";
-  const condition = card.condition ?? "";
 
   useEffect(() => {
     if (!card.tcgPlayerId) return;
 
-    const mapping = mapConditionToAPI(card.condition);
+    const variantLabel = toPriceVariantLabel(card.condition);
 
     const fetchMarket = async () => {
       setLoadingMarket(true);
       try {
         const res = await fetch(
-          `/api/pricetracker/${card.tcgPlayerId}?language=${encodeURIComponent(
-            language
-          )}&condition=${encodeURIComponent(condition)}`
+          `/api/price-history/${card.tcgPlayerId}?game=${card.game}`
         );
         const json = await res.json();
-        const cardData = json?.data;
+        const variant = json?.variants?.[variantLabel];
 
-        if (!cardData) {
+        if (!variant) {
           setMarketData(null);
           return;
         }
 
-        let historyRaw: any[] = [];
-        let conditionLabel = "";
-        let marketPrice: number | null = null;
-
-        if (mapping.type === "graded") {
-          const grade = mapping.grade;
-          const gradeData = cardData?.ebay?.grades?.[grade];
-
-          // PSA grades are bare numbers (e.g. "10", "9", "8.5") and are keyed
-          // directly into cardData.ebay.grades — that lookup already works
-          // and is left untouched below. CGC/SGC/Beckett grades are the full
-          // lowercased condition string (e.g. "cgc 10 pristine"), which never
-          // matches the PSA-style numeric keys the eBay pricing data uses, so
-          // gradeData is always undefined for them. Without a fallback the
-          // chart would silently render with no data for those three
-          // companies — fall back to the RAW "Near Mint" data instead,
-          // mirroring the raw branch's own no-data fallback below.
-          const isPsaGrade = /^\d+(\.\d+)?$/.test(grade);
-          const hasGradeHistory =
-            Array.isArray(gradeData?.history) && gradeData.history.length > 0;
-
-          if (!isPsaGrade && !hasGradeHistory) {
-            const nmHistory = cardData?.priceHistory?.conditions?.["Near Mint"]
-              ?.history as any[] | undefined;
-            const nmPrice = cardData?.prices?.conditions?.["Near Mint"]
-              ?.market as number | undefined;
-
-            historyRaw = nmHistory ?? [];
-            marketPrice = typeof nmPrice === "number" ? nmPrice : null;
-            conditionLabel = `${card.condition} (no graded data, showing Near Mint)`;
-          } else {
-            historyRaw = (gradeData?.history ?? []) as any[];
-            marketPrice =
-              typeof gradeData?.market === "number" ? gradeData.market : null;
-            conditionLabel = card.condition || `PSA ${grade}`;
-          }
-        } else {
-          const key = mapping.key;
-          const historyByCond = cardData?.priceHistory?.conditions ?? {};
-          const priceByCond = cardData?.prices?.conditions ?? {};
-
-          let sourceHistory = historyByCond[key]?.history as any[] | undefined;
-          let sourcePrice = priceByCond[key]?.market as number | undefined;
-          let usedKey = key;
-
-          if (!sourceHistory || sourceHistory.length === 0) {
-            sourceHistory = historyByCond["Near Mint"]?.history as
-              | any[]
-              | undefined;
-            sourcePrice = priceByCond["Near Mint"]?.market as
-              | number
-              | undefined;
-            usedKey = "Near Mint";
-          }
-
-          historyRaw = sourceHistory ?? [];
-          marketPrice = typeof sourcePrice === "number" ? sourcePrice : null;
-
-          conditionLabel =
-            usedKey === key ? usedKey : `${key} (no data, showing Near Mint)`;
-        }
-
-        const history: PriceHistoryPoint[] = historyRaw.map((h: any) => ({
-          date: h.date,
-          market: h.market, // USD
-          volume: h.volume ?? 0,
-        }));
+        // For a graded listing, also surface the raw baseline price alongside
+        // it — the grading premium only means something next to that number.
+        const rawPrice =
+          variantLabel !== "RAW" ? json?.variants?.RAW?.currentPrice ?? null : null;
 
         setMarketData({
-          conditionLabel,
-          history,
-          marketPrice,
+          variantLabel,
+          currentPrice: variant.currentPrice ?? null,
+          lastUpdated: variant.lastUpdated ?? null,
+          history: variant.history ?? [],
+          rawPrice,
         });
       } catch (e) {
         console.error("Market fetch error:", e);
@@ -193,9 +117,8 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
     };
 
     fetchMarket();
-  }, [card.tcgPlayerId, card.condition, language, condition]);
+  }, [card.tcgPlayerId, card.game, card.condition]);
 
-  // Loading
   if (loadingMarket) {
     return (
       <Box
@@ -214,7 +137,6 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
     );
   }
 
-  // No data
   if (
     !marketData ||
     !Array.isArray(marketData.history) ||
@@ -247,11 +169,10 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
     );
   }
 
-  // Build chart data, converting USD -> SGD
+  // Prices already arrive in SGD from the API — no client-side conversion needed.
   const chartData = marketData.history.map((h, idx, arr) => ({
     dateLabel: formatShortDate(h.date),
-    price: h.market * usdToSgdRate,
-    volume: h.volume,
+    price: h.price,
     listedPrice:
       isForSale && typeof card.price === "number" && idx === arr.length - 1
         ? card.price
@@ -304,19 +225,34 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
               fontSize: { xs: 6, sm: 7, md: 8, lg: 10 },
             }}
           >
-            Price & volume history —{" "}
-            <strong>{marketData.conditionLabel}</strong>
+            Price history — <strong>{marketData.variantLabel}</strong>
           </Typography>
 
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{
-              fontSize: { xs: 6, sm: 7, md: 8, lg: 10 },
-            }}
-          >
-            Market (SGD) & Volume
-          </Typography>
+          <Box sx={{ textAlign: "right" }}>
+            {/* Current market price — shown directly, not just as a chart point. */}
+            <Typography
+              sx={{
+                fontSize: { xs: 10, sm: 11, md: 13, lg: 15 },
+                fontWeight: 700,
+                color: "#111",
+              }}
+            >
+              Current Market Price: {formatPrice(marketData.currentPrice)}
+            </Typography>
+
+            {/* A graded card's price only makes sense next to its raw baseline. */}
+            {marketData.rawPrice != null && (
+              <Typography sx={{ fontSize: { xs: 8, sm: 9, md: 10, lg: 11 }, color: "#6b7280" }}>
+                Raw baseline: {formatPrice(marketData.rawPrice)}
+              </Typography>
+            )}
+
+            {marketData.lastUpdated && (
+              <Typography sx={{ fontSize: { xs: 8, sm: 9, md: 10, lg: 11 }, color: "#9ca3af", mt: 0.2 }}>
+                Last updated: {formatShortDate(marketData.lastUpdated)}
+              </Typography>
+            )}
+          </Box>
         </Box>
 
         <Box
@@ -347,7 +283,6 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
                 backdropFilter: "blur(4px)",
               }}
             >
-              {/* size of legend  */}
               <Box
                 sx={{
                   width: 10,
@@ -387,27 +322,15 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
                 axisLine={{ stroke: "#e0e0e0" }}
               />
 
-              {/* left Y: price (SGD) */}
               <YAxis
-                yAxisId="left"
                 tick={{ fontSize: 11, fill: "#757575" }}
                 tickLine={false}
                 axisLine={{ stroke: "#e0e0e0" }}
                 width={60}
               />
 
-              {/* right Y: volume */}
-              <YAxis
-                yAxisId="right"
-                orientation="right"
-                tick={{ fontSize: 11, fill: "#9e9e9e" }}
-                tickLine={false}
-                axisLine={{ stroke: "#e0e0e0" }}
-              />
-
               <Tooltip content={<PriceTooltip />} />
 
-              {/* vertical cursor line */}
               {activeIndex !== null &&
                 chartData[activeIndex] &&
                 chartData[activeIndex].dateLabel && (
@@ -418,19 +341,7 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
                   />
                 )}
 
-              {/* volume bars (right axis) */}
-              <Bar
-                yAxisId="right"
-                dataKey="volume"
-                name="volume"
-                barSize={18}
-                fill="#bbdefb"
-                radius={[4, 4, 0, 0]}
-              />
-
-              {/* market line (left axis) */}
               <Line
-                yAxisId="left"
                 type="monotone"
                 dataKey="price"
                 name="price"
@@ -440,10 +351,8 @@ const CardMarketChart: React.FC<CardMarketChartProps> = ({ card }) => {
                 activeDot={{ r: 6 }}
               />
 
-              {/* listed price dot at last point */}
               {isForSale && typeof card.price === "number" && (
                 <Line
-                  yAxisId="left"
                   type="monotone"
                   dataKey="listedPrice"
                   name="listedPrice"
