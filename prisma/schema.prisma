@@ -89,6 +89,7 @@ model User {
   bids               Bid[]             @relation("UserBids")
   highestBidAuctions Auction[]         @relation("AuctionHighestBidder")
   collectionRequests CollectionRequest[]
+  collectionHandovers CollectionRequest[] @relation("CollectionHandovers")
 }
 
 // Stores provider account details (e.g. Google, GitHub, etc.)
@@ -357,6 +358,15 @@ model CollectionRequest {
   pickupCodeHash      String?
   pickupCodeExpiresAt DateTime?
   pickupCodeAttempts  Int       @default(0)
+
+  // Staff attestation: which admin confirmed they physically handed the
+  // cards over. Set by a separate, optional admin action — never by the
+  // customer's own OTP confirm, which has no staff session in it at all
+  // (that route requires the caller to *be* the customer). Null until a
+  // staff member attributes the handover to themselves; never required
+  // to reach COLLECTED.
+  collectedByStaff   User?   @relation("CollectionHandovers", fields: [collectedByStaffId], references: [id], onDelete: SetNull)
+  collectedByStaffId String?
 
   listings Listing[]
 
