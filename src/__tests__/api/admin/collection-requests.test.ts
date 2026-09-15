@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
  * GET /api/admin/collection-requests — staff only. Every open
- * (REQUESTED/PACKED) pickup request with its customer and cards.
+ * (REQUESTED/PACKED) pickup request with its customer and cards, or the
+ * COLLECTED requests when ?status=completed.
  */
 
 const mockPrisma = vi.hoisted(() => ({
@@ -25,25 +26,50 @@ beforeEach(() => {
 describe("GET /api/admin/collection-requests", () => {
   it("returns 401 when not authenticated", async () => {
     mockGetServerSession.mockResolvedValue(null);
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/admin/collection-requests"));
     expect(res.status).toBe(401);
   });
 
   it("returns 403 for a non-admin", async () => {
     mockGetServerSession.mockResolvedValue({ user: { id: "user-1", role: "user" } });
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/admin/collection-requests"));
     expect(res.status).toBe(403);
     expect(mockPrisma.collectionRequest.findMany).not.toHaveBeenCalled();
   });
 
-  it("queries only open statuses, oldest first, with customer and cards included", async () => {
-    await GET();
+  it("defaults to open statuses when no status param is given", async () => {
+    await GET(new Request("http://localhost/api/admin/collection-requests"));
     expect(mockPrisma.collectionRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: { in: ["REQUESTED", "PACKED"] } },
         orderBy: { requestedAt: "asc" },
       })
     );
+  });
+
+  it("queries COLLECTED requests, newest first, when status=completed", async () => {
+    await GET(new Request("http://localhost/api/admin/collection-requests?status=completed"));
+    expect(mockPrisma.collectionRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { status: "COLLECTED" },
+        orderBy: { collectedAt: "desc" },
+      })
+    );
+  });
+
+  it("includes collectedByStaff in the response shape", async () => {
+    mockPrisma.collectionRequest.findMany.mockResolvedValue([
+      {
+        id: "req-1", requestRef: "PU-2609-AAAA", status: "COLLECTED",
+        requestedAt: new Date(), packedAt: new Date(), collectedAt: new Date(),
+        collectedByStaff: { id: "admin-1", username: "staffuser" },
+        user: { id: "user-1", username: "ash", firstName: "Ash", lastName: "Ketchum", email: "ash@example.com" },
+        listings: [],
+      },
+    ]);
+    const res = await GET(new Request("http://localhost/api/admin/collection-requests?status=completed"));
+    const body = await res.json();
+    expect(body.requests[0].collectedByStaff).toEqual({ id: "admin-1", username: "staffuser" });
   });
 
   it("shapes each request with customer and resolved card display fields", async () => {
@@ -60,7 +86,7 @@ describe("GET /api/admin/collection-requests", () => {
       },
     ]);
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/admin/collection-requests"));
     const body = await res.json();
 
     expect(body.requests[0].customer.username).toBe("ash");
@@ -69,7 +95,7 @@ describe("GET /api/admin/collection-requests", () => {
 
   it("returns 500 on a DB error", async () => {
     mockPrisma.collectionRequest.findMany.mockRejectedValue(new Error("DB down"));
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/admin/collection-requests"));
     expect(res.status).toBe(500);
   });
 });
