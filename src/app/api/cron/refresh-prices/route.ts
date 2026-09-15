@@ -82,11 +82,11 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
 
   const [pokemonCards, riftboundCards, pokemonListings, riftboundListings] = await Promise.all([
     prisma.pokemonCardCatalog.findMany({
-      where: { tcgPlayerId: { not: null }, listings: { some: {} } },
+      where: { tcgPlayerId: { not: null } },
       select: { id: true, tcgPlayerId: true, language: true },
     }),
     prisma.riftboundCardCatalog.findMany({
-      where: { tcgPlayerId: { not: null }, listings: { some: {} } },
+      where: { tcgPlayerId: { not: null } },
       select: { id: true, tcgPlayerId: true },
     }),
     prisma.listing.findMany({
