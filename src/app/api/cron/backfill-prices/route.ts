@@ -148,9 +148,8 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
   // matters more than one nobody's listed yet, when JustTCG's daily budget
   // is the limiting factor. No new state: same priceBackfilledAt queue,
   // just drained in two ordered passes instead of one query gated on
-  // listing existence. The unlisted pass always runs, even once the listed
-  // pass has already used up the whole budget, so the shape stays simple;
-  // the trailing slice keeps the combined total within `remaining` either way.
+  // listing existence. Once the listed pass alone fills the budget, the
+  // unlisted pass is skipped entirely — no point spending a second query.
   async function takeCards<T extends "pokemonCardCatalog" | "riftboundCardCatalog">(
     model: T,
     remaining: number
@@ -167,13 +166,15 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
       take: remaining,
       orderBy: { id: "asc" },
     });
+    if (listed.length >= remaining) return listed;
+
     const unlisted = await (prisma[model] as any).findMany({
       where: { ...basePending, listings: { none: {} } },
       select,
-      take: Math.max(remaining - listed.length, 1),
+      take: remaining - listed.length,
       orderBy: { id: "asc" },
     });
-    return [...listed, ...unlisted].slice(0, remaining);
+    return [...listed, ...unlisted];
   }
 
   const pokemonCards = await takeCards("pokemonCardCatalog", limit);

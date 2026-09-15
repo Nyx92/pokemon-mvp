@@ -78,8 +78,7 @@ describe("GET /api/cron/backfill-prices", () => {
 
   it("fills pending cards with a listing before pending cards without one, within one limit", async () => {
     mockPrisma.pokemonCardCatalog.findMany
-      .mockResolvedValueOnce([{ id: "listed-1", tcgPlayerId: "1", language: "English" }]) // listed pass
-      .mockResolvedValueOnce([]); // unlisted pass — limit already spent
+      .mockResolvedValueOnce([{ id: "listed-1", tcgPlayerId: "1", language: "English" }]); // listed pass alone fills the limit
     mockFetchCardVariants.mockResolvedValue([]);
 
     await GET(makeRequest("test-cron-secret", "?limit=1"));
@@ -87,9 +86,9 @@ describe("GET /api/cron/backfill-prices", () => {
     expect(mockPrisma.pokemonCardCatalog.findMany).toHaveBeenNthCalledWith(1,
       expect.objectContaining({ where: expect.objectContaining({ listings: { some: {} } }), take: 1 })
     );
-    expect(mockPrisma.pokemonCardCatalog.findMany).toHaveBeenNthCalledWith(2,
-      expect.objectContaining({ where: expect.objectContaining({ listings: { none: {} } }), take: 1 })
-    );
+    // The listed pass alone already filled the whole budget, so the unlisted
+    // pass must be skipped entirely — no second, unnecessary query.
+    expect(mockPrisma.pokemonCardCatalog.findMany).toHaveBeenCalledTimes(1);
   });
 
   it("spends leftover limit on unlisted cards once listed ones are exhausted", async () => {
