@@ -167,6 +167,11 @@ model PokemonCardCatalog {
   rarity         String
   year           Int?
   tcgPlayerId    String?   @unique
+  // Canonical card image (e.g. from tcgdex.dev), populated by the card
+  // lookup import pipeline. Nullable — unlike Riftbound's imageUrl (which
+  // predates this field and defaults to a required blank string), this is
+  // new, so existing rows simply have no image until the next import.
+  imageUrl       String?
   listings       Listing[]
   priceHistory   PriceHistory[]
   // Set once GET /api/cron/backfill-prices has pulled this card's full year

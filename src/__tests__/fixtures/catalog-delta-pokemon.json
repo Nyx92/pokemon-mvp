@@ -1,0 +1,17 @@
+{
+  "game": "POKEMON",
+  "generatedAt": "2026-09-16T00:00:00Z",
+  "cards": [
+    {
+      "externalId": "swsh3-136",
+      "tcgPlayerId": "192391",
+      "name": "Charizard VMAX",
+      "language": "English",
+      "imageUrl": "https://assets.tcgdex.net/en/swsh/swsh3/136/high.webp",
+      "setId": "swsh3",
+      "setNameEn": "Darkness Ablaze",
+      "rarity": "Secret Rare",
+      "localId": "136"
+    }
+  ]
+}
