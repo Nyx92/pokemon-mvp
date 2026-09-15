@@ -9,7 +9,7 @@ import {
 } from "@/lib/pricing/justtcg";
 
 /**
- * GET /api/cron/backfill-prices?limit=900 ← recommended schedule: twice a month (cron-job.org)
+ * GET /api/cron/backfill-prices?limit=500 ← recommended schedule: twice a month (cron-job.org)
  * POST /api/cron/backfill-prices ← kept for local curl testing
  *
  * The EXPENSIVE, occasional half of the two-tier pricing strategy (see also
@@ -20,12 +20,16 @@ import {
  *
  * Self-resuming: a card is marked `priceBackfilledAt` once it succeeds, so a
  * card is only ever deep-pulled once, not re-pulled every run. Each
- * invocation processes at most `limit` cards (default 900, capped at 950)
+ * invocation processes at most `limit` cards (default 500, capped at 950)
  * to stay comfortably under JustTCG's 1,000-request daily cap even
  * alongside other calls made the same day. Run it again (same day or the
  * next) to keep working through the backlog — it always picks up wherever
  * it left off, and once every card is backfilled, a run does almost nothing
  * (only genuinely new catalog cards get pulled).
+ *
+ * Catalog-wide, listing-prioritized: every pending card is eligible now, not
+ * just ones with a listing, but a card someone's actually trying to sell is
+ * pulled before one nobody's listed yet, within the same per-run budget.
  *
  * For local testing:
  *   curl "http://localhost:3000/api/cron/backfill-prices?limit=50" \
@@ -130,29 +134,50 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
   }
 
   const { searchParams } = new URL(req.url);
-  const requestedLimit = Number(searchParams.get("limit") ?? "900");
-  const limit = Math.min(Number.isFinite(requestedLimit) ? requestedLimit : 900, 950);
+  // Default 500, not the route's own 950 cap on its own — the daily refresh
+  // job (now covering the full catalog too) needs headroom in the same
+  // shared JustTCG daily budget. See the design doc's Budget note.
+  const requestedLimit = Number(searchParams.get("limit") ?? "500");
+  const limit = Math.min(Number.isFinite(requestedLimit) ? requestedLimit : 500, 950);
 
   const capturedAt = new Date(new Date().toISOString().slice(0, 10));
-  const pendingWhere = { tcgPlayerId: { not: null }, listings: { some: {} }, priceBackfilledAt: null };
+  // No listings filter here: every pending card is eligible, listed or not.
+  const basePending = { tcgPlayerId: { not: null }, priceBackfilledAt: null };
 
-  const pokemonCards = await prisma.pokemonCardCatalog.findMany({
-    where: pendingWhere,
-    select: { id: true, tcgPlayerId: true, language: true },
-    take: limit,
-    orderBy: { id: "asc" },
-  });
+  // Listed cards first, since a card someone's actually trying to sell
+  // matters more than one nobody's listed yet, when JustTCG's daily budget
+  // is the limiting factor. No new state: same priceBackfilledAt queue,
+  // just drained in two ordered passes instead of one query gated on
+  // listing existence. The unlisted pass always runs, even once the listed
+  // pass has already used up the whole budget, so the shape stays simple;
+  // the trailing slice keeps the combined total within `remaining` either way.
+  async function takeCards<T extends "pokemonCardCatalog" | "riftboundCardCatalog">(
+    model: T,
+    remaining: number
+  ) {
+    if (remaining <= 0) return [];
+    const select =
+      model === "pokemonCardCatalog"
+        ? { id: true, tcgPlayerId: true, language: true }
+        : { id: true, tcgPlayerId: true };
 
-  const riftboundLimit = limit - pokemonCards.length;
-  const riftboundCards =
-    riftboundLimit > 0
-      ? await prisma.riftboundCardCatalog.findMany({
-          where: pendingWhere,
-          select: { id: true, tcgPlayerId: true },
-          take: riftboundLimit,
-          orderBy: { id: "asc" },
-        })
-      : [];
+    const listed = await (prisma[model] as any).findMany({
+      where: { ...basePending, listings: { some: {} } },
+      select,
+      take: remaining,
+      orderBy: { id: "asc" },
+    });
+    const unlisted = await (prisma[model] as any).findMany({
+      where: { ...basePending, listings: { none: {} } },
+      select,
+      take: Math.max(remaining - listed.length, 1),
+      orderBy: { id: "asc" },
+    });
+    return [...listed, ...unlisted].slice(0, remaining);
+  }
+
+  const pokemonCards = await takeCards("pokemonCardCatalog", limit);
+  const riftboundCards = await takeCards("riftboundCardCatalog", limit - pokemonCards.length);
 
   const results = { backfilled: 0, failed: 0, errors: [] as string[] };
 
@@ -189,8 +214,8 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
   }
 
   const [remainingPokemon, remainingRiftbound] = await Promise.all([
-    prisma.pokemonCardCatalog.count({ where: pendingWhere }),
-    prisma.riftboundCardCatalog.count({ where: pendingWhere }),
+    prisma.pokemonCardCatalog.count({ where: basePending }),
+    prisma.riftboundCardCatalog.count({ where: basePending }),
   ]);
 
   console.log(
