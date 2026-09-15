@@ -9,7 +9,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Container, Typography, Box, Card, CardContent, Chip, Button,
-  CircularProgress, Alert, Divider,
+  CircularProgress, Alert, Divider, Tabs, Tab,
 } from "@mui/material";
 
 interface AdminCard {
@@ -21,9 +21,11 @@ interface AdminCard {
 interface AdminCollectionRequest {
   id: string;
   requestRef: string;
-  status: "REQUESTED" | "PACKED";
+  status: "REQUESTED" | "PACKED" | "COLLECTED";
   requestedAt: string;
   packedAt: string | null;
+  collectedAt: string | null;
+  collectedByStaff: { id: string; username: string | null } | null;
   customer: { username: string | null; firstName: string | null; email: string };
   cards: AdminCard[];
 }
@@ -33,11 +35,13 @@ export default function AdminCollectionRequests() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [packingId, setPackingId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"open" | "completed">("open");
+  const [attributingId, setAttributingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/collection-requests");
+      const res = await fetch(`/api/admin/collection-requests?status=${tab}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load pickup requests");
       setRequests(data.requests);
@@ -47,7 +51,7 @@ export default function AdminCollectionRequests() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tab]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -65,11 +69,30 @@ export default function AdminCollectionRequests() {
     }
   };
 
+  const handleAttribute = async (id: string) => {
+    setAttributingId(id);
+    try {
+      const res = await fetch(`/api/admin/collection-requests/${id}/attribute`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to attribute handover");
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to attribute handover");
+    } finally {
+      setAttributingId(null);
+    }
+  };
+
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
-      <Typography variant="h5" sx={{ fontWeight: 800, mb: 3 }}>
+      <Typography variant="h5" sx={{ fontWeight: 800, mb: 2 }}>
         In-Person Pickup Requests
       </Typography>
+
+      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
+        <Tab value="open" label="Open" />
+        <Tab value="completed" label="Completed" />
+      </Tabs>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -78,7 +101,9 @@ export default function AdminCollectionRequests() {
           <CircularProgress />
         </Box>
       ) : requests.length === 0 ? (
-        <Typography color="text.secondary">No open pickup requests.</Typography>
+        <Typography color="text.secondary">
+          {tab === "open" ? "No open pickup requests." : "No completed pickup requests."}
+        </Typography>
       ) : (
         requests.map((request) => {
           const customerName = request.customer.username ?? request.customer.firstName ?? request.customer.email;
@@ -94,11 +119,17 @@ export default function AdminCollectionRequests() {
                   </Box>
                   <Chip
                     size="small"
-                    label={request.status === "PACKED" ? "Packed — awaiting customer" : "Needs packing"}
+                    label={
+                      request.status === "COLLECTED"
+                        ? "Collected"
+                        : request.status === "PACKED"
+                        ? "Packed — awaiting customer"
+                        : "Needs packing"
+                    }
                     sx={{
                       fontWeight: 600,
-                      bgcolor: request.status === "PACKED" ? "#dcfce7" : "#fef3c7",
-                      color: request.status === "PACKED" ? "#166534" : "#92400e",
+                      bgcolor: request.status === "COLLECTED" ? "#e0e7ff" : request.status === "PACKED" ? "#dcfce7" : "#fef3c7",
+                      color: request.status === "COLLECTED" ? "#3730a3" : request.status === "PACKED" ? "#166534" : "#92400e",
                     }}
                   />
                 </Box>
@@ -121,6 +152,27 @@ export default function AdminCollectionRequests() {
                   >
                     {packingId === request.id ? "Marking…" : "Mark as Packed"}
                   </Button>
+                )}
+
+                {request.status === "COLLECTED" && (
+                  <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <Typography sx={{ fontSize: 13, color: "#6b7280" }}>
+                      Collected {new Date(request.collectedAt as string).toLocaleDateString()}
+                    </Typography>
+                    {request.collectedByStaff ? (
+                      <Chip size="small" label={`Handled by ${request.collectedByStaff.username ?? "staff"}`} />
+                    ) : (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        disabled={attributingId === request.id}
+                        onClick={() => handleAttribute(request.id)}
+                        sx={{ textTransform: "none" }}
+                      >
+                        {attributingId === request.id ? "Saving…" : "Attribute to me"}
+                      </Button>
+                    )}
+                  </Box>
                 )}
               </CardContent>
             </Card>
