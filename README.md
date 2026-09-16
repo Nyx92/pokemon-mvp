@@ -177,7 +177,7 @@ Both endpoints below are pinged **every minute**:
 Card market prices come from [JustTCG](https://justtcg.com). Two separate jobs, on two very different schedules, split the cost so daily use stays cheap even though a full price history pull is not:
 
 - `GET /api/cron/refresh-prices` — **run daily.** Cheap: batches raw prices for the whole catalog (~100 cards/call) and only calls JustTCG per-card for cards with an actual graded listing. Only ever writes today's price.
-- `GET /api/cron/backfill-prices?limit=900` — **run twice a month.** Expensive: one call per card, pulling up to a year of daily history. Self-resuming — a card is marked done once it succeeds, so this only ever pulls a given card's deep history once, no matter how many times the job runs. Safe to call again the same day to keep working through a large catalog; each call defaults to (and caps at) 900 cards to stay under JustTCG's daily request limit.
+- `GET /api/cron/backfill-prices?limit=500` — **run twice a month.** Expensive: one call per card, pulling up to a year of daily history. Self-resuming — a card is marked done once it succeeds, so this only ever pulls a given card's deep history once, no matter how many times the job runs. Catalog-wide and listing-prioritized: a card someone's actually selling is backfilled before one that's only in the catalog. Safe to call again the same day to keep working through a large catalog; each call defaults to 500 cards and caps at 950 to stay under JustTCG's daily request limit.
 
 Both need the same `Authorization: Bearer <CRON_SECRET>` header as the other cron endpoints above. Add both to cron-job.org alongside the existing two jobs, at their respective cadences.
 
