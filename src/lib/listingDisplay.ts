@@ -125,14 +125,10 @@ export async function findOrCreatePokemonCatalogEntry(
     cardNumber: string;
   }
 ) {
-  const existing = await prismaOrTx.pokemonCardCatalog.findFirst({
+  return prismaOrTx.pokemonCardCatalog.upsert({
     where: { tcgPlayerId: fields.tcgPlayerId },
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) return existing;
-
-  return prismaOrTx.pokemonCardCatalog.create({
-    data: {
+    update: {}, // an existing row wins as-is — matches the prior find-and-reuse behavior
+    create: {
       externalId: `manual-${fields.tcgPlayerId}`,
       nameEn: fields.title,
       setNameEn: fields.setName,
@@ -193,14 +189,10 @@ export async function findOrCreateRiftboundCatalogEntry(
     supertype: string;
   }
 ) {
-  const existing = await prismaOrTx.riftboundCardCatalog.findFirst({
+  return prismaOrTx.riftboundCardCatalog.upsert({
     where: { tcgPlayerId: fields.tcgPlayerId },
-    orderBy: { createdAt: "asc" },
-  });
-  if (existing) return existing;
-
-  return prismaOrTx.riftboundCardCatalog.create({
-    data: {
+    update: {}, // an existing row wins as-is — matches the prior find-and-reuse behavior
+    create: {
       riftboundId: `manual-${fields.tcgPlayerId}`,
       name: fields.title,
       setLabel: fields.setName,

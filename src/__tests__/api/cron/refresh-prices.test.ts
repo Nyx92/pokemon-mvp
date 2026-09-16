@@ -200,4 +200,11 @@ describe("GET /api/cron/refresh-prices", () => {
     expect(data.failed).toBe(1);
     expect(data.errors[0]).toContain("pkm-1");
   });
+
+  it("queries every catalog card with a tcgPlayerId, not just ones with a listing", async () => {
+    await GET(makeRequest("test-cron-secret"));
+    expect(mockPrisma.pokemonCardCatalog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tcgPlayerId: { not: null } } })
+    );
+  });
 });

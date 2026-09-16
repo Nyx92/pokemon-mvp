@@ -79,7 +79,8 @@ export async function GET(req: Request) {
         rarity: entry.rarity,
         cardNumber: entry.collectorNumber,
         // Canonical card art, so the admin can visually confirm this is the
-        // right card — PokemonCardCatalog has no equivalent field.
+        // right card. PokemonCardCatalog also has an imageUrl field now;
+        // this route just doesn't read/return it in the POKEMON branch above.
         imageUrl: entry.imageUrl,
         type: entry.type,
         supertype: entry.supertype,

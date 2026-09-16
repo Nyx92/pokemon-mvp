@@ -25,8 +25,8 @@ import { NextRequest } from "next/server";
 
 const mockPrisma = vi.hoisted(() => ({
   listing: { create: vi.fn() },
-  pokemonCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
-  riftboundCardCatalog: { findFirst: vi.fn(), create: vi.fn() },
+  pokemonCardCatalog: { upsert: vi.fn() },
+  riftboundCardCatalog: { upsert: vi.fn() },
   user: { findUnique: vi.fn() },
 }));
 
@@ -139,7 +139,7 @@ describe("POST /api/cards", () => {
 
   it("lets an admin create a card owned by a different user, reusing an existing catalog row", async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
-    mockPrisma.pokemonCardCatalog.findFirst.mockResolvedValue({ id: "catalog-1", tcgPlayerId: "tcg-1" });
+    mockPrisma.pokemonCardCatalog.upsert.mockResolvedValue({ id: "catalog-1", tcgPlayerId: "tcg-1" });
     mockPrisma.listing.create.mockResolvedValue({
       id: "listing-1",
       ownerId: "target-user-1",
@@ -157,11 +157,9 @@ describe("POST /api/cards", () => {
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.pokemonCardCatalog.findFirst).toHaveBeenCalledWith({
-      where: { tcgPlayerId: "tcg-1" },
-      orderBy: { createdAt: "asc" },
-    });
-    expect(mockPrisma.pokemonCardCatalog.create).not.toHaveBeenCalled();
+    expect(mockPrisma.pokemonCardCatalog.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tcgPlayerId: "tcg-1" }, update: {} })
+    );
 
     // The admin's own id must NOT silently override the chosen ownerId —
     // this route intentionally lets an admin assign the card to anyone.
@@ -184,8 +182,7 @@ describe("POST /api/cards", () => {
 
   it("creates a new catalog row when no existing one matches the submitted tcgPlayerId", async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
-    mockPrisma.pokemonCardCatalog.findFirst.mockResolvedValue(null);
-    mockPrisma.pokemonCardCatalog.create.mockResolvedValue({ id: "catalog-new" });
+    mockPrisma.pokemonCardCatalog.upsert.mockResolvedValue({ id: "catalog-new" });
     mockPrisma.listing.create.mockResolvedValue({
       id: "listing-1",
       ownerId: "target-user-1",
@@ -203,7 +200,7 @@ describe("POST /api/cards", () => {
     const res = await POST(postRequest(buildFormData()));
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.pokemonCardCatalog.create).toHaveBeenCalled();
+    expect(mockPrisma.pokemonCardCatalog.upsert).toHaveBeenCalled();
     expect(mockPrisma.listing.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ pokemonCardId: "catalog-new" }),
@@ -213,7 +210,7 @@ describe("POST /api/cards", () => {
 
   it("creates a RIFTBOUND listing, reusing an existing catalog row matched by tcgPlayerId", async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
-    mockPrisma.riftboundCardCatalog.findFirst.mockResolvedValue({ id: "rbc-1", tcgPlayerId: "rift-tcg-1" });
+    mockPrisma.riftboundCardCatalog.upsert.mockResolvedValue({ id: "rbc-1", tcgPlayerId: "rift-tcg-1" });
     mockPrisma.listing.create.mockResolvedValue({
       id: "listing-2",
       ownerId: "target-user-1",
@@ -232,12 +229,10 @@ describe("POST /api/cards", () => {
     const res = await POST(postRequest(buildRiftboundFormData()));
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.riftboundCardCatalog.findFirst).toHaveBeenCalledWith({
-      where: { tcgPlayerId: "rift-tcg-1" },
-      orderBy: { createdAt: "asc" },
-    });
-    expect(mockPrisma.riftboundCardCatalog.create).not.toHaveBeenCalled();
-    expect(mockPrisma.pokemonCardCatalog.findFirst).not.toHaveBeenCalled();
+    expect(mockPrisma.riftboundCardCatalog.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { tcgPlayerId: "rift-tcg-1" }, update: {} })
+    );
+    expect(mockPrisma.pokemonCardCatalog.upsert).not.toHaveBeenCalled();
 
     expect(mockPrisma.listing.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -255,8 +250,7 @@ describe("POST /api/cards", () => {
 
   it("creates a new RIFTBOUND catalog row when no existing one matches the submitted tcgPlayerId", async () => {
     mockGetServerSession.mockResolvedValue(ADMIN_SESSION);
-    mockPrisma.riftboundCardCatalog.findFirst.mockResolvedValue(null);
-    mockPrisma.riftboundCardCatalog.create.mockResolvedValue({ id: "rbc-new" });
+    mockPrisma.riftboundCardCatalog.upsert.mockResolvedValue({ id: "rbc-new" });
     mockPrisma.listing.create.mockResolvedValue({
       id: "listing-2",
       ownerId: "target-user-1",
@@ -275,7 +269,7 @@ describe("POST /api/cards", () => {
     const res = await POST(postRequest(buildRiftboundFormData()));
     expect(res.status).toBe(200);
 
-    expect(mockPrisma.riftboundCardCatalog.create).toHaveBeenCalled();
+    expect(mockPrisma.riftboundCardCatalog.upsert).toHaveBeenCalled();
     expect(mockPrisma.listing.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ riftboundCardId: "rbc-new" }),

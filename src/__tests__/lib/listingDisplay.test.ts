@@ -125,39 +125,21 @@ describe("findOrCreatePokemonCatalogEntry", () => {
     cardNumber: "60",
   };
 
-  it("reuses an existing catalog row matched by tcgPlayerId", async () => {
+  it("upserts on tcgPlayerId, not overwriting an existing row's fields", async () => {
     const existing = { id: "pkc-existing", tcgPlayerId: "tcg-99" };
     const tx = {
       pokemonCardCatalog: {
-        findFirst: vi.fn().mockResolvedValue(existing),
-        create: vi.fn(),
+        upsert: vi.fn().mockResolvedValue(existing),
       },
     };
 
     const result = await findOrCreatePokemonCatalogEntry(tx as any, fields);
 
     expect(result).toBe(existing);
-    expect(tx.pokemonCardCatalog.findFirst).toHaveBeenCalledWith({
+    expect(tx.pokemonCardCatalog.upsert).toHaveBeenCalledWith({
       where: { tcgPlayerId: "tcg-99" },
-      orderBy: { createdAt: "asc" },
-    });
-    expect(tx.pokemonCardCatalog.create).not.toHaveBeenCalled();
-  });
-
-  it("creates a new catalog row when no match exists", async () => {
-    const created = { id: "pkc-new" };
-    const tx = {
-      pokemonCardCatalog: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockResolvedValue(created),
-      },
-    };
-
-    const result = await findOrCreatePokemonCatalogEntry(tx as any, fields);
-
-    expect(result).toBe(created);
-    expect(tx.pokemonCardCatalog.create).toHaveBeenCalledWith({
-      data: {
+      update: {},
+      create: {
         externalId: "manual-tcg-99",
         nameEn: "Pikachu",
         setNameEn: "Jungle",
@@ -170,18 +152,17 @@ describe("findOrCreatePokemonCatalogEntry", () => {
     });
   });
 
-  it("stores a null localId when cardNumber is empty", async () => {
+  it("stores a null localId in the create payload when cardNumber is empty", async () => {
     const tx = {
       pokemonCardCatalog: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockResolvedValue({ id: "pkc-new" }),
+        upsert: vi.fn().mockResolvedValue({ id: "pkc-new" }),
       },
     };
 
     await findOrCreatePokemonCatalogEntry(tx as any, { ...fields, cardNumber: "" });
 
-    expect(tx.pokemonCardCatalog.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ localId: null }) })
+    expect(tx.pokemonCardCatalog.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ localId: null }) })
     );
   });
 });
@@ -240,39 +221,21 @@ describe("findOrCreateRiftboundCatalogEntry", () => {
     supertype: "Champion",
   };
 
-  it("reuses an existing catalog row matched by tcgPlayerId", async () => {
+  it("upserts on tcgPlayerId, not overwriting an existing row's fields", async () => {
     const existing = { id: "rbc-existing", tcgPlayerId: "rift-tcg-99" };
     const tx = {
       riftboundCardCatalog: {
-        findFirst: vi.fn().mockResolvedValue(existing),
-        create: vi.fn(),
+        upsert: vi.fn().mockResolvedValue(existing),
       },
     };
 
     const result = await findOrCreateRiftboundCatalogEntry(tx as any, fields);
 
     expect(result).toBe(existing);
-    expect(tx.riftboundCardCatalog.findFirst).toHaveBeenCalledWith({
+    expect(tx.riftboundCardCatalog.upsert).toHaveBeenCalledWith({
       where: { tcgPlayerId: "rift-tcg-99" },
-      orderBy: { createdAt: "asc" },
-    });
-    expect(tx.riftboundCardCatalog.create).not.toHaveBeenCalled();
-  });
-
-  it("creates a new catalog row when no match exists", async () => {
-    const created = { id: "rbc-new" };
-    const tx = {
-      riftboundCardCatalog: {
-        findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockResolvedValue(created),
-      },
-    };
-
-    const result = await findOrCreateRiftboundCatalogEntry(tx as any, fields);
-
-    expect(result).toBe(created);
-    expect(tx.riftboundCardCatalog.create).toHaveBeenCalledWith({
-      data: {
+      update: {},
+      create: {
         riftboundId: "manual-rift-tcg-99",
         name: "Vi - Peacekeeper",
         setLabel: "Unleashed",
