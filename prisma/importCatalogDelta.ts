@@ -13,8 +13,14 @@ async function main() {
   if (!path) throw new Error("Usage: pnpm exec tsx prisma/importCatalogDelta.ts <path-to-delta.json>");
 
   const delta: CatalogDelta = JSON.parse(readFileSync(path, "utf-8"));
-  const { created, updated } = await importCatalogDelta(prisma, delta);
-  console.log(`Imported ${delta.game} delta (${delta.cards.length} cards): ${created} created, ${updated} updated.`);
+  const { created, updated, failed, errors } = await importCatalogDelta(prisma, delta);
+  console.log(
+    `Imported ${delta.game} delta (${delta.cards.length} cards): ${created} created, ${updated} updated, ${failed} failed.`
+  );
+  if (errors.length > 0) {
+    console.error("Failed cards:");
+    for (const error of errors) console.error(`  ${error}`);
+  }
 }
 
 main()

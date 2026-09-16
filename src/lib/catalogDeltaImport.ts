@@ -56,33 +56,53 @@ function toRiftboundData(card: CatalogDeltaCard) {
 export async function importCatalogDelta(
   prisma: PrismaClient,
   delta: CatalogDelta
-): Promise<{ created: number; updated: number }> {
+): Promise<{ created: number; updated: number; failed: number; errors: string[] }> {
   let created = 0;
   let updated = 0;
+  let failed = 0;
+  const errors: string[] = [];
 
+  // Per-card isolation, matching the try/catch-and-collect pattern used by
+  // the sibling cron routes (backfill-prices/route.ts, refresh-prices/route.ts):
+  // one bad row (a null-violation, a type mismatch, a transient DB error)
+  // must not throw away the reporting of every card already upserted before
+  // it, especially at the ~34k-card scale of an initial import. The upserts
+  // themselves are idempotent, so resuming after a partial run is safe.
   for (const card of delta.cards) {
     if (!card.tcgPlayerId) continue;
 
-    if (delta.game === "POKEMON") {
-      const existing = await prisma.pokemonCardCatalog.findUnique({ where: { tcgPlayerId: card.tcgPlayerId } });
-      const data = toPokemonData(card);
-      await prisma.pokemonCardCatalog.upsert({
-        where: { tcgPlayerId: card.tcgPlayerId },
-        update: data,
-        create: data,
-      });
-      existing ? updated++ : created++;
-    } else {
-      const existing = await prisma.riftboundCardCatalog.findUnique({ where: { tcgPlayerId: card.tcgPlayerId } });
-      const data = toRiftboundData(card);
-      await prisma.riftboundCardCatalog.upsert({
-        where: { tcgPlayerId: card.tcgPlayerId },
-        update: data,
-        create: data,
-      });
-      existing ? updated++ : created++;
+    try {
+      if (delta.game === "POKEMON") {
+        const existing = await prisma.pokemonCardCatalog.findUnique({ where: { tcgPlayerId: card.tcgPlayerId } });
+        const data = toPokemonData(card);
+        await prisma.pokemonCardCatalog.upsert({
+          where: { tcgPlayerId: card.tcgPlayerId },
+          // Assumes the delta producer always emits a complete record for a
+          // "changed" card (an unconditional overwrite is correct for
+          // legitimate errata/art corrections) — a future partial-record
+          // producer would silently blank previously-good fields here.
+          update: data,
+          create: data,
+        });
+        existing ? updated++ : created++;
+      } else {
+        const existing = await prisma.riftboundCardCatalog.findUnique({ where: { tcgPlayerId: card.tcgPlayerId } });
+        const data = toRiftboundData(card);
+        await prisma.riftboundCardCatalog.upsert({
+          where: { tcgPlayerId: card.tcgPlayerId },
+          // Same complete-record assumption as the Pokemon branch above.
+          update: data,
+          create: data,
+        });
+        existing ? updated++ : created++;
+      }
+    } catch (err) {
+      failed++;
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${card.tcgPlayerId} (${card.externalId}): ${msg}`);
+      console.error("[importCatalogDelta] Failed to import card:", card.tcgPlayerId, msg);
     }
   }
 
-  return { created, updated };
+  return { created, updated, failed, errors };
 }
