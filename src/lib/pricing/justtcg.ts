@@ -17,6 +17,12 @@
 const V2_BASE_URL = "https://api.justtcg.com/v2/cards";
 const V1_BASE_URL = "https://api.justtcg.com/v1/cards";
 
+// Without this, a single stalled JustTCG call hangs forever — no error, no
+// timeout of its own — holding the calling cron function (and its database
+// connection) open indefinitely instead of failing one card/batch and
+// moving on the way every catch block here already expects.
+const JUSTTCG_TIMEOUT_MS = 15_000;
+
 export type JustTcgPricePoint = { t: number; p: number }; // t: unix seconds, p: price
 
 export type JustTcgMarket = {
@@ -80,6 +86,7 @@ export async function fetchCardVariants(params: {
 
   const res = await fetch(url.toString(), {
     headers: { "x-api-key": apiKeyOrThrow() },
+    signal: AbortSignal.timeout(JUSTTCG_TIMEOUT_MS),
   });
 
   // A 404 means JustTCG has no record at all for this tcgPlayerId — not a
@@ -120,6 +127,7 @@ export async function fetchCardVariantsBatch(
       "Content-Type": "application/json",
     },
     body: JSON.stringify(tcgPlayerIds.map((tcgplayerId) => ({ tcgplayerId }))),
+    signal: AbortSignal.timeout(JUSTTCG_TIMEOUT_MS),
   });
 
   if (!res.ok) {
