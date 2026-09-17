@@ -10,15 +10,38 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Container, Typography, Box, Card, CardContent, Chip, Button,
   CircularProgress, Alert, Divider, Tabs, Tab,
 } from "@mui/material";
+import CardListItem from "@/app/shared-components/cards/CardListItem";
+import type { CardItem } from "@/types/card";
 
+// Everything GET /api/admin/collection-requests already sends per card —
+// full catalog + Listing fields via withListingDisplay, not just a title/
+// condition tag. `status` isn't a real Listing column, so it's synthesized
+// as "reserved" when building the CardItem CardListItem expects.
 interface AdminCard {
   id: string;
   title: string;
   condition: string;
+  price: number | null;
+  forSale: boolean;
+  inAuction: boolean;
+  imageUrls: string[];
+  tcgPlayerId: string;
+  game: "POKEMON" | "RIFTBOUND";
+  setName: string | null;
+  rarity: string | null;
+  description: string | null;
+  language: string;
+  cardNumber: string | null;
+  type?: string;
+  supertype?: string;
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
 }
 
 interface AdminCollectionRequest {
@@ -34,6 +57,7 @@ interface AdminCollectionRequest {
 }
 
 export default function AdminCollectionRequests() {
+  const router = useRouter();
   const [requests, setRequests] = useState<AdminCollectionRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,9 +174,14 @@ export default function AdminCollectionRequests() {
 
                 <Divider sx={{ my: 1.5 }} />
 
-                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.5 }}>
                   {request.cards.map((card) => (
-                    <Chip key={card.id} size="small" variant="outlined" label={`${card.title} (${card.condition})`} />
+                    <CardListItem
+                      key={card.id}
+                      card={{ ...card, status: "reserved" } satisfies CardItem}
+                      onClick={(c) => router.push(`/cards/${c.id}`)}
+                      hideWatchlist
+                    />
                   ))}
                 </Box>
 

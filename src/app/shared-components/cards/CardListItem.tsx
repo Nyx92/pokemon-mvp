@@ -52,6 +52,11 @@ interface CardListItemProps {
   onWatchlistToggle?: (cardId: string, nowWatchlisted: boolean) => void;
   // When provided, replaces the price section with live auction data (bid, timer, count).
   auctionOverride?: AuctionOverride;
+  // Suppresses the watchlist bookmark button entirely — for contexts where
+  // watchlisting the card makes no sense (e.g. an admin viewing someone
+  // else's already-sold, pending-pickup card). Defaults to false so every
+  // existing usage keeps showing the button exactly as before.
+  hideWatchlist?: boolean;
 }
 
 export default function CardListItem({
@@ -60,6 +65,7 @@ export default function CardListItem({
   watchlisted: initialWatchlisted = false,
   onWatchlistToggle,
   auctionOverride,
+  hideWatchlist = false,
 }: CardListItemProps) {
   const { userId, isLoggedIn } = useAuth();
   const { triggerFly, adjustCount } = useWatchlistAnimation();
@@ -359,7 +365,7 @@ export default function CardListItem({
         </CardContent>
 
         {/* Watchlist toggle — top-right corner, only shown to non-owners */}
-        {!isOwner && (
+        {!isOwner && !hideWatchlist && (
           <Box sx={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>
             <IconButton
               ref={bookmarkBtnRef}
