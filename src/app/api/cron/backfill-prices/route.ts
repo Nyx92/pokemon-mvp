@@ -5,6 +5,7 @@ import {
   fetchCardVariants,
   pickPricedVariants,
   usdMarket,
+  runWithConcurrency,
   type JustTcgMarket,
 } from "@/lib/pricing/justtcg";
 
@@ -35,6 +36,8 @@ import {
  *   curl "http://localhost:3000/api/cron/backfill-prices?limit=50" \
  *     -H "Authorization: Bearer <CRON_SECRET>"
  */
+
+type PendingCard = { id: string; tcgPlayerId: string | null; language?: string };
 
 /**
  * Writes one variant's full backfill in a small, fixed number of queries
@@ -114,11 +117,14 @@ async function backfillCard(
     historyWindow: "1y",
   });
 
-  for (const { label, variant } of pickPricedVariants(variants)) {
-    const market = usdMarket(variant);
-    if (!market) continue;
-    await backfillVariant(catalogIdField, catalogId, game, label, market, capturedAt);
-  }
+  // A card with several graded prices (PSA 8/9/10, CGC, ...) used to pay for
+  // each variant's read+write round trip one after another — the real cost
+  // of even a single card's backfill when many grades exist. These write to
+  // different rows, so they run concurrently instead.
+  const picks = pickPricedVariants(variants).filter((p) => usdMarket(p.variant) !== null);
+  await runWithConcurrency(picks, 5, ({ label, variant }) =>
+    backfillVariant(catalogIdField, catalogId, game, label, usdMarket(variant) as JustTcgMarket, capturedAt)
+  );
 }
 
 async function runBackfill(req: NextRequest): Promise<NextResponse> {
@@ -153,14 +159,14 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
   async function takeCards<T extends "pokemonCardCatalog" | "riftboundCardCatalog">(
     model: T,
     remaining: number
-  ) {
+  ): Promise<PendingCard[]> {
     if (remaining <= 0) return [];
     const select =
       model === "pokemonCardCatalog"
         ? { id: true, tcgPlayerId: true, language: true }
         : { id: true, tcgPlayerId: true };
 
-    const listed = await (prisma[model] as any).findMany({
+    const listed: PendingCard[] = await (prisma[model] as any).findMany({
       where: { ...basePending, listings: { some: {} } },
       select,
       take: remaining,
@@ -168,7 +174,7 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
     });
     if (listed.length >= remaining) return listed;
 
-    const unlisted = await (prisma[model] as any).findMany({
+    const unlisted: PendingCard[] = await (prisma[model] as any).findMany({
       where: { ...basePending, listings: { none: {} } },
       select,
       take: remaining - listed.length,
@@ -182,7 +188,14 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
 
   const results = { backfilled: 0, failed: 0, errors: [] as string[] };
 
-  for (const card of pokemonCards) {
+  // Cards run several at a time instead of one at a time — each one pays a
+  // JustTCG round trip plus several database round trips, so processing them
+  // strictly in sequence was the main reason a run could take far longer
+  // than any cron-job.org timeout. Capped at the Supabase pooler's
+  // connection_limit=5 (see src/lib/prisma.ts).
+  const BACKFILL_CONCURRENCY = 5;
+
+  await runWithConcurrency(pokemonCards, BACKFILL_CONCURRENCY, async (card) => {
     try {
       await backfillCard("pokemonCardId", card.id, "POKEMON", card.tcgPlayerId as string, card.language, capturedAt);
       await prisma.pokemonCardCatalog.update({
@@ -196,9 +209,9 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
       results.errors.push(`Pokemon card ${card.id}: ${msg}`);
       console.error("[cron/backfill-prices] Failed to backfill card:", card.id, msg);
     }
-  }
+  });
 
-  for (const card of riftboundCards) {
+  await runWithConcurrency(riftboundCards, BACKFILL_CONCURRENCY, async (card) => {
     try {
       await backfillCard("riftboundCardId", card.id, "RIFTBOUND", card.tcgPlayerId as string, undefined, capturedAt);
       await prisma.riftboundCardCatalog.update({
@@ -212,7 +225,7 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
       results.errors.push(`Riftbound card ${card.id}: ${msg}`);
       console.error("[cron/backfill-prices] Failed to backfill card:", card.id, msg);
     }
-  }
+  });
 
   const [remainingPokemon, remainingRiftbound] = await Promise.all([
     prisma.pokemonCardCatalog.count({ where: basePending }),

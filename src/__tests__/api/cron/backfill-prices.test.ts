@@ -25,6 +25,9 @@ vi.mock("@/lib/pricing/justtcg", () => ({
     const nearMint = variants.find((v) => v.type === "raw" && v.condition === "Near Mint");
     return nearMint ? [{ label: "RAW", variant: nearMint }] : [];
   },
+  runWithConcurrency: async (items: any[], _concurrency: number, fn: (item: any) => Promise<unknown>) => {
+    await Promise.all(items.map(fn));
+  },
 }));
 
 import { GET } from "@/app/api/cron/backfill-prices/route";

@@ -7,6 +7,7 @@ import {
   pickPricedVariants,
   usdMarket,
   chunk,
+  runWithConcurrency,
 } from "@/lib/pricing/justtcg";
 import { toPriceVariantLabel } from "@/app/utils/mapCondition";
 
@@ -41,29 +42,69 @@ type CardRef = {
   language?: string;
 };
 
-async function upsertPriceRow(
-  catalogIdField: "pokemonCardId" | "riftboundCardId",
-  catalogId: string,
-  game: "POKEMON" | "RIFTBOUND",
-  variant: string,
-  priceCents: number,
-  capturedAt: Date
-) {
-  const existing = await prisma.priceHistory.findFirst({
-    where: { [catalogIdField]: catalogId, variant, capturedAt },
-    select: { id: true },
-  });
+type PriceWrite = {
+  catalogIdField: "pokemonCardId" | "riftboundCardId";
+  catalogId: string;
+  game: "POKEMON" | "RIFTBOUND";
+  variant: string;
+  priceCents: number;
+};
 
-  if (existing) {
-    await prisma.priceHistory.update({
-      where: { id: existing.id },
-      data: { priceCents },
+/**
+ * Writes a whole set of today's prices in a small, fixed number of queries
+ * instead of one round trip per row. PriceHistory has no single column that's
+ * always non-null across both games, so Postgres can't enforce a real unique
+ * constraint across (pokemonCardId, riftboundCardId, variant, capturedAt) —
+ * a unique index treats any row with a null column as distinct from every
+ * other row, so it silently allows duplicates instead of rejecting them, on
+ * both games (one of the two ID columns is null on every row). That rules
+ * out a native `upsert`, so this instead mirrors backfillVariant's read-many
+ * -then-write-many shape: one findMany per game covering every card being
+ * written this call, one createMany for the rows that don't exist yet, and
+ * an update only for the rare same-day rerun that actually collides.
+ */
+async function writePricesInBulk(writes: PriceWrite[], capturedAt: Date) {
+  async function writeGroup(catalogIdField: "pokemonCardId" | "riftboundCardId", group: PriceWrite[]) {
+    if (group.length === 0) return;
+    const catalogIds = [...new Set(group.map((w) => w.catalogId))];
+    const existingRows = await prisma.priceHistory.findMany({
+      where: { [catalogIdField]: { in: catalogIds }, capturedAt },
+      select: { id: true, [catalogIdField]: true, variant: true },
     });
-  } else {
-    await prisma.priceHistory.create({
-      data: { game, [catalogIdField]: catalogId, variant, priceCents, capturedAt },
-    });
+    const existingIdByKey = new Map(
+      existingRows.map((r) => [`${(r as Record<string, unknown>)[catalogIdField]}|${r.variant}`, r.id])
+    );
+
+    const toCreate: { game: string; [key: string]: unknown }[] = [];
+    const toUpdate: { id: string; priceCents: number }[] = [];
+    for (const w of group) {
+      const existingId = existingIdByKey.get(`${w.catalogId}|${w.variant}`);
+      if (existingId) {
+        toUpdate.push({ id: existingId, priceCents: w.priceCents });
+      } else {
+        toCreate.push({
+          game: w.game,
+          [catalogIdField]: w.catalogId,
+          variant: w.variant,
+          priceCents: w.priceCents,
+          capturedAt,
+        });
+      }
+    }
+    if (toCreate.length > 0) await prisma.priceHistory.createMany({ data: toCreate as never[] });
+    for (const u of toUpdate) {
+      await prisma.priceHistory.update({ where: { id: u.id }, data: { priceCents: u.priceCents } });
+    }
   }
+
+  await writeGroup(
+    "pokemonCardId",
+    writes.filter((w) => w.catalogIdField === "pokemonCardId")
+  );
+  await writeGroup(
+    "riftboundCardId",
+    writes.filter((w) => w.catalogIdField === "riftboundCardId")
+  );
 }
 
 async function runRefresh(req: NextRequest): Promise<NextResponse> {
@@ -128,26 +169,33 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
 
   const results = { rawRefreshed: 0, gradedRefreshed: 0, failed: 0, errors: [] as string[] };
 
+  // JustTCG calls for different cards don't depend on each other, so several
+  // run at once instead of strictly one after another. Bounded to the
+  // Supabase pooler's connection_limit=5 (src/lib/prisma.ts) since the
+  // graded path's per-card fetch also triggers database reads/writes.
+  const FETCH_CONCURRENCY = 5;
+
   // ── Raw prices: batched, 100 cards per call ────────────────────────────
   for (const batch of chunk(allCards, 100)) {
     try {
       const byTcgId = await fetchCardVariantsBatch(batch.map((c) => c.tcgPlayerId));
+      const writes: PriceWrite[] = [];
       for (const card of batch) {
         const variants = byTcgId.get(card.tcgPlayerId) ?? [];
         for (const { label, variant } of pickPricedVariants(variants)) {
           const market = usdMarket(variant);
           if (!market) continue;
-          await upsertPriceRow(
-            card.catalogIdField,
-            card.catalogId,
-            card.game,
-            label,
-            usdToSgdCents(market.price),
-            capturedAt
-          );
+          writes.push({
+            catalogIdField: card.catalogIdField,
+            catalogId: card.catalogId,
+            game: card.game,
+            variant: label,
+            priceCents: usdToSgdCents(market.price),
+          });
         }
         results.rawRefreshed++;
       }
+      await writePricesInBulk(writes, capturedAt);
     } catch (err) {
       results.failed += batch.length;
       const msg = err instanceof Error ? err.message : String(err);
@@ -163,7 +211,8 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
       (c.game === "RIFTBOUND" && gradedRiftboundCardIds.has(c.catalogId))
   );
 
-  for (const card of gradedCards) {
+  const gradedWrites: PriceWrite[] = [];
+  await runWithConcurrency(gradedCards, FETCH_CONCURRENCY, async (card) => {
     try {
       const variants = await fetchCardVariants({
         tcgPlayerId: card.tcgPlayerId,
@@ -174,14 +223,13 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
       for (const { label, variant } of gradedPicks) {
         const market = usdMarket(variant);
         if (!market) continue;
-        await upsertPriceRow(
-          card.catalogIdField,
-          card.catalogId,
-          card.game,
-          label,
-          usdToSgdCents(market.price),
-          capturedAt
-        );
+        gradedWrites.push({
+          catalogIdField: card.catalogIdField,
+          catalogId: card.catalogId,
+          game: card.game,
+          variant: label,
+          priceCents: usdToSgdCents(market.price),
+        });
       }
       results.gradedRefreshed++;
     } catch (err) {
@@ -190,7 +238,8 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
       results.errors.push(`Graded card ${card.catalogId}: ${msg}`);
       console.error("[cron/refresh-prices] Failed graded card:", card.catalogId, msg);
     }
-  }
+  });
+  await writePricesInBulk(gradedWrites, capturedAt);
 
   console.log(
     `[cron/refresh-prices] Done. Raw: ${results.rawRefreshed}, Graded: ${results.gradedRefreshed}, Failed: ${results.failed}`

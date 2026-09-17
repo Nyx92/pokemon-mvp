@@ -158,6 +158,29 @@ export function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /**
+ * Runs `items` through `fn` with at most `concurrency` in flight at once —
+ * used by both cron routes so a run's per-card JustTCG calls and database
+ * writes overlap instead of paying one full round trip at a time in
+ * sequence. Callers cap `concurrency` at the Supabase pooler's
+ * connection_limit=5 (see src/lib/prisma.ts) so this doesn't open more
+ * database connections than the pool can actually serve at once.
+ */
+export async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T) => Promise<unknown>
+) {
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const item = items[index++];
+      await fn(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+}
+
+/**
  * Picks a variant's USD market entry — JustTCG's default currency for the
  * NA region — including its price_history, so callers can backfill past
  * days instead of only ever recording "today".

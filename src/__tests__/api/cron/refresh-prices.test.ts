@@ -16,7 +16,7 @@ const mockPrisma = vi.hoisted(() => ({
   pokemonCardCatalog: { findMany: vi.fn() },
   riftboundCardCatalog: { findMany: vi.fn() },
   listing: { findMany: vi.fn() },
-  priceHistory: { findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
+  priceHistory: { findMany: vi.fn(), createMany: vi.fn(), update: vi.fn() },
 }));
 
 const mockFetchCardVariants = vi.hoisted(() => vi.fn());
@@ -44,6 +44,9 @@ vi.mock("@/lib/pricing/justtcg", () => ({
     const chunks = [];
     for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
     return chunks;
+  },
+  runWithConcurrency: async (items: any[], _concurrency: number, fn: (item: any) => Promise<unknown>) => {
+    await Promise.all(items.map(fn));
   },
 }));
 
@@ -74,7 +77,7 @@ describe("GET /api/cron/refresh-prices", () => {
     mockPrisma.pokemonCardCatalog.findMany.mockResolvedValue([]);
     mockPrisma.riftboundCardCatalog.findMany.mockResolvedValue([]);
     mockPrisma.listing.findMany.mockResolvedValue([]);
-    mockPrisma.priceHistory.findFirst.mockResolvedValue(null);
+    mockPrisma.priceHistory.findMany.mockResolvedValue([]);
     mockFetchCardVariantsBatch.mockResolvedValue(new Map());
   });
 
@@ -96,14 +99,16 @@ describe("GET /api/cron/refresh-prices", () => {
     expect(res.status).toBe(200);
     expect(data.rawRefreshed).toBe(1);
     expect(mockFetchCardVariantsBatch).toHaveBeenCalledWith(["42360"]);
-    expect(mockPrisma.priceHistory.create).toHaveBeenCalledWith(
+    expect(mockPrisma.priceHistory.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          game: "POKEMON",
-          pokemonCardId: "pkm-1",
-          variant: "RAW",
-          priceCents: Math.round(10 * 1.29 * 100),
-        }),
+        data: expect.arrayContaining([
+          expect.objectContaining({
+            game: "POKEMON",
+            pokemonCardId: "pkm-1",
+            variant: "RAW",
+            priceCents: Math.round(10 * 1.29 * 100),
+          }),
+        ]),
       })
     );
   });
@@ -144,9 +149,11 @@ describe("GET /api/cron/refresh-prices", () => {
       language: "English",
     });
     expect(data.gradedRefreshed).toBe(1);
-    expect(mockPrisma.priceHistory.create).toHaveBeenCalledWith(
+    expect(mockPrisma.priceHistory.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ variant: "PSA 10", priceCents: Math.round(300 * 1.29 * 100) }),
+        data: expect.arrayContaining([
+          expect.objectContaining({ variant: "PSA 10", priceCents: Math.round(300 * 1.29 * 100) }),
+        ]),
       })
     );
   });
@@ -164,9 +171,9 @@ describe("GET /api/cron/refresh-prices", () => {
 
     await GET(makeRequest("test-cron-secret"));
 
-    const rawWrites = mockPrisma.priceHistory.create.mock.calls.filter(
-      (c: any) => c[0].data.variant === "RAW"
-    );
+    const rawWrites = mockPrisma.priceHistory.createMany.mock.calls
+      .flatMap((c: any) => c[0].data)
+      .filter((row: any) => row.variant === "RAW");
     expect(rawWrites).toHaveLength(0);
   });
 
