@@ -173,12 +173,22 @@ export async function getListingsPage(params: ListingsQueryParams): Promise<List
   const clampedPage = isPaginated ? Math.max(1, page!) : null;
   const clampedPageSize = isPaginated ? Math.min(MAX_PAGE_SIZE, Math.max(1, pageSize!)) : null;
 
+  // Unpaginated callers (BuyBox/AllListings' per-tcgPlayerId "all sellers for
+  // this card" lookup) realistically only ever match a handful of rows, but
+  // nothing stops an unfiltered call from omitting page/pageSize on this
+  // public, unauthenticated route — without a cap that would fetch the
+  // entire for-sale catalog (with full catalog includes) in one response,
+  // and get slower as the catalog grows. Mirrors the same defensive
+  // MAX_PAGE_SIZE fallback getAuctionsPage (auctionsQuery.ts) already uses.
+  const take = isPaginated ? clampedPageSize! : MAX_PAGE_SIZE;
+
   const [listings, totalCount] = await Promise.all([
     prisma.listing.findMany({
       where,
       include: listingsInclude,
       orderBy: [{ createdAt: "desc" }, { id: "asc" }],
-      ...(isPaginated ? { skip: (clampedPage! - 1) * clampedPageSize!, take: clampedPageSize! } : {}),
+      ...(isPaginated ? { skip: (clampedPage! - 1) * clampedPageSize! } : {}),
+      take,
     }),
     isPaginated ? prisma.listing.count({ where }) : Promise.resolve(null),
   ]);

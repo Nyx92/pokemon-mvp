@@ -14,6 +14,7 @@ vi.mock("@supabase/supabase-js", () => ({
 }));
 
 import { GET } from "@/app/api/cards/route";
+import { MAX_PAGE_SIZE } from "@/lib/listingsQuery";
 
 function cardsRequest(query: string) {
   return new Request(`http://localhost/api/cards${query}`);
@@ -173,13 +174,18 @@ describe("GET /api/cards — filters", () => {
 });
 
 describe("GET /api/cards — pagination", () => {
-  it("returns every matching row with no totalCount/hasMore when page/pageSize are omitted (backward compatible)", async () => {
+  it("returns every matching row (up to the MAX_PAGE_SIZE safety cap) with no totalCount/hasMore when page/pageSize are omitted", async () => {
     const res = await GET(cardsRequest("?forSale=true"));
     const body = await res.json();
 
     const call = mockPrisma.listing.findMany.mock.calls[0][0];
     expect(call.skip).toBeUndefined();
-    expect(call.take).toBeUndefined();
+    // No skip/take from the caller doesn't mean no bound at the DB level —
+    // this public, unauthenticated route still caps the unpaginated query at
+    // MAX_PAGE_SIZE so an omitted page/pageSize can't force a full-catalog
+    // scan-and-serialize as the listing count grows (mirrors the same
+    // defensive cap getAuctionsPage already applies).
+    expect(call.take).toBe(MAX_PAGE_SIZE);
     expect(mockPrisma.listing.count).not.toHaveBeenCalled();
     expect(body).not.toHaveProperty("totalCount");
     expect(body).not.toHaveProperty("hasMore");

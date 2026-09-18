@@ -5,7 +5,7 @@ const mockPrisma = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/prisma", () => ({ prisma: mockPrisma }));
 
-import { getListingsPage } from "@/lib/listingsQuery";
+import { getListingsPage, MAX_PAGE_SIZE } from "@/lib/listingsQuery";
 
 const POKEMON_LISTING = {
   id: "listing-1",
@@ -65,5 +65,11 @@ describe("getListingsPage", () => {
     expect(mockPrisma.listing.count).not.toHaveBeenCalled();
     expect(result.hasMore).toBeUndefined();
     expect(mockPrisma.listing.findMany.mock.calls[0][0].skip).toBeUndefined();
+  });
+
+  it("still caps the unpaginated query at MAX_PAGE_SIZE as a safety net", async () => {
+    await getListingsPage({ forSale: true });
+
+    expect(mockPrisma.listing.findMany.mock.calls[0][0].take).toBe(MAX_PAGE_SIZE);
   });
 });
