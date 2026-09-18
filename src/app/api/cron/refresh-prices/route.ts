@@ -10,6 +10,7 @@ import {
   runWithConcurrency,
 } from "@/lib/pricing/justtcg";
 import { toPriceVariantLabel } from "@/app/utils/mapCondition";
+import { postCronResult } from "@/lib/discord";
 
 /**
  * GET /api/cron/refresh-prices ← recommended schedule: once a day (cron-job.org)
@@ -113,12 +114,31 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
 
   if (!expectedToken) {
     console.error("[cron/refresh-prices] CRON_SECRET env var is not set");
+    await postCronResult({
+      job: "refresh-prices",
+      ok: false,
+      summary: "Server misconfiguration: CRON_SECRET env var is not set.",
+    });
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
+  // Not alerted on Discord: a wrong/missing token is what any unauthenticated
+  // caller (a scanner, a stale cron-job.org config) gets, not a signal about
+  // whether the job itself is healthy — alerting here would just be noise.
   if (authHeader !== `Bearer ${expectedToken}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
+    return await refreshPrices();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[cron/refresh-prices] Crashed:", msg);
+    await postCronResult({ job: "refresh-prices", ok: false, summary: `Crashed: ${msg}` });
+    return NextResponse.json({ error: "refresh-prices crashed", message: msg }, { status: 500 });
+  }
+}
+
+async function refreshPrices(): Promise<NextResponse> {
   const capturedAt = new Date(new Date().toISOString().slice(0, 10));
 
   const [pokemonCards, riftboundCards, pokemonListings, riftboundListings] = await Promise.all([
@@ -241,9 +261,14 @@ async function runRefresh(req: NextRequest): Promise<NextResponse> {
   });
   await writePricesInBulk(gradedWrites, capturedAt);
 
-  console.log(
-    `[cron/refresh-prices] Done. Raw: ${results.rawRefreshed}, Graded: ${results.gradedRefreshed}, Failed: ${results.failed}`
-  );
+  const summary = `Raw: ${results.rawRefreshed}, Graded: ${results.gradedRefreshed}, Failed: ${results.failed}`;
+  console.log(`[cron/refresh-prices] Done. ${summary}`);
+  await postCronResult({
+    job: "refresh-prices",
+    ok: results.failed === 0,
+    summary,
+    errors: results.errors,
+  });
 
   return NextResponse.json({
     rawRefreshed: results.rawRefreshed,

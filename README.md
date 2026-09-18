@@ -181,6 +181,8 @@ Card market prices come from [JustTCG](https://justtcg.com). Two separate jobs, 
 
 Both need the same `Authorization: Bearer <CRON_SECRET>` header as the other cron endpoints above. Add both to cron-job.org alongside the existing two jobs, at their respective cadences.
 
+Set `DISCORD_CRON_ALERTS_WEBHOOK_URL` (optional) to post a Discord alert on every run of either job — success or failure, including a run that returned 200 but had some cards fail. Leave it unset to skip Discord entirely.
+
 ---
 
 ## Monitoring

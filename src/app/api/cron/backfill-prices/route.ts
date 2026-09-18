@@ -8,6 +8,7 @@ import {
   runWithConcurrency,
   type JustTcgMarket,
 } from "@/lib/pricing/justtcg";
+import { postCronResult } from "@/lib/discord";
 
 /**
  * GET /api/cron/backfill-prices?limit=500 ← recommended schedule: twice a month (cron-job.org)
@@ -133,12 +134,31 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
 
   if (!expectedToken) {
     console.error("[cron/backfill-prices] CRON_SECRET env var is not set");
+    await postCronResult({
+      job: "backfill-prices",
+      ok: false,
+      summary: "Server misconfiguration: CRON_SECRET env var is not set.",
+    });
     return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
   }
+  // Not alerted on Discord: a wrong/missing token is what any unauthenticated
+  // caller (a scanner, a stale cron-job.org config) gets, not a signal about
+  // whether the job itself is healthy — alerting here would just be noise.
   if (authHeader !== `Bearer ${expectedToken}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  try {
+    return await backfillPrices(req);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[cron/backfill-prices] Crashed:", msg);
+    await postCronResult({ job: "backfill-prices", ok: false, summary: `Crashed: ${msg}` });
+    return NextResponse.json({ error: "backfill-prices crashed", message: msg }, { status: 500 });
+  }
+}
+
+async function backfillPrices(req: NextRequest): Promise<NextResponse> {
   const { searchParams } = new URL(req.url);
   // Default 500, not the route's own 950 cap on its own — the daily refresh
   // job (now covering the full catalog too) needs headroom in the same
@@ -232,9 +252,14 @@ async function runBackfill(req: NextRequest): Promise<NextResponse> {
     prisma.riftboundCardCatalog.count({ where: basePending }),
   ]);
 
-  console.log(
-    `[cron/backfill-prices] Done. Backfilled: ${results.backfilled}, Failed: ${results.failed}, Remaining: ${remainingPokemon + remainingRiftbound}`
-  );
+  const summary = `Backfilled: ${results.backfilled}, Failed: ${results.failed}, Remaining: ${remainingPokemon + remainingRiftbound}`;
+  console.log(`[cron/backfill-prices] Done. ${summary}`);
+  await postCronResult({
+    job: "backfill-prices",
+    ok: results.failed === 0,
+    summary,
+    errors: results.errors,
+  });
 
   return NextResponse.json({
     backfilled: results.backfilled,

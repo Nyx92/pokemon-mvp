@@ -112,3 +112,48 @@ export async function resolveCollectionNotification({
   };
   await Promise.all(messageIds.map((id) => editDiscordMessage(id, payload)));
 }
+
+// Alerts for the two price-sync cron jobs (refresh-prices, backfill-prices),
+// posted to their own webhook — DISCORD_CRON_ALERTS_WEBHOOK_URL — separate
+// from the collection-request one above, so cron health can live in its own
+// channel. Fires on every run, success or failure: a run can return HTTP 200
+// with some cards failed (e.g. a JustTCG outage mid-run), which cron-job.org's
+// own status-code check can't see. `ok` should reflect that per-card failure
+// count, not just "did the route return without throwing".
+export async function postCronResult({
+  job,
+  ok,
+  summary,
+  errors,
+}: {
+  job: string;
+  ok: boolean;
+  summary: string;
+  errors?: string[];
+}): Promise<void> {
+  const url = process.env.DISCORD_CRON_ALERTS_WEBHOOK_URL;
+  if (!url) return;
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: ok ? `✅ ${job}` : `❌ ${job}`,
+            description: summary,
+            color: ok ? 0x22c55e : 0xef4444, // green success / red failure
+            ...(errors && errors.length > 0
+              ? { fields: [{ name: "Errors (first 10)", value: errors.slice(0, 10).join("\n").slice(0, 1000) }] }
+              : {}),
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+    if (!res.ok) console.error("[discord] cron alert post failed:", res.status, await res.text());
+  } catch (err) {
+    console.error("[discord] cron alert post failed:", err);
+  }
+}
