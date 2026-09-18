@@ -95,12 +95,16 @@ async function backfillVariant(
     await prisma.priceHistory.createMany({ data: toCreate });
   }
 
-  for (const [day, id] of existingIdByDay) {
-    await prisma.priceHistory.update({
+  // Rare (typically zero or one row, per the comment above), but if a whole
+  // year's history collides — e.g. a card gets backfilled twice — run these
+  // concurrently instead of one round trip per day, capped like every other
+  // DB-writing loop in this file.
+  await runWithConcurrency([...existingIdByDay], 5, ([day, id]) =>
+    prisma.priceHistory.update({
       where: { id },
       data: { priceCents: priceCentsByDay.get(day) as number },
-    });
-  }
+    })
+  );
 }
 
 async function backfillCard(

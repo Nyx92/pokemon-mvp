@@ -51,6 +51,13 @@ type PriceWrite = {
   priceCents: number;
 };
 
+// JustTCG calls (and this file's own DB writes) for different cards don't
+// depend on each other, so several run at once instead of strictly one after
+// another. Bounded to the Supabase pooler's connection_limit=5
+// (src/lib/prisma.ts) since the graded path's per-card fetch also triggers
+// database reads/writes.
+const FETCH_CONCURRENCY = 5;
+
 /**
  * Writes a whole set of today's prices in a small, fixed number of queries
  * instead of one round trip per row. PriceHistory has no single column that's
@@ -93,9 +100,12 @@ async function writePricesInBulk(writes: PriceWrite[], capturedAt: Date) {
       }
     }
     if (toCreate.length > 0) await prisma.priceHistory.createMany({ data: toCreate as never[] });
-    for (const u of toUpdate) {
-      await prisma.priceHistory.update({ where: { id: u.id }, data: { priceCents: u.priceCents } });
-    }
+    // Rare (only a same-day rerun collides here), but if it does happen it can
+    // be every row in the batch — run these concurrently, capped like every
+    // other DB-writing loop in this file, instead of one round trip at a time.
+    await runWithConcurrency(toUpdate, FETCH_CONCURRENCY, (u) =>
+      prisma.priceHistory.update({ where: { id: u.id }, data: { priceCents: u.priceCents } })
+    );
   }
 
   await writeGroup(
@@ -188,12 +198,6 @@ async function refreshPrices(): Promise<NextResponse> {
   ];
 
   const results = { rawRefreshed: 0, gradedRefreshed: 0, failed: 0, errors: [] as string[] };
-
-  // JustTCG calls for different cards don't depend on each other, so several
-  // run at once instead of strictly one after another. Bounded to the
-  // Supabase pooler's connection_limit=5 (src/lib/prisma.ts) since the
-  // graded path's per-card fetch also triggers database reads/writes.
-  const FETCH_CONCURRENCY = 5;
 
   // ── Raw prices: batched, 100 cards per call ────────────────────────────
   for (const batch of chunk(allCards, 100)) {
