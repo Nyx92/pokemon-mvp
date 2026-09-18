@@ -100,6 +100,34 @@ describe("fetchCardVariants", () => {
     ).rejects.toThrow("401");
   });
 
+  it("bounds the fetch with a 15s AbortSignal.timeout", async () => {
+    const fakeSignal = new AbortController().signal;
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(fakeSignal);
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+
+    await fetchCardVariants({ tcgPlayerId: "1", game: "POKEMON" });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(15_000);
+    expect(mockFetch.mock.calls[0][1].signal).toBe(fakeSignal);
+    timeoutSpy.mockRestore();
+  });
+
+  it("rejects with the abort's TimeoutError instead of hanging or swallowing it, when the timeout fires", async () => {
+    const controller = new AbortController();
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+    mockFetch.mockImplementation((_url: string, init: { signal: AbortSignal }) => {
+      return new Promise((_resolve, reject) => {
+        if (init.signal.aborted) reject(init.signal.reason);
+        else init.signal.addEventListener("abort", () => reject(init.signal.reason));
+      });
+    });
+
+    const pending = fetchCardVariants({ tcgPlayerId: "1", game: "POKEMON" });
+    await Promise.resolve(); // let fetchCardVariants reach the fetch() call and register its listener
+    controller.abort(new DOMException("The operation was aborted due to timeout", "TimeoutError"));
+    await expect(pending).rejects.toMatchObject({ name: "TimeoutError" });
+  });
+
   it("forwards historyWindow as an include=price_history.<window> param", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
     await fetchCardVariants({ tcgPlayerId: "1", game: "POKEMON", historyWindow: "1y" });
@@ -177,6 +205,18 @@ describe("fetchCardVariantsBatch", () => {
   it("throws when the batch request fails", async () => {
     mockFetch.mockResolvedValue({ ok: false, status: 500 });
     await expect(fetchCardVariantsBatch(["1"])).rejects.toThrow("500");
+  });
+
+  it("bounds the batch fetch with a 15s AbortSignal.timeout", async () => {
+    const fakeSignal = new AbortController().signal;
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockReturnValue(fakeSignal);
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ data: [] }) });
+
+    await fetchCardVariantsBatch(["1"]);
+
+    expect(timeoutSpy).toHaveBeenCalledWith(15_000);
+    expect(mockFetch.mock.calls[0][1].signal).toBe(fakeSignal);
+    timeoutSpy.mockRestore();
   });
 });
 
