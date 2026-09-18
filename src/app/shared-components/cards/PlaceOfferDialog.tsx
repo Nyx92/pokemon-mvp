@@ -36,7 +36,7 @@
  *    old PaymentIntent and updates the offer record in place.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -81,6 +81,11 @@ import GavelIcon from "@mui/icons-material/Gavel";
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string
 );
+
+// Sentinel used by OfferForm's render-time form-reset (see its comment) to
+// force that reset to run on the component's very first render, matching
+// how a useEffect with a dependency array also always runs once on mount.
+const NOT_YET_SYNCED = Symbol("not-yet-synced");
 
 // ── Stripe CardElement visual options ──────────────────────────────────────
 // These style the iframe Stripe renders for card input. The font/colour here
@@ -137,10 +142,25 @@ function OfferForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [amended, setAmended] = useState(false);
+  // Sentinel for the render-time reset below — see NOT_YET_SYNCED's comment.
+  const [prevExistingOffer, setPrevExistingOffer] = useState<
+    PlaceOfferDialogProps["existingOffer"] | typeof NOT_YET_SYNCED
+  >(NOT_YET_SYNCED);
 
   // Pre-fill form when opening in amend mode, or reset for a new offer.
   // Runs whenever the dialog opens or existingOffer changes.
-  useEffect(() => {
+  //
+  // Adjusted directly during render (React's documented pattern for
+  // "resetting state when a prop changes") rather than in an effect: price/
+  // message/step/error/success/amended are genuinely user-editable in
+  // between resets (not pure derived values), so the reset itself is real,
+  // but doing it during render — guarded by comparing the current
+  // existingOffer reference against the one it last ran for — avoids ever
+  // needing to synchronously pre-arm it from an effect body. The
+  // NOT_YET_SYNCED sentinel guarantees the very first render always resets,
+  // matching how an effect with a dependency array also runs once on mount.
+  if (existingOffer !== prevExistingOffer) {
+    setPrevExistingOffer(existingOffer);
     if (existingOffer) {
       setPrice(existingOffer.price.toFixed(2));
       setMessage(existingOffer.message ?? "");
@@ -152,7 +172,7 @@ function OfferForm({
     setError(null);
     setSuccess(false);
     setAmended(false);
-  }, [existingOffer]);
+  }
 
   const handleClose = () => {
     if (loading) return;

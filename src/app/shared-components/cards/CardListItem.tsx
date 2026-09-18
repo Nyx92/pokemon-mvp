@@ -59,7 +59,17 @@ interface CardListItemProps {
   hideWatchlist?: boolean;
 }
 
-export default function CardListItem({
+// Wrapped in React.memo — this tile is rendered up to PAGE_SIZE (24) times
+// per browse/search grid (Marketplace, MyCollection, HomeFeatured rows), and
+// those parents re-render on every keystroke of their search box (search is
+// local state in the same component as the grid). Without memo, every
+// keystroke re-renders every on-screen tile (MUI Card + Typography/Chip
+// tree, sometimes framer-motion) even though the tile's own props haven't
+// changed. Effective only where callers pass a referentially-stable
+// `onClick` (see MarketPlace.tsx/MyCollection.tsx's useCallback-wrapped
+// handlers) — an inline arrow function recreated every render still defeats
+// this.
+function CardListItem({
   card,
   onClick,
   watchlisted: initialWatchlisted = false,
@@ -75,10 +85,19 @@ export default function CardListItem({
 
   const [watchlisted, setWatchlisted] = useState(initialWatchlisted);
 
-  // Sync when the parent resolves its watchlist data (e.g. after useWatchlistIds loads)
-  useEffect(() => {
+  // Sync when the parent resolves its watchlist data (e.g. after
+  // useWatchlistIds loads). `watchlisted` is also toggled locally by
+  // handleWatchlistToggle below (optimistic update with rollback), so it
+  // isn't a pure derived value of initialWatchlisted — but adjusting it
+  // during render (React's documented pattern for "resetting state when a
+  // prop changes"), guarded by comparing against the initialWatchlisted
+  // value it last synced from, means this never needs a synchronous
+  // pre-arm from an effect body.
+  const [prevInitialWatchlisted, setPrevInitialWatchlisted] = useState(initialWatchlisted);
+  if (initialWatchlisted !== prevInitialWatchlisted) {
+    setPrevInitialWatchlisted(initialWatchlisted);
     setWatchlisted(initialWatchlisted);
-  }, [initialWatchlisted]);
+  }
 
   // ── Auction countdown — only active when auctionOverride is provided ─────────
   const [timeLeft, setTimeLeft] = useState(() =>
@@ -392,3 +411,5 @@ export default function CardListItem({
     </Box>
   );
 }
+
+export default React.memo(CardListItem);

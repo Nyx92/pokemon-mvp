@@ -54,8 +54,10 @@ export function NotificationProvider({
     // Close any existing connection first (covers login/logout transitions)
     esRef.current?.close();
 
+    // When logged out, `unreadCount` is masked to 0 below (derived at render)
+    // instead of resetting the state here — avoids a synchronous
+    // setState-in-effect while keeping the same displayed value.
     if (!isLoggedIn) {
-      setUnreadCount(0);
       return;
     }
 
@@ -93,7 +95,9 @@ export function NotificationProvider({
   const refresh = useCallback(() => setStreamKey((k) => k + 1), []);
 
   return (
-    <NotificationContext.Provider value={{ unreadCount, refresh }}>
+    <NotificationContext.Provider
+      value={{ unreadCount: isLoggedIn ? unreadCount : 0, refresh }}
+    >
       {children}
     </NotificationContext.Provider>
   );

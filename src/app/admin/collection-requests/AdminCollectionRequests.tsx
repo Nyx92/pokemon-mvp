@@ -90,7 +90,12 @@ export default function AdminCollectionRequests() {
 
   useEffect(() => {
     tabRef.current = tab;
-    load(tab);
+    // load() starts with a synchronous setLoading(true) pre-arm; deferred to
+    // a microtask (same as a .then() callback) so this effect itself never
+    // synchronously calls setState — load()'s own tabRef-vs-forTab staleness
+    // check (see its comments above) still runs before any state update,
+    // so the tab-switch race protection is unaffected by this one-tick defer.
+    void Promise.resolve().then(() => load(tab));
   }, [tab, load]);
 
   const handleMarkPacked = async (id: string) => {

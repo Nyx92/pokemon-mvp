@@ -99,13 +99,19 @@ export default function NotificationsPage() {
 
   // ── State ────────────────────────────────────────────────────────────────────
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading]             = useState(false);
   const [error, setError]                 = useState<string | null>(null);
+  // Tracks the isLoggedIn value that `notifications`/`error` currently
+  // reflect. `loading` is derived by comparing it against the live
+  // isLoggedIn value instead of a separately re-armed boolean, so
+  // fetchNotifications doesn't need to call setState synchronously as the
+  // first statement of the effect that invokes it (react-hooks/set-state-in-effect
+  // flags that shape).
+  const [loadedFor, setLoadedFor] = useState<boolean | null>(null);
+  const loading = isLoggedIn && loadedFor !== isLoggedIn;
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(() => {
     if (!isLoggedIn) return;
-    setLoading(true);
     fetch("/api/notifications")
       .then((r) => r.json())
       .then((d) => {
@@ -113,7 +119,7 @@ export default function NotificationsPage() {
         else setError(d.error ?? "Failed to load notifications.");
       })
       .catch(() => setError("Failed to load notifications."))
-      .finally(() => setLoading(false));
+      .finally(() => setLoadedFor(isLoggedIn));
   }, [isLoggedIn]);
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);

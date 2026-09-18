@@ -140,11 +140,18 @@ export default function Auctions({
     }
 
     if (searchAwaitingIndex) {
-      setLoading(true);
+      // Can't tell yet whether this search has zero matches or many — see
+      // MarketPlace.tsx's identical branch for the full rationale. Render
+      // derives the spinner from `loading || searchAwaitingIndex` below
+      // instead of syncing this into `loading` state here.
       return;
     }
 
     if (matchedIds && matchedIds.length === 0) {
+      // Resets 4 coupled pieces of state (auctions/gridKey/hasMore/loading)
+      // together; deriving them individually risks changing the grid's
+      // fade-replay animation timing, which must stay identical.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuctions([]);
       setGridKey((k) => k + 1);
       setHasMore(false);
@@ -226,7 +233,7 @@ export default function Auctions({
       <Box sx={{ width: "95%", mx: "auto" }}>
         <AuctionFilterBar facets={facets} filters={filters} onChange={setFilters} loading={!browseIndexReady} />
 
-        {loading ? (
+        {loading || searchAwaitingIndex ? (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
             <CircularProgress />
           </Box>

@@ -64,12 +64,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {});
   }, []);
 
-  // Re-seed whenever the user logs in or out
+  // Re-seed whenever the user logs in. When logged out, `count` is masked to
+  // 0 below (derived at render) instead of resetting the state here — avoids
+  // a synchronous setState-in-effect while keeping the same displayed value.
   useEffect(() => {
-    if (!isLoggedIn) {
-      setCount(0);
-      return;
-    }
+    if (!isLoggedIn) return;
     refreshCount();
   }, [isLoggedIn, refreshCount]);
 
@@ -102,7 +101,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <CartContext.Provider value={{ count, addToCart, decrementCount, refreshCount }}>
+    <CartContext.Provider
+      value={{ count: isLoggedIn ? count : 0, addToCart, decrementCount, refreshCount }}
+    >
       {children}
     </CartContext.Provider>
   );

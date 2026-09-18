@@ -287,7 +287,7 @@ export default function CardDetailClient() {
     });
     if (res.ok) {
       if (action === "accept") {
-        window.location.href = "/sold";
+        router.push("/sold");
       } else {
         setAuction((a) => a ? { ...a, status: "expired" } : a);
         setCard((c) => c ? { ...c, inAuction: false } : c);
@@ -693,7 +693,7 @@ export default function CardDetailClient() {
           }}
           onAccepted={() => {
             setSellerOffersOpen(false);
-            window.location.href = "/sold";
+            router.push("/sold");
           }}
         />
       )}

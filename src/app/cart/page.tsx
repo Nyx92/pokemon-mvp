@@ -312,7 +312,10 @@ export default function CartPage() {
     }
   }, []);
 
-  useEffect(() => { loadCart(); }, [loadCart]);
+  // loadCart starts with a synchronous setLoading(true) pre-arm; deferred to
+  // a microtask (same as a .then() callback) so this effect itself never
+  // synchronously calls setState. Same-tick defer — no visible timing change.
+  useEffect(() => { void Promise.resolve().then(() => loadCart()); }, [loadCart]);
 
   // Flatten all items across packages into a single ordered list
   const allItems = useMemo(

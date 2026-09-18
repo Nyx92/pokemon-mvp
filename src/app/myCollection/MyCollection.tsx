@@ -403,10 +403,17 @@ export default function MyCollection() {
   // the zero-matches case.
   useEffect(() => {
     if (searchAwaitingIndex) {
-      setLoading(true);
+      // Can't tell yet whether this search has zero matches or many — see
+      // MarketPlace.tsx's identical branch for the full rationale. Render
+      // derives the spinner from `loading || searchAwaitingIndex` below
+      // instead of syncing this into `loading` state here.
       return;
     }
     if (matchedIds && matchedIds.length === 0) {
+      // Resets 4 coupled pieces of state (cards/gridKey/hasMore/loading)
+      // together; deriving them individually risks changing the grid's
+      // fade-replay animation timing, which must stay identical.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCards([]);
       setGridKey((k) => k + 1);
       setHasMore(false);
@@ -483,6 +490,18 @@ export default function MyCollection() {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, showPendingCollection, filters, matchedIds]);
+
+  // Stabilized so CardListItem's React.memo is actually effective — see the
+  // identical rationale in MarketPlace.tsx's handleCardClick. Depends on
+  // selectMode since the click behavior changes in select mode (navigation
+  // is suppressed), but that only changes identity while actually toggling
+  // select mode, not on every search/filter keystroke.
+  const handleCardClick = useCallback(
+    (card: CardItem) => {
+      if (!selectMode) router.push(`/cards/${card.id}`);
+    },
+    [selectMode, router]
+  );
 
   const toggleSelected = (id: string) => {
     setSelectedIds((prev) => {
@@ -612,7 +631,7 @@ export default function MyCollection() {
 
         {/* Card Grid */}
         <Box>
-          {loading ? (
+          {loading || searchAwaitingIndex ? (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
               <CircularProgress />
             </Box>
@@ -672,7 +691,7 @@ export default function MyCollection() {
                           <Box sx={{ opacity: selectMode && !eligible ? 0.5 : 1, transition: "opacity 0.15s ease" }}>
                             <CardListItem
                               card={product}
-                              onClick={(card) => { if (!selectMode) router.push(`/cards/${card.id}`); }}
+                              onClick={handleCardClick}
                             />
                           </Box>
                         </motion.div>

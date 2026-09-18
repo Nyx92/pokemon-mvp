@@ -40,28 +40,38 @@ export default function PurchasesPage() {
 
   // ── State ────────────────────────────────────────────────────────────────────
   const [purchases, setPurchases] = useState<OrderRow[]>([]);
-  const [loading, setLoading]     = useState(false);
   const [error, setError]         = useState<string | null>(null);
   const [q, setQ]                 = useState("");
+  // Tracks the isLoggedIn value that `purchases`/`error` currently reflect.
+  // `loading` is derived by comparing it against the live isLoggedIn value
+  // instead of a separately re-armed boolean, so the fetch effect below
+  // never needs to call setState synchronously as its first statement
+  // (react-hooks/set-state-in-effect flags that shape).
+  const [loadedFor, setLoadedFor] = useState<boolean | null>(null);
+  const loading = isLoggedIn && loadedFor !== isLoggedIn;
 
   // Checkout outcome banner — "checking" while we poll the webhook result,
   // then "paid" / "refunded" / "timeout" once the status is known.
   const isCheckoutReturn = params.get("success") === "1";
   const sessionId        = params.get("session_id");
   type CheckoutState = "idle" | "checking" | "paid" | "refunded" | "timeout";
+  // If there's no sessionId to poll, the outcome is already known at mount
+  // (generic ?success=1 => treat as paid) — computed directly in the
+  // initializer instead of a follow-up setCheckoutState("paid") call inside
+  // the polling effect below, which react-hooks/set-state-in-effect flags
+  // as a synchronous setState in the effect body.
   const [checkoutState, setCheckoutState] = useState<CheckoutState>(
-    isCheckoutReturn ? "checking" : "idle"
+    isCheckoutReturn ? (sessionId ? "checking" : "paid") : "idle"
   );
 
   // ── Fetch all purchases ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
-    setLoading(true);
     fetch("/api/orders?type=purchases")
       .then((r) => r.json())
       .then((d) => { if (d.orders) setPurchases(d.orders); else setError(d.error); })
       .catch(() => setError("Failed to load purchases."))
-      .finally(() => setLoading(false));
+      .finally(() => setLoadedFor(isLoggedIn));
   }, [isLoggedIn]);
 
   // ── Poll session outcome after Stripe redirect ───────────────────────────────
@@ -69,8 +79,9 @@ export default function PurchasesPage() {
   // loads. Poll until all are in a terminal state (PAID / REFUNDED) or we time out.
   useEffect(() => {
     if (!isLoggedIn || !isCheckoutReturn || !sessionId) {
-      // No session to poll — if it's a generic ?success=1 treat as paid
-      if (isCheckoutReturn && !sessionId) setCheckoutState("paid");
+      // No session to poll — if it's a generic ?success=1, checkoutState was
+      // already initialized to "paid" above (derived from the URL params at
+      // mount), so there's nothing to do here.
       return;
     }
 

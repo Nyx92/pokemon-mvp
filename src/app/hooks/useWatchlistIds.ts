@@ -12,15 +12,19 @@
 import { useEffect, useState, startTransition } from "react";
 import { useAuth } from "./useAuth";
 
+// Stable reference returned while logged out, so callers that render off
+// this Set don't see a new object identity on every render.
+const EMPTY_SET: Set<string> = new Set();
+
 export function useWatchlistIds(): Set<string> {
   const { isLoggedIn } = useAuth();
   const [ids, setIds] = useState<Set<string>>(new Set());
 
+  // When logged out, the returned Set is masked to empty below (derived at
+  // render) instead of resetting `ids` here — avoids a synchronous
+  // setState-in-effect while keeping the same returned value.
   useEffect(() => {
-    if (!isLoggedIn) {
-      setIds(new Set());
-      return;
-    }
+    if (!isLoggedIn) return;
     fetch("/api/watchlist")
       .then((r) => r.json())
       .then((data) => {
@@ -37,5 +41,5 @@ export function useWatchlistIds(): Set<string> {
       .catch(() => {});
   }, [isLoggedIn]);
 
-  return ids;
+  return isLoggedIn ? ids : EMPTY_SET;
 }

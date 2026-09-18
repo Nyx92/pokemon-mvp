@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -201,12 +201,18 @@ export default function Marketplace({
       // index it depends on hasn't loaded. Don't fetch, and don't take the
       // zero-matches shortcut below on stale/incomplete data; wait for
       // searchAwaitingIndex to flip false, which re-runs this effect.
-      setLoading(true);
+      // Rendering derives the spinner from `loading || searchAwaitingIndex`
+      // below instead of syncing this into `loading` state here — it's
+      // already computable from state we have, so there's nothing to sync.
       return;
     }
 
     // A search with zero matches has nothing to fetch — skip the request.
     if (matchedIds && matchedIds.length === 0) {
+      // Resets 4 coupled pieces of state (cards/gridKey/hasMore/loading)
+      // together; deriving them individually risks changing the grid's
+      // fade-replay animation timing, which must stay identical.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCards([]);
       setGridKey((k) => k + 1);
       setHasMore(false);
@@ -259,6 +265,15 @@ export default function Marketplace({
     (product) => !(userId && product.owner?.id === userId)
   );
 
+  // Stabilized so CardListItem's React.memo is actually effective — an
+  // inline arrow passed directly in the .map() below would be a new
+  // function on every render (e.g. every search-box keystroke), defeating
+  // memoization for all ~24 on-screen tiles.
+  const handleCardClick = useCallback(
+    (card: CardItem) => router.push(`/cards/${card.id}`),
+    [router]
+  );
+
   // 2. Render error state if the fetch failed.
   if (fetchError) {
     return (
@@ -308,7 +323,7 @@ export default function Marketplace({
         <FilterBar facets={facets} filters={filters} onChange={setFilters} loading={!browseIndexReady} />
 
         <Box>
-          {loading ? (
+          {loading || searchAwaitingIndex ? (
             <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
               <CircularProgress />
             </Box>
@@ -346,7 +361,7 @@ export default function Marketplace({
                         <CardListItem
                           card={product}
                           watchlisted={watchlistedIds.has(product.id)}
-                          onClick={(card) => router.push(`/cards/${card.id}`)}
+                          onClick={handleCardClick}
                         />
                       </motion.div>
                     ))

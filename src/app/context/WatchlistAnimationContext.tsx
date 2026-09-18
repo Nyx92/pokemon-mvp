@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   startTransition,
@@ -59,10 +60,42 @@ function FlyingItem({
   onComplete: (id: number) => void;
 }) {
   const SIZE = 52;
-  const destRect = destRef.current?.getBoundingClientRect();
 
-  const destCx = destRect ? destRect.left + destRect.width / 2 : 0;
-  const destCy = destRect ? destRect.top + destRect.height / 2 : 0;
+  // Read the destination rect in a layout effect (after the DOM has
+  // settled, before paint) rather than during render — reading a ref's
+  // .current directly in the render body can race a layout change and
+  // land the animation in the wrong spot. Storing it in state also means
+  // the component renders nothing (see the `!destRect` guard below) until
+  // a real measurement is available, instead of ever computing off a
+  // stale/absent rect.
+  const [destRect, setDestRect] = useState<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    setDestRect(destRef.current?.getBoundingClientRect() ?? null);
+  }, [destRef]);
+
+  // Whether the fly-out transition (toward the destination, scaled down and
+  // faded) has started. The actual transform/opacity are derived from this
+  // flag below rather than stored as their own state, so there's no
+  // separate "initial transform" value that could be seeded before destRect
+  // is known.
+  const [animated, setAnimated] = useState(false);
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    // Double rAF ensures the initial transform is painted before we transition
+    const r1 = requestAnimationFrame(() => {
+      const r2 = requestAnimationFrame(() => {
+        setAnimated(true);
+      });
+      return () => cancelAnimationFrame(r2);
+    });
+    return () => cancelAnimationFrame(r1);
+  }, []);
+
+  if (!destRect) return null;
+
+  const destCx = destRect.left + destRect.width / 2;
+  const destCy = destRect.top + destRect.height / 2;
   const sourceCx = item.sourceRect.left + item.sourceRect.width / 2;
   const sourceCy = item.sourceRect.top + item.sourceRect.height / 2;
 
@@ -71,25 +104,10 @@ function FlyingItem({
   const initScale =
     Math.max(item.sourceRect.width, item.sourceRect.height) / SIZE;
 
-  const [transform, setTransform] = useState(
-    `translate(${initDx}px, ${initDy}px) scale(${initScale})`
-  );
-  const [opacity, setOpacity] = useState(1);
-  const firedRef = useRef(false);
-
-  useEffect(() => {
-    // Double rAF ensures the initial transform is painted before we transition
-    const r1 = requestAnimationFrame(() => {
-      const r2 = requestAnimationFrame(() => {
-        setTransform("translate(0px, 0px) scale(0.2)");
-        setOpacity(0);
-      });
-      return () => cancelAnimationFrame(r2);
-    });
-    return () => cancelAnimationFrame(r1);
-  }, []);
-
-  if (!destRect) return null;
+  const transform = animated
+    ? "translate(0px, 0px) scale(0.2)"
+    : `translate(${initDx}px, ${initDy}px) scale(${initScale})`;
+  const opacity = animated ? 0 : 1;
 
   return (
     <div
@@ -142,19 +160,24 @@ export function WatchlistAnimationProvider({
   const [flies, setFlies] = useState<FlyItem[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  // Avoid SSR/hydration mismatch for the portal
+  // Avoid SSR/hydration mismatch for the portal. This is the standard
+  // "has the client mounted" flag — there's nothing to derive it from (it
+  // exists purely to make the client's first render match the server's,
+  // then flip once we're past hydration), so a synchronous setState here
+  // is unavoidable rather than a sign the effect should be restructured.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR/hydration mount flag, not synchronizable any other way
   useEffect(() => setMounted(true), []);
 
-  // Seed badge count from the server whenever auth state changes.
+  // Seed badge count from the server whenever auth state changes. When
+  // logged out, `count` is masked to 0 below (derived at render) instead of
+  // resetting the state here — avoids a synchronous setState-in-effect
+  // while keeping the same displayed value.
   // setCount is wrapped in startTransition — this provider wraps every
   // page, and an ordinary setState here can otherwise win the scheduler
   // over a pending route-change transition, visibly delaying navigation.
   // See the same fix + rationale in HomeFeatured.tsx.
   useEffect(() => {
-    if (!isLoggedIn) {
-      setCount(0);
-      return;
-    }
+    if (!isLoggedIn) return;
     fetch("/api/watchlist")
       .then((r) => r.json())
       .then((data) => {
@@ -205,7 +228,7 @@ export function WatchlistAnimationProvider({
 
   return (
     <WatchlistAnimationContext.Provider
-      value={{ navbarIconRef, triggerFly, adjustCount, count }}
+      value={{ navbarIconRef, triggerFly, adjustCount, count: isLoggedIn ? count : 0 }}
     >
       {children}
       {mounted &&

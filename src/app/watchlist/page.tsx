@@ -35,13 +35,19 @@ export default function WatchlistPage() {
   const router = useRouter();
 
   const [cards, setCards] = useState<CardItem[]>([]);
-  // Starts true (matching MyCollection.tsx's same fetch-on-mount pattern) so the
-  // spinner shows immediately once the auth gate clears — false here left a one-frame
-  // window where cards.length === 0 rendered the "No cards saved yet" empty state
-  // before the fetch effect had even set loading, which QA caught as a real (if
-  // usually imperceptibly brief) misleading flash under slow-server conditions.
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Tracks the isLoggedIn value that `cards`/`error` currently reflect.
+  // `loading` is derived by comparing it against the live isLoggedIn value
+  // instead of a separately re-armed boolean, so the fetch effect below
+  // never needs to call setState synchronously as its first statement
+  // (react-hooks/set-state-in-effect flags that shape). Starts as `null`,
+  // which can never equal a real isLoggedIn value, so the very first render
+  // still derives loading === true — matching the old behavior of the
+  // `loading` state initializing to true (see history: this avoided a
+  // one-frame flash of the "No cards saved yet" empty state before the
+  // fetch effect ran, which QA caught under slow-server conditions).
+  const [loadedFor, setLoadedFor] = useState<boolean | null>(null);
+  const loading = isLoggedIn && loadedFor !== isLoggedIn;
 
   // ── Auth guard ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -51,7 +57,6 @@ export default function WatchlistPage() {
   // ── Fetch watchlisted cards ──────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
-    setLoading(true);
     fetch("/api/watchlist")
       .then((r) => r.json())
       .then((data) => {
@@ -59,7 +64,7 @@ export default function WatchlistPage() {
         else setError(data.error ?? "Failed to load watchlist.");
       })
       .catch(() => setError("Failed to load watchlist."))
-      .finally(() => setLoading(false));
+      .finally(() => setLoadedFor(isLoggedIn));
   }, [isLoggedIn]);
 
   // Remove a card from local state when the user un-watchlists it via the tile

@@ -122,7 +122,26 @@ export default function UploadCard({ initialData }: UploadCardProps) {
   // read-only summary instead of catalog-identity fields the value would
   // otherwise be silently ignored (an existing catalog row always wins over
   // whatever's typed here, matched by tcgPlayerId).
-  const [catalogLookup, setCatalogLookup] = useState<CatalogLookup>({ status: "idle" });
+  //
+  // Only ever holds a *settled* (not_found/found) result, tagged with the
+  // (game, tcgPlayerId) key it was resolved for. "idle" and "loading" are
+  // never stored — they're derived below by comparing this settled result's
+  // key against the currently-typed key, so the effect never needs to
+  // synchronously pre-arm a "loading" flag or reset to "idle" itself.
+  const [catalogLookupResult, setCatalogLookupResult] = useState<
+    | { key: string; found: false }
+    | { key: string; found: true; catalog: CatalogMatch & { imageUrl?: string } }
+    | null
+  >(null);
+  const catalogLookupActive = !isEditMode && !!form.game && !!form.tcgPlayerId.trim();
+  const catalogLookupKey = `${form.game}::${form.tcgPlayerId.trim()}`;
+  const catalogLookup: CatalogLookup = !catalogLookupActive
+    ? { status: "idle" }
+    : catalogLookupResult && catalogLookupResult.key === catalogLookupKey
+      ? catalogLookupResult.found
+        ? { status: "found", catalog: catalogLookupResult.catalog }
+        : { status: "not_found" }
+      : { status: "loading" };
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -141,14 +160,19 @@ export default function UploadCard({ initialData }: UploadCardProps) {
   useEffect(() => {
     if (isEditMode) return;
     if (!form.game || !form.tcgPlayerId.trim()) {
-      setCatalogLookup({ status: "idle" });
+      // "idle" is derived at render time above from these same deps —
+      // nothing to do here in that case.
       return;
     }
 
-    setCatalogLookup({ status: "loading" });
+    const key = `${form.game}::${form.tcgPlayerId.trim()}`;
     // A previous tcgPlayerId's match (if any) no longer applies to this one
     // — clear it so a stale match doesn't linger in these now-possibly-
-    // visible, editable fields while the new lookup is in flight.
+    // visible, editable fields while the new lookup is in flight. This is a
+    // real side effect on user-editable form state (not a derivable value —
+    // these fields can be typed into directly while catalogFieldsVisible),
+    // so it can't be replaced with a render-time computation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm((prev) => ({ ...prev, ...BLANK_CATALOG_IDENTITY_FIELDS }));
 
     const controller = new AbortController();
@@ -158,17 +182,17 @@ export default function UploadCard({ initialData }: UploadCardProps) {
         const res = await fetch(`/api/catalog/lookup?${params.toString()}`, { signal: controller.signal });
         const data = await res.json();
         if (!res.ok || !data.found) {
-          setCatalogLookup({ status: "not_found" });
+          setCatalogLookupResult({ key, found: false });
           return;
         }
-        setCatalogLookup({ status: "found", catalog: data.catalog });
+        setCatalogLookupResult({ key, found: true, catalog: data.catalog });
         // The matched fields are hidden behind the "Card found" summary, but
         // whatever's in them still gets submitted — backfill the real
         // catalog values so submission doesn't send blanks the server
         // requires (see catalogLookupForm.ts).
         setForm((prev) => ({ ...prev, ...applyCatalogMatchToForm(data.catalog) }));
       } catch (err: any) {
-        if (err.name !== "AbortError") setCatalogLookup({ status: "not_found" });
+        if (err.name !== "AbortError") setCatalogLookupResult({ key, found: false });
       }
     }, 400);
 
@@ -314,7 +338,10 @@ export default function UploadCard({ initialData }: UploadCardProps) {
         });
         setImages([]);
         setCurrentImageIndex(0);
-        setCatalogLookup({ status: "idle" });
+        // No need to reset catalogLookupResult here — form.game/tcgPlayerId
+        // are now blank, so catalogLookupActive is false and the derived
+        // catalogLookup above already reads as "idle" regardless of any
+        // stale settled result sitting in state.
       }
     } catch (err: any) {
       console.error(err);

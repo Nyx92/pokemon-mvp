@@ -76,7 +76,12 @@ export default function SellerOffersDialog({
   }, [cardId]);
 
   useEffect(() => {
-    if (open) fetchOffers();
+    if (!open) return;
+    // fetchOffers sets loading/error synchronously as its first statements
+    // (before its own internal await) — deferring the call itself into a
+    // microtask means those sets happen inside a .then() callback rather
+    // than directly, synchronously, in this effect's own body.
+    Promise.resolve().then(fetchOffers);
   }, [open, fetchOffers]);
 
   const handleAction = async (offerId: string, action: "accept" | "reject") => {

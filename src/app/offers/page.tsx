@@ -80,8 +80,14 @@ export default function OffersPage() {
   // ── State ────────────────────────────────────────────────────────────────────
   const [placedOffers, setPlacedOffers]     = useState<OfferRow[]>([]);
   const [receivedOffers, setReceivedOffers] = useState<ReceivedOfferRow[]>([]);
-  const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState<string | null>(null);
+  // Tracks the isLoggedIn value that the offer lists currently reflect.
+  // `loading` is derived by comparing it against the live isLoggedIn value
+  // instead of a separately re-armed boolean, so the fetch effect below
+  // never needs to call setState synchronously as its first statement
+  // (react-hooks/set-state-in-effect flags that shape).
+  const [loadedFor, setLoadedFor] = useState<boolean | null>(null);
+  const loading = isLoggedIn && loadedFor !== isLoggedIn;
 
   // Top-level view: which side of the marketplace the user is looking at
   const [offerView, setOfferView] = useState<"placed" | "received">("placed");
@@ -92,7 +98,6 @@ export default function OffersPage() {
   // Both endpoints called simultaneously to avoid sequential loading waterfalls.
   useEffect(() => {
     if (!isLoggedIn) return;
-    setLoading(true);
     Promise.all([
       fetch("/api/offers?mine=true").then((r) => r.json()),
       fetch("/api/offers?received=true").then((r) => r.json()),
@@ -103,7 +108,7 @@ export default function OffersPage() {
         if (received.offers) setReceivedOffers(received.offers);
       })
       .catch(() => setError("Failed to load offers."))
-      .finally(() => setLoading(false));
+      .finally(() => setLoadedFor(isLoggedIn));
   }, [isLoggedIn]);
 
   // ── View switch ───────────────────────────────────────────────────────────────

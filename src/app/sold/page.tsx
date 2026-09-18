@@ -35,19 +35,24 @@ export default function SoldPage() {
 
   // ── State ────────────────────────────────────────────────────────────────────
   const [sold, setSold]       = useState<OrderRow[]>([]);
-  const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [q, setQ]             = useState("");
+  // Tracks the isLoggedIn value that `sold`/`error` currently reflect.
+  // `loading` is derived by comparing it against the live isLoggedIn value
+  // instead of a separately re-armed boolean, so the fetch effect below
+  // never needs to call setState synchronously as its first statement
+  // (react-hooks/set-state-in-effect flags that shape).
+  const [loadedFor, setLoadedFor] = useState<boolean | null>(null);
+  const loading = isLoggedIn && loadedFor !== isLoggedIn;
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isLoggedIn) return;
-    setLoading(true);
     fetch("/api/orders?type=sold")
       .then((r) => r.json())
       .then((d) => { if (d.orders) setSold(d.orders); else setError(d.error); })
       .catch(() => setError("Failed to load sold items."))
-      .finally(() => setLoading(false));
+      .finally(() => setLoadedFor(isLoggedIn));
   }, [isLoggedIn]);
 
   // ── Filter ───────────────────────────────────────────────────────────────────

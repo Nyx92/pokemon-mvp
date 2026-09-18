@@ -42,7 +42,15 @@ interface AuctionCardItemProps {
   watchlisted?: boolean;
 }
 
-export default function AuctionCardItem({ auction, watchlisted: initialWatchlisted = false }: AuctionCardItemProps) {
+// Wrapped in React.memo — same rationale as CardListItem.tsx: the
+// /auctions grid re-renders on every search-box keystroke (search is local
+// state alongside the grid), and this tile is rendered up to PAGE_SIZE (24)
+// times per page. Unlike CardListItem, no parent passes an inline onClick
+// here (the tile navigates via its own router.push), so `auction` (a stable
+// array-element reference) and `watchlisted` (a primitive boolean) are
+// already stable props — this memo is effective with no caller changes
+// needed.
+function AuctionCardItem({ auction, watchlisted: initialWatchlisted = false }: AuctionCardItemProps) {
   const router              = useRouter();
   const { userId, isLoggedIn } = useAuth();
   const { triggerFly, adjustCount } = useWatchlistAnimation();
@@ -53,10 +61,18 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
   const [spin,        setSpin]        = useState(false);
   const [watchlisted, setWatchlisted] = useState(initialWatchlisted);
 
-  // Sync when the parent resolves its watchlist data
-  useEffect(() => {
+  // Sync when the parent resolves its watchlist data. `watchlisted` is also
+  // toggled locally by handleWatchlistToggle below (optimistic update with
+  // rollback), so it isn't a pure derived value of initialWatchlisted — but
+  // adjusting it during render (React's documented pattern for "resetting
+  // state when a prop changes"), guarded by comparing against the
+  // initialWatchlisted value it last synced from, means this never needs a
+  // synchronous pre-arm from an effect body.
+  const [prevInitialWatchlisted, setPrevInitialWatchlisted] = useState(initialWatchlisted);
+  if (initialWatchlisted !== prevInitialWatchlisted) {
+    setPrevInitialWatchlisted(initialWatchlisted);
     setWatchlisted(initialWatchlisted);
-  }, [initialWatchlisted]);
+  }
 
   // Live countdown — updates every second. Wrapped in startTransition so
   // this indefinitely-repeating default-priority update doesn't keep
@@ -312,3 +328,5 @@ export default function AuctionCardItem({ auction, watchlisted: initialWatchlist
     </Box>
   );
 }
+
+export default React.memo(AuctionCardItem);

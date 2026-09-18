@@ -19,7 +19,7 @@
  *   On concurrent bid (409): show inline error so buyer can retry immediately.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -90,14 +90,24 @@ function BidForm({ auction, onClose, onSuccess, open, initialAmount }: BidFormPr
 
   // Reset form each time the dialog opens or the auction changes.
   // Pre-fill the amount from the Buy Now flow when initialAmount is provided.
-  useEffect(() => {
-    if (!open) return;
+  //
+  // Adjusted directly during render (React's documented pattern for
+  // "resetting state when a prop changes") instead of in an effect: amount/
+  // step/error/success/settled are genuinely user-editable in between resets
+  // (not pure derived values), so the reset itself is real, but doing it
+  // during render — guarded by comparing against the last (open, auction.id)
+  // this ran for — avoids ever needing to synchronously pre-arm it from an
+  // effect body.
+  const resetKey = `${open}:${auction.id}`;
+  const [lastResetKey, setLastResetKey] = useState<string | null>(null);
+  if (open && resetKey !== lastResetKey) {
+    setLastResetKey(resetKey);
     setAmount(initialAmount !== undefined ? String(initialAmount) : "");
     setStep("amount");
     setError(null);
     setSuccess(false);
     setSettled(false);
-  }, [open, auction.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   const handleClose = () => {
     if (loading) return;

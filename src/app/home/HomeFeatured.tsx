@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, startTransition } from "react";
+import { useState, useEffect, useCallback, startTransition } from "react";
 import { Box, CircularProgress, Typography } from "@mui/material";
 import { useRouter } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
@@ -234,9 +234,14 @@ export default function HomeFeatured() {
       });
   }, []);
 
-  const handleCardClick = (card: CardItem) => {
-    router.push(`/cards/${card.id}`);
-  };
+  // Stabilized so CardListItem's React.memo is actually effective — same
+  // rationale as MarketPlace.tsx's handleCardClick.
+  const handleCardClick = useCallback(
+    (card: CardItem) => {
+      router.push(`/cards/${card.id}`);
+    },
+    [router]
+  );
 
   if (loading) {
     return (
