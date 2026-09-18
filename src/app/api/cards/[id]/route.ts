@@ -231,7 +231,9 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
       try {
         compressed = await compressCardImage(buffer);
       } catch (err) {
-        console.error("❌ Image decode failed:", err);
+        // Multiple images can be uploaded per request — name the one that
+        // failed, since "Image decode failed" alone doesn't say which.
+        console.error("❌ Image decode failed:", image.name, err);
         return NextResponse.json(
           { error: "One of the uploaded files is not a valid image." },
           { status: 400 }
@@ -242,7 +244,10 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
       const { data, error } = await supabase.storage
         .from("card-images")
         .upload(filename, compressed.buffer, { contentType: compressed.contentType, upsert: true });
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Supabase upload error:", filename, error);
+        throw error;
+      }
       const { data: pub } = supabase.storage
         .from("card-images")
         .getPublicUrl(data.path);

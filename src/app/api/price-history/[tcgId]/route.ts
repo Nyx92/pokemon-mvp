@@ -30,48 +30,53 @@ export async function GET(
     );
   }
 
-  const catalog =
-    game === "POKEMON"
-      ? await prisma.pokemonCardCatalog.findFirst({
-          where: { tcgPlayerId: tcgId },
-          select: { id: true },
-        })
-      : await prisma.riftboundCardCatalog.findFirst({
-          where: { tcgPlayerId: tcgId },
-          select: { id: true },
-        });
-
-  if (!catalog) {
-    return NextResponse.json({ variants: {} });
-  }
-
-  const rows = await prisma.priceHistory.findMany({
-    where:
+  try {
+    const catalog =
       game === "POKEMON"
-        ? { pokemonCardId: catalog.id }
-        : { riftboundCardId: catalog.id },
-    orderBy: { capturedAt: "asc" },
-    select: { variant: true, priceCents: true, capturedAt: true },
-  });
+        ? await prisma.pokemonCardCatalog.findFirst({
+            where: { tcgPlayerId: tcgId },
+            select: { id: true },
+          })
+        : await prisma.riftboundCardCatalog.findFirst({
+            where: { tcgPlayerId: tcgId },
+            select: { id: true },
+          });
 
-  const variants: Record<
-    string,
-    { currentPrice: number | null; lastUpdated: string | null; history: { date: string; price: number }[] }
-  > = {};
+    if (!catalog) {
+      return NextResponse.json({ variants: {} });
+    }
 
-  for (const row of rows) {
-    const dollars = centsToDollars(row.priceCents);
-    const date = row.capturedAt.toISOString().slice(0, 10);
-    const entry = (variants[row.variant] ??= {
-      currentPrice: null,
-      lastUpdated: null,
-      history: [],
+    const rows = await prisma.priceHistory.findMany({
+      where:
+        game === "POKEMON"
+          ? { pokemonCardId: catalog.id }
+          : { riftboundCardId: catalog.id },
+      orderBy: { capturedAt: "asc" },
+      select: { variant: true, priceCents: true, capturedAt: true },
     });
-    entry.history.push({ date, price: dollars });
-    // rows are ordered by capturedAt asc, so the last one written is the latest
-    entry.currentPrice = dollars;
-    entry.lastUpdated = date;
-  }
 
-  return NextResponse.json({ variants });
+    const variants: Record<
+      string,
+      { currentPrice: number | null; lastUpdated: string | null; history: { date: string; price: number }[] }
+    > = {};
+
+    for (const row of rows) {
+      const dollars = centsToDollars(row.priceCents);
+      const date = row.capturedAt.toISOString().slice(0, 10);
+      const entry = (variants[row.variant] ??= {
+        currentPrice: null,
+        lastUpdated: null,
+        history: [],
+      });
+      entry.history.push({ date, price: dollars });
+      // rows are ordered by capturedAt asc, so the last one written is the latest
+      entry.currentPrice = dollars;
+      entry.lastUpdated = date;
+    }
+
+    return NextResponse.json({ variants });
+  } catch (err) {
+    console.error("[price-history GET] error:", tcgId, game, err);
+    return NextResponse.json({ error: "Failed to fetch price history" }, { status: 500 });
+  }
 }

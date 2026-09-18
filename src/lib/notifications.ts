@@ -89,6 +89,14 @@ export async function createNotification(
 // a notification failure never surfaces as a 500 to the caller.
 export function notifyAsync(input: CreateNotificationInput): void {
   createNotification(input).catch((err) => {
-    console.error("[notifications] Failed to create notification:", err);
+    // Called from many sites, often inside loops (e.g. cron/expire-auctions
+    // notifying each losing bidder) — include the recipient/type/entity ids
+    // so a failure here can actually be traced back to which notification
+    // never went out, instead of every failure looking identical.
+    console.error(
+      "[notifications] Failed to create notification:",
+      { userId: input.userId, type: input.type, offerId: input.offerId, cardId: input.cardId, orderId: input.orderId },
+      err
+    );
   });
 }

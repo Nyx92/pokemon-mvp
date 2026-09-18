@@ -20,20 +20,25 @@ export async function POST(_req: NextRequest, props: { params: Promise<{ id: str
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const request = await prisma.collectionRequest.findUnique({ where: { id } });
-  if (!request) {
-    return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
-  }
-  if (request.status !== "COLLECTED") {
-    return NextResponse.json({ error: "This request hasn't been collected yet" }, { status: 400 });
-  }
+  try {
+    const request = await prisma.collectionRequest.findUnique({ where: { id } });
+    if (!request) {
+      return NextResponse.json({ error: "Pickup request not found" }, { status: 404 });
+    }
+    if (request.status !== "COLLECTED") {
+      return NextResponse.json({ error: "This request hasn't been collected yet" }, { status: 400 });
+    }
 
-  await prisma.collectionRequest.update({
-    where: { id },
-    data: { collectedByStaffId: session.user.id },
-  });
+    await prisma.collectionRequest.update({
+      where: { id },
+      data: { collectedByStaffId: session.user.id },
+    });
 
-  return NextResponse.json({
-    collectedByStaff: { id: session.user.id, username: session.user.username ?? null },
-  });
+    return NextResponse.json({
+      collectedByStaff: { id: session.user.id, username: session.user.username ?? null },
+    });
+  } catch (err) {
+    console.error("[admin/collection-requests/attribute POST] error:", id, err);
+    return NextResponse.json({ error: "Failed to record attribution" }, { status: 500 });
+  }
 }

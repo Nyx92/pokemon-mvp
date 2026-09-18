@@ -21,33 +21,40 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const listings = await prisma.listing.findMany({
-    where: { ownerId: session.user.id, collectedAt: null },
-    select: {
-      id: true,
-      game: true,
-      condition: true,
-      forSale: true,
-      inAuction: true,
-      collectionRequestId: true,
-      pokemonCard: { select: { nameEn: true, rarity: true, setNameEn: true, language: true } },
-      riftboundCard: { select: { name: true, rarity: true, setLabel: true, type: true } },
-    },
-  });
+  const userId = session.user.id;
 
-  const items: MyCollectionBrowseIndexItem[] = listings.map((listing) => ({
-    id: listing.id,
-    ...resolveCatalogDisplayCore(listing),
-    condition: listing.condition,
-    game: listing.game as "POKEMON" | "RIFTBOUND",
-    status: listing.collectionRequestId
-      ? "pending_collection"
-      : listing.inAuction
-        ? "in_auction"
-        : listing.forSale
-          ? "for_sale"
-          : "available",
-  }));
+  try {
+    const listings = await prisma.listing.findMany({
+      where: { ownerId: userId, collectedAt: null },
+      select: {
+        id: true,
+        game: true,
+        condition: true,
+        forSale: true,
+        inAuction: true,
+        collectionRequestId: true,
+        pokemonCard: { select: { nameEn: true, rarity: true, setNameEn: true, language: true } },
+        riftboundCard: { select: { name: true, rarity: true, setLabel: true, type: true } },
+      },
+    });
 
-  return NextResponse.json({ items });
+    const items: MyCollectionBrowseIndexItem[] = listings.map((listing) => ({
+      id: listing.id,
+      ...resolveCatalogDisplayCore(listing),
+      condition: listing.condition,
+      game: listing.game as "POKEMON" | "RIFTBOUND",
+      status: listing.collectionRequestId
+        ? "pending_collection"
+        : listing.inAuction
+          ? "in_auction"
+          : listing.forSale
+            ? "for_sale"
+            : "available",
+    }));
+
+    return NextResponse.json({ items });
+  } catch (err) {
+    console.error("[user/cards/browse-index GET] error:", userId, err);
+    return NextResponse.json({ error: "Failed to fetch collection index" }, { status: 500 });
+  }
 }

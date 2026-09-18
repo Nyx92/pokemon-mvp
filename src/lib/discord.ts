@@ -42,9 +42,12 @@ async function editDiscordMessage(messageId: string, payload: object): Promise<v
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) console.error("[discord] edit failed:", res.status, await res.text());
+    if (!res.ok) console.error("[discord] edit failed:", messageId, res.status, await res.text());
   } catch (err) {
-    console.error("[discord] edit failed:", err);
+    // Called via Promise.all over multiple message ids (a request topped up
+    // more than once) — include which message failed, since the batch keeps
+    // going and a bare error here wouldn't say which one.
+    console.error("[discord] edit failed:", messageId, err);
   }
 }
 

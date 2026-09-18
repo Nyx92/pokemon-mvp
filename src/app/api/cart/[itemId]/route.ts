@@ -27,25 +27,30 @@ export async function PATCH(req: Request, props: Params) {
     );
   }
 
-  // Verify the item belongs to this user's cart before updating
-  const item = await prisma.cartItem.findUnique({
-    where: { id: params.itemId },
-    include: { cart: { select: { userId: true } } },
-  });
+  try {
+    // Verify the item belongs to this user's cart before updating
+    const item = await prisma.cartItem.findUnique({
+      where: { id: params.itemId },
+      include: { cart: { select: { userId: true } } },
+    });
 
-  if (!item) {
-    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    if (!item) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+    if (item.cart.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const updated = await prisma.cartItem.update({
+      where: { id: params.itemId },
+      data: { selected: body.selected },
+    });
+
+    return NextResponse.json({ success: true, selected: updated.selected });
+  } catch (err) {
+    console.error("[cart/[itemId] PATCH] error:", params.itemId, err);
+    return NextResponse.json({ error: "Failed to update cart item" }, { status: 500 });
   }
-  if (item.cart.userId !== session.user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const updated = await prisma.cartItem.update({
-    where: { id: params.itemId },
-    data: { selected: body.selected },
-  });
-
-  return NextResponse.json({ success: true, selected: updated.selected });
 }
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
@@ -57,20 +62,25 @@ export async function DELETE(_req: Request, props: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Verify ownership before deleting
-  const item = await prisma.cartItem.findUnique({
-    where: { id: params.itemId },
-    include: { cart: { select: { userId: true } } },
-  });
+  try {
+    // Verify ownership before deleting
+    const item = await prisma.cartItem.findUnique({
+      where: { id: params.itemId },
+      include: { cart: { select: { userId: true } } },
+    });
 
-  if (!item) {
-    return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    if (!item) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+    if (item.cart.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    await prisma.cartItem.delete({ where: { id: params.itemId } });
+
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("[cart/[itemId] DELETE] error:", params.itemId, err);
+    return NextResponse.json({ error: "Failed to remove cart item" }, { status: 500 });
   }
-  if (item.cart.userId !== session.user.id) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  await prisma.cartItem.delete({ where: { id: params.itemId } });
-
-  return NextResponse.json({ success: true });
 }

@@ -52,8 +52,11 @@ export async function GET(req: NextRequest) {
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({ unreadCount: count })}\n\n`)
           );
-        } catch {
-          // DB hiccup — skip this tick, the next one will retry.
+        } catch (err) {
+          // DB hiccup — skip this tick, the next one will retry. Still log:
+          // a persistently failing DB means the badge silently never
+          // updates for this user, and without this nobody would know why.
+          console.error("[notifications/stream] Failed to fetch unread count for", userId, err);
         }
       };
 
