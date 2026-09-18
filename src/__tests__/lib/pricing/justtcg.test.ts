@@ -278,3 +278,47 @@ describe("usdMarket", () => {
     expect(usdMarket(variant)?.price_history).toEqual([{ t: 1788825600, p: 118 }]);
   });
 });
+
+/**
+ * Both cron routes now run several cards' JustTCG calls concurrently
+ * (runWithConcurrency), which would otherwise burst well past the Starter
+ * plan's 50-requests/minute cap in a few seconds. Every outbound call gates
+ * on a shared budget first — verified here directly, not just by reasoning
+ * about the concurrency numbers.
+ *
+ * Skipped in every other test in this file via NODE_ENV === "test" (see
+ * waitForJustTcgSlot in justtcg.ts), so this suite overrides NODE_ENV only
+ * for the duration of this one test.
+ */
+describe("outbound rate limiting", () => {
+  const mockFetch = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", mockFetch);
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ data: [{ variants: [] }] }) });
+    vi.useFakeTimers();
+    vi.stubEnv("NODE_ENV", "production");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.useRealTimers();
+  });
+
+  it("holds the next call once the per-minute budget (45) is spent, then releases it once the window rolls over", async () => {
+    for (let i = 0; i < 45; i++) {
+      await fetchCardVariants({ tcgPlayerId: String(i), game: "POKEMON" });
+    }
+    expect(mockFetch).toHaveBeenCalledTimes(45);
+
+    const pending = fetchCardVariants({ tcgPlayerId: "over-budget", game: "POKEMON" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(mockFetch).toHaveBeenCalledTimes(45); // 46th call is still waiting
+
+    await vi.advanceTimersByTimeAsync(60_000); // the 60s window rolls over
+    await pending;
+    expect(mockFetch).toHaveBeenCalledTimes(46);
+  });
+});

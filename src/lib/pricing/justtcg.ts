@@ -14,6 +14,8 @@
 //     use. Used by the frequent, cheap refresh (see /api/cron/refresh-prices)
 //     to keep today's raw price current without burning the daily call quota.
 
+import { checkRateLimit } from "@/lib/rateLimit";
+
 const V2_BASE_URL = "https://api.justtcg.com/v2/cards";
 const V1_BASE_URL = "https://api.justtcg.com/v1/cards";
 
@@ -22,6 +24,26 @@ const V1_BASE_URL = "https://api.justtcg.com/v1/cards";
 // connection) open indefinitely instead of failing one card/batch and
 // moving on the way every catch block here already expects.
 const JUSTTCG_TIMEOUT_MS = 15_000;
+
+// Both cron routes run several cards' JustTCG calls concurrently now (see
+// runWithConcurrency), which would otherwise burst well past the Starter
+// plan's 50-requests/minute cap in a few seconds. Every outbound call gates
+// on this shared budget first, so concurrency only speeds up the database
+// side of a run — the JustTCG call rate stays paced regardless of how many
+// cards run at once. 45, not 50, leaves headroom against clock-edge misses.
+// Skipped in tests: the in-memory bucket is shared process-wide, and a test
+// file that (deliberately) exercises the real fetch path has no need to
+// actually wait on a real clock for an external vendor's limit.
+const JUSTTCG_RATE_LIMIT = { limit: 45, windowMs: 60_000 };
+
+async function waitForJustTcgSlot(): Promise<void> {
+  if (process.env.NODE_ENV === "test") return;
+  while (true) {
+    const result = checkRateLimit("justtcg-outbound", JUSTTCG_RATE_LIMIT);
+    if (result.allowed) return;
+    await new Promise((resolve) => setTimeout(resolve, result.retryAfterMs));
+  }
+}
 
 export type JustTcgPricePoint = { t: number; p: number }; // t: unix seconds, p: price
 
@@ -84,6 +106,7 @@ export async function fetchCardVariants(params: {
     url.searchParams.set("include", `price_history.${params.historyWindow}`);
   }
 
+  await waitForJustTcgSlot();
   const res = await fetch(url.toString(), {
     headers: { "x-api-key": apiKeyOrThrow() },
     signal: AbortSignal.timeout(JUSTTCG_TIMEOUT_MS),
@@ -120,6 +143,7 @@ export async function fetchCardVariantsBatch(
     throw new Error("fetchCardVariantsBatch: max 100 cards per call");
   }
 
+  await waitForJustTcgSlot();
   const res = await fetch(V1_BASE_URL, {
     method: "POST",
     headers: {
