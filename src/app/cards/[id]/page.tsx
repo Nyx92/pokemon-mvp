@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { listingCatalogInclude, withListingDisplay } from "@/lib/listingDisplay";
+import { authOptions } from "@/lib/auth";
+import { listingCatalogInclude, withListingDisplay, getCardDetailForViewer } from "@/lib/listingDisplay";
 import { centsToDollars } from "@/lib/money";
 import CardDetailClient from "./CardDetailClient";
 
@@ -71,22 +73,31 @@ export default async function CardDetailPage(
   }
 ) {
   const params = await props.params;
-  const listing = await getListingForMetadata(params.id);
 
-  const jsonLd = listing
+  // Fetched once here, server-side, with the exact same shape GET
+  // /api/cards/[id] returns (both call getCardDetailForViewer) — passed
+  // straight to the client component so the first paint already has the
+  // real card, instead of a spinner followed by a client-side fetch for
+  // data the server already had. The client component still re-fetches on
+  // its own for a client-side navigation to a sibling /cards/[id] (Next.js
+  // reuses this page's component instance rather than remounting it), since
+  // this server fetch only ever runs for the id in the initial request.
+  const session = await getServerSession(authOptions);
+  const card = await getCardDetailForViewer(prisma, params.id, session?.user?.id);
+
+  const jsonLd = card
     ? {
         "@context": "https://schema.org",
         "@type": "Product",
-        name: listing.title,
-        image: listing.imageUrls ?? [],
-        description: listing.description || undefined,
+        name: card.title,
+        image: card.imageUrls ?? [],
+        description: card.description || undefined,
         sku: params.id,
         offers: {
           "@type": "Offer",
           priceCurrency: "SGD",
-          price:
-            listing.price != null ? centsToDollars(listing.price).toFixed(2) : "0",
-          availability: listing.forSale
+          price: card.price != null ? card.price.toFixed(2) : "0",
+          availability: card.forSale
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
           url: `${SITE_URL}/cards/${params.id}`,
@@ -103,7 +114,7 @@ export default async function CardDetailPage(
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       )}
-      <CardDetailClient />
+      <CardDetailClient initialCard={card} />
     </>
   );
 }

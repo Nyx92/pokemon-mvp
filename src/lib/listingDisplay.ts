@@ -10,6 +10,8 @@
 // as the frontend already expects, so no frontend changes are needed here.
 
 import type { Prisma } from "@prisma/client";
+import { centsToDollars } from "@/lib/money";
+import type { CardItem } from "@/types/card";
 
 export const listingCatalogInclude = {
   pokemonCard: true,
@@ -101,6 +103,61 @@ export function withListingDisplay<T extends ListingWithCatalog>(
 ): Omit<T, "pokemonCard" | "riftboundCard"> & ListingDisplayFields {
   const { pokemonCard, riftboundCard, ...rest } = listing;
   return { ...rest, ...resolveListingDisplay(listing) };
+}
+
+// Single source of truth for the card-detail page's data, shared by GET
+// /api/cards/[id] (the client's own fetch, used on a client-side navigation
+// between sibling /cards/[id] pages) and the card-detail page's server
+// component (the initial page load). Keeping this in one place means the
+// server-rendered initial card and the client's later refetch can never
+// drift into returning different shapes. viewerUserId is undefined for a
+// logged-out visitor.
+export async function getCardDetailForViewer(
+  db: Prisma.TransactionClient,
+  id: string,
+  viewerUserId: string | undefined
+): Promise<CardItem | null> {
+  const [listing, watchlistEntry] = await Promise.all([
+    db.listing.findUnique({
+      where: { id },
+      include: {
+        // Public card detail page — email deliberately excluded (nothing in
+        // the frontend reads it here, and card owners' emails shouldn't be
+        // exposed to anonymous visitors).
+        owner: { select: { id: true, username: true } },
+        _count: { select: { watchlist: true } },
+        ...listingCatalogInclude,
+      },
+    }),
+    viewerUserId
+      ? db.cardWatchlist.findUnique({
+          where: { listingId_userId: { listingId: id, userId: viewerUserId } },
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (!listing) return null;
+
+  const watchlistedByUser = !!watchlistEntry;
+  const { _count, ...rest } = withListingDisplay(listing);
+  return {
+    ...rest,
+    price: rest.price != null ? centsToDollars(rest.price) : null,
+    watchlistCount: _count.watchlist,
+    watchlistedByUser,
+    // Same vocabulary GET /api/user/cards already uses for this field
+    // (minus the collection-request case, not fetched here).
+    status: listing.inAuction ? "in_auction" : listing.forSale ? "for_sale" : "available",
+    // Prisma returns real Date objects; a normal fetch()+res.json() call
+    // turns them into ISO strings, which is the shape CardItem declares.
+    // Converted explicitly here so a server-rendered initialCard and a
+    // later client fetch are byte-identical, whichever path a consumer hit.
+    createdAt: rest.createdAt.toISOString(),
+    updatedAt: rest.updatedAt.toISOString(),
+    // `game` is stored as a plain String column (not a Prisma enum), so it
+    // needs the same trust-the-application-invariant cast every other
+    // consumer of this data already relies on implicitly.
+  } as CardItem;
 }
 
 // Admin upload/edit (POST/PUT /api/cards) still accepts flat identity fields

@@ -7,6 +7,7 @@ import { dollarsToCents, centsToDollars } from "@/lib/money";
 import {
   listingCatalogInclude,
   withListingDisplay,
+  getCardDetailForViewer,
   updatePokemonCatalogEntry,
   updateRiftboundCatalogEntry,
 } from "@/lib/listingDisplay";
@@ -26,44 +27,13 @@ export async function GET(_req: Request, props: { params: Promise<{ id: string }
   const params = await props.params;
   try {
     const session = await getServerSession(authOptions);
+    const card = await getCardDetailForViewer(prisma, params.id, session?.user?.id);
 
-    const [listing, watchlistEntry] = await Promise.all([
-      prisma.listing.findUnique({
-        where: { id: params.id },
-        include: {
-          // Public card detail page — email deliberately excluded (nothing in
-          // the frontend reads it here, and card owners' emails shouldn't be
-          // exposed to anonymous visitors).
-          owner: { select: { id: true, username: true } },
-          _count: { select: { watchlist: true } },
-          ...listingCatalogInclude,
-        },
-      }),
-      session?.user?.id
-        ? prisma.cardWatchlist.findUnique({
-            where: {
-              listingId_userId: { listingId: params.id, userId: session.user.id },
-            },
-          })
-        : Promise.resolve(null),
-    ]);
-
-    if (!listing) {
+    if (!card) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 });
     }
 
-    // Check if the requesting user has this card watchlisted
-    const watchlistedByUser = !!watchlistEntry;
-
-    const { _count, ...rest } = withListingDisplay(listing);
-    return NextResponse.json({
-      card: {
-        ...rest,
-        price: rest.price != null ? centsToDollars(rest.price) : null,
-        watchlistCount: _count.watchlist,
-        watchlistedByUser,
-      },
-    });
+    return NextResponse.json({ card });
   } catch (error) {
     console.error("❌ Error fetching card:", error);
     return NextResponse.json(

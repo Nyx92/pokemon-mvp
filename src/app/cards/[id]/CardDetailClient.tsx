@@ -25,7 +25,14 @@ import type { AuctionItem } from "@/types/auction";
 
 const primaryBlue = "#0053ff";
 
-export default function CardDetailClient() {
+export default function CardDetailClient({
+  initialCard,
+}: {
+  // Server-fetched by the page component for the id in the initial request
+  // (null means the server already confirmed the card doesn't exist). Lets
+  // the first render skip straight to real content instead of a spinner.
+  initialCard: CardItem | null;
+}) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { userId, isAdmin } = useAuth();
@@ -33,12 +40,14 @@ export default function CardDetailClient() {
   const { addToCart } = useCart();
   const watchlistBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  const [card, setCard] = useState<CardItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [cardErrorType, setCardErrorType] = useState<"not_found" | "error" | null>(null);
+  const [card, setCard] = useState<CardItem | null>(initialCard);
+  const [loading, setLoading] = useState(false);
+  const [cardErrorType, setCardErrorType] = useState<"not_found" | "error" | null>(
+    initialCard === null ? "not_found" : null
+  );
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [watchlisted, setWatchlisted] = useState(false);
-  const [watchlistCount, setWatchlistCount] = useState(0);
+  const [watchlisted, setWatchlisted] = useState(initialCard?.watchlistedByUser ?? false);
+  const [watchlistCount, setWatchlistCount] = useState(initialCard?.watchlistCount ?? 0);
   const [editPriceOpen, setEditPriceOpen] = useState(false);
   const [placeOfferOpen, setPlaceOfferOpen] = useState(false);
   const [sellerOffersOpen, setSellerOffersOpen] = useState(false);
@@ -57,11 +66,21 @@ export default function CardDetailClient() {
   // nothing happen at all when they clicked Buy Now.
   const [checkoutError, setCheckoutError] = useState<{ message: string; needsVerification: boolean } | null>(null);
 
+  // The page's server component already resolved initialCard for the id in
+  // the initial request — that one id gets to skip the client fetch below.
+  // Captured once, on mount, rather than in a useEffect, since it must be
+  // compared against `id` the very first time this effect body runs.
+  const initialCardIdRef = useRef<string | undefined>(id);
+
   // Combined card + auction fetch on [id].
-  // 1. Fetch card; classify non-ok responses so the user sees the right error.
-  // 2. If the card is in an auction, also fetch the auction in the same effect
-  //    so BuyBox receives both in one render cycle (no flicker between states).
-  // 3. loading=false only after everything above is done.
+  // 1. Reuse initialCard if the server already resolved it for this exact
+  //    id; otherwise fetch card, classifying non-ok responses so the user
+  //    sees the right error.
+  // 2. If the card is in an auction, also fetch the auction in the same
+  //    effect so BuyBox receives both in one render cycle (no flicker
+  //    between states).
+  // 3. loading=false once everything above is done (it's already false on
+  //    the initialCard path — nothing was fetched).
   //
   // Auction background:
   //   card.inAuction is set to true by POST /api/auctions when the seller starts an auction.
@@ -77,6 +96,27 @@ export default function CardDetailClient() {
     // for the PREVIOUS card can resolve after the user has already navigated
     // to a new card and overwrite that new card's state.
     let isCurrent = true;
+
+    const fetchAuctionIfNeeded = async (fetchedCard: CardItem) => {
+      if (fetchedCard.inAuction !== true) return;
+      const aRes = await fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`);
+      const aData = await aRes.json().catch(() => ({}));
+      if (isCurrent && aData.auction) setAuction(aData.auction);
+    };
+
+    // initialCard is a static prop from the page's very first server
+    // render — only honor it once, for the id it was actually fetched for.
+    // A later client-side navigation to a sibling card must always re-fetch.
+    const canUseInitialCard = initialCardIdRef.current === id;
+    initialCardIdRef.current = undefined;
+
+    if (canUseInitialCard) {
+      if (initialCard) fetchAuctionIfNeeded(initialCard);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
     const fetchAll = async () => {
       // 1. Reset error state and start loading.
       setCardErrorType(null);
@@ -101,11 +141,7 @@ export default function CardDetailClient() {
           setWatchlistCount(fetchedCard.watchlistCount ?? 0);
         }
         // 5. If the card is in an auction, fetch it now (same tick → no flicker).
-        if (fetchedCard.inAuction === true) {
-          const aRes = await fetch(`/api/auctions?cardId=${encodeURIComponent(id)}`);
-          const aData = await aRes.json().catch(() => ({}));
-          if (isCurrent && aData.auction) setAuction(aData.auction);
-        }
+        await fetchAuctionIfNeeded(fetchedCard);
       } catch (err) {
         if (!isCurrent) return;
         console.error("Failed to fetch card:", err);
@@ -121,6 +157,11 @@ export default function CardDetailClient() {
     return () => {
       isCurrent = false;
     };
+    // initialCard is intentionally excluded — it's a static first-render
+    // prop consumed once via initialCardIdRef, not a reactive dependency;
+    // including it would defeat the "only skip the fetch on the very first
+    // run" logic above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Fetch the viewer's own offer on this card (non-owners only)
