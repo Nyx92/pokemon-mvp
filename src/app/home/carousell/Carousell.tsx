@@ -47,8 +47,11 @@ interface SlideOverlay {
   tag: string;
   title: string;
   subtitle: string;
-  primaryCta: { label: string; href: string };
-  secondaryCta: { label: string; href: string };
+  // external: true opens the link in a new tab instead of navigating the
+  // visitor away from the marketplace in-place — for a CTA pointing off-site
+  // (e.g. Nexus Night's registration page), not an internal route.
+  primaryCta: { label: string; href: string; external?: boolean };
+  secondaryCta: { label: string; href: string; external?: boolean };
   // Drives the eyebrow badge + CTA button gradient/glow. eyebrowAccent lets
   // the small badge use a different hue than the buttons (e.g. Vendetta's
   // pink badge with gold buttons); it defaults to `accent` when omitted.
@@ -103,7 +106,11 @@ const items: SlideItem[] = [
       title: "Nexus Night",
       subtitle:
         "Every Saturday, 7–9 PM. Pull up a seat and battle it out with fellow collectors.",
-      primaryCta: { label: "Join Nexus Night", href: "/auctions" },
+      primaryCta: {
+        label: "Join Nexus Night",
+        href: "https://playriftbound.com/en-US/events?q=22%2C+%2308-087+Midview+City%2C+Singapore+573969&lat=1.358606&lng=103.83356599999999",
+        external: true,
+      },
       secondaryCta: { label: "Browse Marketplace", href: "/marketplace" },
       accent: "#38bdf8",
       primaryIcon: <NightlightRoundIcon />,
@@ -244,6 +251,8 @@ function SlideOverlayCard({
           <Button
             component={Link}
             href={overlay.primaryCta.href}
+            target={overlay.primaryCta.external ? "_blank" : undefined}
+            rel={overlay.primaryCta.external ? "noopener noreferrer" : undefined}
             variant="contained"
             startIcon={overlay.primaryIcon ?? <StorefrontIcon />}
             sx={{
@@ -270,6 +279,8 @@ function SlideOverlayCard({
           <Button
             component={Link}
             href={overlay.secondaryCta.href}
+            target={overlay.secondaryCta.external ? "_blank" : undefined}
+            rel={overlay.secondaryCta.external ? "noopener noreferrer" : undefined}
             variant="outlined"
             startIcon={overlay.secondaryIcon ?? <GavelIcon />}
             sx={{
