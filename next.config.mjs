@@ -1,6 +1,8 @@
 // This file: is read only by Next.js during build + dev startup
 // controls framework features like images, routing, webpack, experimental flags
 
+import { withSentryConfig } from "@sentry/nextjs/config";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ===== IMAGE OPTIMIZATION SETTINGS =====
@@ -48,7 +50,10 @@ const nextConfig = {
       // next/font/google self-hosts fonts at build time — no external
       // font-src needed (see src/app/layout.tsx).
       "font-src 'self' data:",
-      "connect-src 'self' https://api.stripe.com",
+      // Sentry's browser SDK posts error/performance events to this ingest
+      // host — without it here, the CSP would silently block every report
+      // before it left the browser.
+      "connect-src 'self' https://api.stripe.com https://o4511460351475712.ingest.us.sentry.io",
       // Stripe Elements/Checkout render inside iframes from these hosts.
       "frame-src https://js.stripe.com https://hooks.stripe.com",
       "object-src 'none'",
@@ -76,5 +81,19 @@ const nextConfig = {
   // - bundle analyzer
   // - experimental server actions
 };
-// Export default is required because you use ESM (.mjs) syntax
-export default nextConfig;
+
+// Wraps the config to upload source maps to Sentry on every production
+// build, so a stack trace in Sentry shows this app's real source instead
+// of minified bundle code. Purely a build-time step — does not affect
+// what ships to the browser or change any of the config above.
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Quiets Sentry's own build-log noise outside CI, where it's more likely
+  // to be someone actively watching `pnpm dev`'s output.
+  silent: !process.env.CI,
+  // Uploads a wider set of client source maps for cleaner stack traces —
+  // Sentry's own recommended default for this option.
+  widenClientFileUpload: true,
+});
