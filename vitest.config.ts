@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import path from "path";
 
 /**
- * Vitest configuration for the Pokemon MVP test suite.
+ * Vitest configuration for the MXYYC-WEB test suite.
  *
  * Vitest is the test runner. This file tells it:
  *   - WHERE to run tests (Node, not a browser)

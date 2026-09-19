@@ -1,4 +1,4 @@
-# Agent instructions — pokemon-mvp
+# Agent instructions — MXYYC-WEB
 
 See [README.md](README.md) for setup, environment variables, and Stripe/Supabase configuration.
 
