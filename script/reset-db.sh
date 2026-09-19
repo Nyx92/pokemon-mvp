@@ -8,11 +8,30 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "🗑️  Resetting database..."
 echo "   This project has no prisma/migrations history (schema is managed via"
-echo "   'prisma db push'), so this drops all tables, pushes schema.prisma"
-echo "   back in, and reseeds mock data. All existing data will be lost."
+echo "   'prisma db push'), so this pushes schema.prisma and reseeds mock"
+echo "   data. PokemonCardCatalog, RiftboundCardCatalog, and PriceHistory are"
+echo "   never touched (guarded below) — everything else will be lost."
 echo ""
 
-npx prisma db push --force-reset
+# No --force-reset here on purpose: that flag drops and recreates the
+# ENTIRE schema regardless of what actually changed, which would wipe the
+# catalog and price history tables too. Plain `db push` only alters what
+# schema.prisma says needs to change, so a table that isn't changing is
+# never touched. --accept-data-loss auto-approves a specific destructive
+# change it detects (e.g. a dropped column) without dropping every table
+# the way --force-reset does.
+BEFORE=$(pnpm exec tsx prisma/countPreservedTables.ts)
+npx prisma db push --accept-data-loss
+AFTER=$(pnpm exec tsx prisma/countPreservedTables.ts)
+
+if [ "$BEFORE" != "$AFTER" ]; then
+  echo ""
+  echo "❌ PokemonCardCatalog/RiftboundCardCatalog/PriceHistory row counts"
+  echo "   changed during db push (before: $BEFORE, after: $AFTER)."
+  echo "   Stopping before reseeding — check schema.prisma for a change that"
+  echo "   touches one of these tables destructively."
+  exit 1
+fi
 
 echo ""
 echo "🌱 Seeding database..."

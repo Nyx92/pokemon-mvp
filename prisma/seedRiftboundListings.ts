@@ -4,10 +4,12 @@
 // that doesn't have one yet, to simulate a populated marketplace. This is
 // deliberately a SEPARATE script from prisma/seed.ts:
 //
-//   - seed.ts wipes and reseeds every table on every run — folding ~1300
-//     external image downloads + Supabase uploads into that would make the
-//     fast, frequent local dev-reset loop slow and hit both the source CDN
-//     and Supabase storage on every single `pnpm run seed`.
+//   - seed.ts wipes and reseeds most tables on every run (though never
+//     PokemonCardCatalog/RiftboundCardCatalog/PriceHistory — see the
+//     comment above its cleanup block) — folding ~1300 external image
+//     downloads + Supabase uploads into that would make the fast, frequent
+//     local dev-reset loop slow and hit both the source CDN and Supabase
+//     storage on every single `pnpm run seed`.
 //   - This script only ADDS Listings for catalog rows that don't already
 //     have one, so re-running it after a partial failure (or after new
 //     cards are added to the catalog) picks up only what's missing.

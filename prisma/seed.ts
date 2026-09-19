@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { createClient } from "@supabase/supabase-js";
 import fs from "fs";
@@ -47,6 +47,11 @@ interface RiftboundIndexEntry {
 // required column (see src/lib/riftboundCatalog.ts's "" = "no supertype"
 // convention). collector_number is numeric in the index; the column is
 // String to allow future overnumbered-variant suffixes.
+//
+// skipDuplicates, since RiftboundCardCatalog is never cleared above — a row
+// already present (a previous seed run, or one that survived a db-push-only
+// reset) is left untouched rather than erroring on its riftboundId/
+// tcgPlayerId unique constraints.
 async function seedRiftboundCatalog() {
   const entries = Object.values(riftboundCardsIndex.index) as RiftboundIndexEntry[];
 
@@ -54,7 +59,8 @@ async function seedRiftboundCatalog() {
     entries.map((c) => ({ tcgPlayerId: c.tcgplayer_id, updatedOn: c.updated_on }))
   );
 
-  await prisma.riftboundCardCatalog.createMany({
+  const { count } = await prisma.riftboundCardCatalog.createMany({
+    skipDuplicates: true,
     data: entries.map((c, i) => ({
       riftboundId: c.riftbound_id,
       name: c.name,
@@ -82,7 +88,10 @@ async function seedRiftboundCatalog() {
       tcgPlayerId: tcgPlayerIdOwners.has(i) ? c.tcgplayer_id : null,
     })),
   });
-  console.log(`✅ Seeded ${entries.length} Riftbound catalog entries from riftbound_cards_index.json`);
+  console.log(
+    `✅ Seeded ${count} new Riftbound catalog entries from riftbound_cards_index.json ` +
+      `(${entries.length - count} already present, left untouched)`
+  );
 }
 
 const supabase = createClient(
@@ -132,15 +141,25 @@ async function main() {
   await prisma.auction.deleteMany();
   // Listing references User/catalog tables
   await prisma.listing.deleteMany();
-  // Catalog tables are standalone (only referenced by Listing, already cleared above)
-  await prisma.pokemonCardCatalog.deleteMany();
-  await prisma.riftboundCardCatalog.deleteMany();
+  // PokemonCardCatalog and RiftboundCardCatalog are deliberately NEVER
+  // cleared here — unlike everything else in this function, they can hold
+  // real imported data (card images, JustTCG price-backfill progress) that
+  // takes real time/API budget to rebuild. upsertPokemonCard() and
+  // seedRiftboundCatalog() below upsert/skip-duplicate instead of
+  // create()/createMany(), so re-running this script is still safe with
+  // those tables left untouched. script/reset-db.sh protects the same two
+  // tables (plus PriceHistory) the same way — see prisma/schema.prisma's
+  // db-push step there, which never drops a table that isn't changing.
   // User references Account/Session (if you have these tables populated in dev)
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
   await prisma.user.deleteMany();
   // BestSeller is standalone
   await prisma.bestSeller.deleteMany();
+  // VerificationToken (NextAuth email/passwordless flow) is the one table
+  // with no relation to User/Listing at all, so nothing above cascades
+  // into it — clear it explicitly or stale tokens accumulate forever.
+  await prisma.verificationToken.deleteMany();
   // Hash passwords
   //
   // The admin account's password is a publicly-known literal ("admin") in
@@ -237,117 +256,113 @@ async function main() {
   // non-nullable field alongside setNameEn) paired one-to-one with setNameEn,
   // the same way the Riftbound catalog below pairs setId "UNL" with setLabel
   // "Unleashed" — not sourced from a real card index.
+  //
+  // Upserted by tcgPlayerId (every mock entry sets a real one, deliberately,
+  // so JustTCG price lookups work even for mock listings) instead of
+  // create()d, since PokemonCardCatalog is never cleared above — a row the
+  // real card-lookup import pipeline already created for the same card is
+  // left as-is (update: {}) rather than overwritten with these sparse mock
+  // fields, and re-running this script is safe either way.
+  const upsertPokemonCard = (data: Prisma.PokemonCardCatalogCreateInput) =>
+    prisma.pokemonCardCatalog.upsert({
+      where: { tcgPlayerId: data.tcgPlayerId as string },
+      update: {},
+      create: data,
+    });
+
   const pokemonCatalog = {
-    charizardVmax: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-shining-fates-charizard-vmax",
-        nameEn: "Charizard VMAX",
-        localId: "SV107",
-        setId: "SHF",
-        setNameEn: "Shining Fates",
-        rarity: "Ultra Rare",
-        language: "English",
-        tcgPlayerId: "232496",
-      },
+    charizardVmax: await upsertPokemonCard({
+      externalId: "mock-shining-fates-charizard-vmax",
+      nameEn: "Charizard VMAX",
+      localId: "SV107",
+      setId: "SHF",
+      setNameEn: "Shining Fates",
+      rarity: "Ultra Rare",
+      language: "English",
+      tcgPlayerId: "232496",
     }),
-    venusaurV: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-champions-path-venusaur-v",
-        nameEn: "Venusaur V",
-        localId: "01/73",
-        setId: "CPA",
-        setNameEn: "Champion's Path",
-        rarity: "Rare",
-        language: "English",
-        tcgPlayerId: "222990",
-      },
+    venusaurV: await upsertPokemonCard({
+      externalId: "mock-champions-path-venusaur-v",
+      nameEn: "Venusaur V",
+      localId: "01/73",
+      setId: "CPA",
+      setNameEn: "Champion's Path",
+      rarity: "Rare",
+      language: "English",
+      tcgPlayerId: "222990",
     }),
-    blastoiseHoloRare: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-base-set-blastoise-holo-rare",
-        nameEn: "Blastoise Holo Rare",
-        localId: "002/102",
-        setId: "BS",
-        setNameEn: "Base Set",
-        rarity: "Holo Rare",
-        language: "English",
-        tcgPlayerId: "42360",
-      },
+    blastoiseHoloRare: await upsertPokemonCard({
+      externalId: "mock-base-set-blastoise-holo-rare",
+      nameEn: "Blastoise Holo Rare",
+      localId: "002/102",
+      setId: "BS",
+      setNameEn: "Base Set",
+      rarity: "Holo Rare",
+      language: "English",
+      tcgPlayerId: "42360",
     }),
-    starmieGxEn: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-hidden-fates-starmie-gx-en",
-        nameEn: "Starmie GX",
-        localId: "14/68",
-        setId: "HIF",
-        setNameEn: "Hidden Fates",
-        rarity: "Ultra Rare",
-        language: "English",
-        tcgPlayerId: "197658",
-      },
+    starmieGxEn: await upsertPokemonCard({
+      externalId: "mock-hidden-fates-starmie-gx-en",
+      nameEn: "Starmie GX",
+      localId: "14/68",
+      setId: "HIF",
+      setNameEn: "Hidden Fates",
+      rarity: "Ultra Rare",
+      language: "English",
+      tcgPlayerId: "197658",
     }),
     // Separate catalog row for the Japanese print — language is catalog-level
     // (per the design spec), so a different-language print of the same card
     // is a different catalog row, not a per-listing field.
-    starmieGxJp: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-hidden-fates-starmie-gx-jp",
-        nameEn: "Starmie GX",
-        localId: "14/68",
-        setId: "HIF",
-        setNameEn: "Hidden Fates",
-        rarity: "Ultra Rare",
-        language: "Japanese",
-        tcgPlayerId: "197659",
-      },
+    starmieGxJp: await upsertPokemonCard({
+      externalId: "mock-hidden-fates-starmie-gx-jp",
+      nameEn: "Starmie GX",
+      localId: "14/68",
+      setId: "HIF",
+      setNameEn: "Hidden Fates",
+      rarity: "Ultra Rare",
+      language: "Japanese",
+      tcgPlayerId: "197659",
     }),
-    psyduck: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-platinum-psyduck",
-        nameEn: "Psyduck",
-        localId: "87/127",
-        setId: "PL",
-        setNameEn: "Platinum",
-        rarity: "Common",
-        language: "English",
-        tcgPlayerId: "88439",
-      },
+    psyduck: await upsertPokemonCard({
+      externalId: "mock-platinum-psyduck",
+      nameEn: "Psyduck",
+      localId: "87/127",
+      setId: "PL",
+      setNameEn: "Platinum",
+      rarity: "Common",
+      language: "English",
+      tcgPlayerId: "88439",
     }),
-    gyaradosVmax: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-evolving-skies-gyarados-vmax",
-        nameEn: "Gyarados VMAX",
-        localId: "109/203",
-        setId: "EVS",
-        setNameEn: "Evolving Skies",
-        rarity: "Ultra Rare",
-        language: "English",
-        tcgPlayerId: "246724",
-      },
+    gyaradosVmax: await upsertPokemonCard({
+      externalId: "mock-evolving-skies-gyarados-vmax",
+      nameEn: "Gyarados VMAX",
+      localId: "109/203",
+      setId: "EVS",
+      setNameEn: "Evolving Skies",
+      rarity: "Ultra Rare",
+      language: "English",
+      tcgPlayerId: "246724",
     }),
-    shuckle: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-neo-revelation-shuckle",
-        nameEn: "Shuckle",
-        localId: "70/64",
-        setId: "NRV",
-        setNameEn: "Neo Revelation",
-        rarity: "Common",
-        language: "English",
-        tcgPlayerId: "14936",
-      },
+    shuckle: await upsertPokemonCard({
+      externalId: "mock-neo-revelation-shuckle",
+      nameEn: "Shuckle",
+      localId: "70/64",
+      setId: "NRV",
+      setNameEn: "Neo Revelation",
+      rarity: "Common",
+      language: "English",
+      tcgPlayerId: "14936",
     }),
-    psyduckV: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-fusion-strike-psyduck-v",
-        nameEn: "Psyduck V",
-        localId: "062/100",
-        setId: "FST",
-        setNameEn: "Fusion Strike",
-        rarity: "Rare",
-        language: "Japanese",
-        tcgPlayerId: "441629",
-      },
+    psyduckV: await upsertPokemonCard({
+      externalId: "mock-fusion-strike-psyduck-v",
+      nameEn: "Psyduck V",
+      localId: "062/100",
+      setId: "FST",
+      setNameEn: "Fusion Strike",
+      rarity: "Rare",
+      language: "Japanese",
+      tcgPlayerId: "441629",
     }),
     // The "quick-expiry test auctions" section (below) originally had three
     // listings whose tcgPlayerId/set/number didn't match any of the cards
@@ -359,29 +374,25 @@ async function main() {
     // tcgPlayerId that actually belonged to Shuckle) has set/card-number
     // data that matches the existing starmieGxEn row exactly, so it's
     // re-pointed at starmieGxEn instead, dropping the stray tcgPlayerId.
-    psyduckBaseSet: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-base-set-psyduck",
-        nameEn: "Psyduck",
-        localId: "053/102",
-        setId: "BS",
-        setNameEn: "Base Set",
-        rarity: "Common",
-        language: "English",
-        tcgPlayerId: "88900",
-      },
+    psyduckBaseSet: await upsertPokemonCard({
+      externalId: "mock-base-set-psyduck",
+      nameEn: "Psyduck",
+      localId: "053/102",
+      setId: "BS",
+      setNameEn: "Base Set",
+      rarity: "Common",
+      language: "English",
+      tcgPlayerId: "88900",
     }),
-    gyaradosVmaxVividVoltage: await prisma.pokemonCardCatalog.create({
-      data: {
-        externalId: "mock-vivid-voltage-gyarados-vmax",
-        nameEn: "Gyarados VMAX",
-        localId: "022/185",
-        setId: "VIV",
-        setNameEn: "Vivid Voltage",
-        rarity: "Ultra Rare",
-        language: "English",
-        tcgPlayerId: "246800",
-      },
+    gyaradosVmaxVividVoltage: await upsertPokemonCard({
+      externalId: "mock-vivid-voltage-gyarados-vmax",
+      nameEn: "Gyarados VMAX",
+      localId: "022/185",
+      setId: "VIV",
+      setNameEn: "Vivid Voltage",
+      rarity: "Ultra Rare",
+      language: "English",
+      tcgPlayerId: "246800",
     }),
   };
 

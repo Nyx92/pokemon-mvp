@@ -15,6 +15,7 @@
     "seed": "tsx prisma/seed.ts",
     "seed:riftbound-listings": "tsx prisma/seedRiftboundListings.ts",
     "import:catalog-delta": "tsx prisma/importCatalogDelta.ts",
+    "reset-db": "bash script/reset-db.sh",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
